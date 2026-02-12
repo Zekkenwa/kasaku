@@ -14,4 +14,18 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
   },
+  callbacks: {
+    async signIn({ user }) {
+      if (user.email) {
+        await prisma.user.update({
+          where: { email: user.email },
+          data: {
+            deleteRequestedAt: null,
+            deleteScheduledAt: null,
+          },
+        });
+      }
+      return true;
+    },
+  },
 };

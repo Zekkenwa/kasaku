@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 
 type UserData = {
   name: string | null;
@@ -39,14 +40,14 @@ export default function AccountSettingsClient({ user }: { user: UserData }) {
 
   const requestDelete = async () => {
     const ok = confirm(
-      "Yakin request hapus akun? Data akan dihapus permanen 3 hari setelah request."
+      "Yakin request hapus akun? Anda akan otomatis logout.\n\nLogin kembali untuk membatalkan penghapusan."
     );
     if (!ok) return;
 
     const res = await fetch("/api/account/request-delete", { method: "POST" });
     const data = await res.json();
     if (res.ok) {
-      setDeleteInfo(new Date(data.deleteScheduledAt));
+      await signOut({ callbackUrl: "/" });
     }
   };
 

@@ -27,6 +27,9 @@ model User {
   transactions Transaction[]
   budgets      Budget[]
   loans        Loan[]
+  wallets      Wallet[]
+  recurringTransactions RecurringTransaction[]
+  goals        Goal[]
 }
 
 model Account {
@@ -75,6 +78,7 @@ model Category {
   user         User          @relation(fields: [userId], references: [id])
   transactions Transaction[]
   budgets      Budget[]
+  recurringTransactions RecurringTransaction[]
 
   @@unique([userId, name, type])
 }
@@ -90,6 +94,8 @@ model Transaction {
 
   user     User      @relation(fields: [userId], references: [id])
   category Category? @relation(fields: [categoryId], references: [id])
+  walletId String?
+  wallet   Wallet?   @relation(fields: [walletId], references: [id])
 }
 
 model Budget {
@@ -98,10 +104,17 @@ model Budget {
   categoryId  String
   limitAmount Int
   period      BudgetPeriod @default(MONTHLY)
+  startDate   DateTime?
+  endDate     DateTime?
+  dayOfWeek   Int?
+  dayOfMonth  Int?
+  monthOfYear Int?
   createdAt   DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id])
   category Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, categoryId])
 }
 
 model Loan {
@@ -109,11 +122,29 @@ model Loan {
   userId    String
   name      String
   amount    Int
-  dueDate   DateTime
+  dueDate   DateTime?
   status    LoanStatus @default(ONGOING)
-  createdAt DateTime @default(now())
+  type      LoanType   @default(PAYABLE)
+  createdAt DateTime   @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user     User              @relation(fields: [userId], references: [id])
+  payments PaymentHistory[]
+}
+
+model Wallet {
+  id             String     @id @default(cuid())
+  userId         String
+  name           String
+  type           WalletType @default(CASH)
+  initialBalance Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  recurringTransactions RecurringTransaction[]
+
+  @@unique([userId, name])
 }
 
 enum TransactionType {
@@ -127,10 +158,87 @@ enum CategoryType {
 }
 
 enum BudgetPeriod {
+  ONCE
+  MANUAL
+  DAILY
+  WEEKLY
   MONTHLY
+  YEARLY
 }
 
 enum LoanStatus {
   ONGOING
   PAID
+}
+
+enum WalletType {
+  CASH
+  BANK
+  EWALLET
+}
+
+model RecurringTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  amount      Int
+  type        TransactionType
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  walletId    String?
+  wallet      Wallet?  @relation(fields: [walletId], references: [id])
+  note        String?
+
+  frequency   RecurringFrequency
+  interval    Int      @default(1)
+  startDate   DateTime
+  nextRun     DateTime
+  lastRun     DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([nextRun])
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model PaymentHistory {
+  id        String   @id @default(cuid())
+  loanId    String
+  amount    Int
+  date      DateTime @default(now())
+  note      String?
+  
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+}
+
+enum LoanType {
+  PAYABLE
+  RECEIVABLE
+}
+
+model Goal {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  targetAmount  Int
+  currentAmount Int      @default(0)
+  deadline      DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

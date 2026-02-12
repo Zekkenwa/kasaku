@@ -4,6 +4,10 @@ import Providers from "./providers";
 export const metadata = {
   title: "Kasaku",
   description: "Personal finance dashboard",
+  icons: {
+    icon: "/logo.ico",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
