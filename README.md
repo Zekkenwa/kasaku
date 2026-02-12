@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+# Kasaku
+
+## Overview
+Kasaku adalah web app untuk mengelola akun dan preferensi pengguna secara aman, termasuk autentikasi, pengaturan akun, dan alur penghapusan akun. Aplikasi ini dirancang untuk menyediakan dashboard sederhana dan alur login yang jelas bagi pengguna.
+
+## Features
+- Autentikasi pengguna (NextAuth).
+- Dashboard pengguna.
+- Halaman login.
+- Pengaturan akun (account settings).
+- Endpoint API untuk update akun dan request penghapusan.
+- Cron job untuk pembersihan akun yang ditandai terhapus.
+
+## Technical
+- Next.js (App Router).
+- NextAuth untuk autentikasi.
+- Prisma untuk akses database & migrasi.
+- Struktur route API di `app/api`.
+- Manajemen halaman di `app/` (dashboard, login, account).
+
 ## Getting Started
 
 First, run the development server:
