@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/purge-deleted-users?secret=urj<JFL]6*]C)s79mn{!6<ni",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
