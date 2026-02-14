@@ -137,14 +137,19 @@ export default async function DashboardPage(props: {
     .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  // Calculate lifetime balance (all transactions, not just filtered period)
-  const allTimeTxs = await prisma.transaction.findMany({
-    where: { userId: user.id },
-    select: { type: true, amount: true },
-  });
-  const allTimeIncome = allTimeTxs.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0);
-  const allTimeExpense = allTimeTxs.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0);
-  const balance = allTimeIncome - allTimeExpense;
+  // Calculate lifetime balance using aggregation for better performance
+  const [incomeAgg, expenseAgg] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { userId: user.id, type: "INCOME" },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { userId: user.id, type: "EXPENSE" },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const balance = (incomeAgg._sum.amount ?? 0) - (expenseAgg._sum.amount ?? 0);
 
   const incomeByCategory = categoriesForFilter.map((cat) =>
     transactions
