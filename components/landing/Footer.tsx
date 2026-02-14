@@ -26,9 +26,8 @@ export default function Footer() {
                     <div className="flex gap-6">
                         <a href="/syarat-ketentuan" className="hover:text-white transition-colors">Privacy & Terms</a>
                         <a href="https://github.com/Zekkenwa" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
-                    </div>          </div>
-            </div>
-        </div>
-        </footer >
+                    </div>
+                </div>
+        </footer>
     );
 }
