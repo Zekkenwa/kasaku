@@ -73,6 +73,16 @@ Dengan menggunakan Kasaku, Anda menyetujui:
 
 Selengkapnya dapat dilihat di aplikasi pada menu **Akun > Syarat & Ketentuan** atau [baca kode sumber](app/syarat-ketentuan/page.tsx).
 
+## ☕ Dukungan & Donasi
+
+Jika Anda merasa terbantu dengan **Kasaku**, dukungan Anda sangat berarti untuk pengembangan fitur-fitur baru! Anda bisa mentraktir kami kopi melalui link di bawah ini:
+
+<a href="https://tako.id/Zekkenwa" target="_blank">
+  <img src="https://img.shields.io/badge/Traktir_Saya_di-Tako-40C4FF?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Traktir di Tako" />
+</a>
+
+Link Donasi: **[https://tako.id/Zekkenwa](https://tako.id/Zekkenwa)**
+
 ## 🛠️ Tech Stack
 
 - **Framework**: [Next.js 14](https://nextjs.org/)

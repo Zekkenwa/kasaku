@@ -212,6 +212,7 @@ export default function DashboardClient({
               <button onClick={() => { setTxModalTab("CATEGORY"); setIsTxModalOpen(true); }} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">📁 Kategori</button>
               <button onClick={() => setIsImportModalOpen(true)} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">📥 Import</button>
               <button onClick={() => setIsWalletDistOpen(true)} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">💼 Wallet</button>
+              <button onClick={() => router.push('/donasi')} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-[#FFD150]/20 text-[#FFD150] border border-[#FFD150]/30 hover:bg-[#FFD150]/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">🎁 Donasi</button>
             </div>
 
             <div className="flex-shrink-0">
