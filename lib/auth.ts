@@ -58,13 +58,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
         const identifier = credentials.email;
-        let user;
-        if (identifier.includes("@")) {
-          user = await prisma.user.findUnique({ where: { email: identifier } });
-        } else {
-          const phone = identifier.replace(/\D/g, "");
-          user = await prisma.user.findFirst({ where: { phone: phone } });
-        }
+        const user = await prisma.user.findUnique({ where: { email: identifier } });
         if (!user || !user.passwordHash) return null;
         const isValid = await compare(credentials.password, user.passwordHash);
         if (!isValid) return null;
