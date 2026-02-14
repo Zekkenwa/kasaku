@@ -22,11 +22,11 @@ export default function Footer() {
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-500">
-                    <p>© 2026 Kasaku. All rights reserved.</p>
+                    <p>© 2026 Kasaku. Open Source MIT License.</p>
                     <div className="flex gap-6">
-                        <a href="#" className="hover:text-white transition-colors">Privacy</a>
-                        <a href="#" className="hover:text-white transition-colors">Terms</a>
-                        <a href="https://github.com/Zekkenwa" className="hover:text-white transition-colors">GitHub</a>
+                        <a href="https://github.com/Zekkenwa/kasaku" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacy</a>
+                        <a href="https://github.com/Zekkenwa/kasaku/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Terms</a>
+                        <a href="https://github.com/Zekkenwa" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
                     </div>
                 </div>
             </div>
