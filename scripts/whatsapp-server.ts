@@ -9,7 +9,7 @@ import { usePrismaAuthState } from '../lib/auth-baileys';
 import { handleIncomingMessage } from './whatsapp-bot-logic';
 
 // Configuration
-const PORT = 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 // const AUTH_FOLDER = 'auth_info_baileys'; // Deprecated in favor of DB
 
 // Global socket variable
