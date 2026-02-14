@@ -19,8 +19,37 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const otpTimer = useOtpCountdown();
 
+  const [userNotFound, setUserNotFound] = useState(false);
+
+  // Check user existence
+  const checkUser = async (identifier: string) => {
+    if (!identifier) return;
+    try {
+      const res = await fetch("/api/auth/check-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier }),
+      });
+      const data = await res.json();
+      if (!data.exists) {
+        setUserNotFound(true);
+        return false;
+      }
+      setUserNotFound(false);
+      return true;
+    } catch (error) {
+      console.error("Check user error:", error);
+      return true; // Default to allowing attempt if check fails
+    }
+  };
+
   const requestOtp = async () => {
     if (isLoading) return;
+
+    // Check if user exists before sending OTP
+    const exists = await checkUser(phone);
+    if (!exists) return; // Stop if user not found
+
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/otp/request", {
@@ -81,13 +110,13 @@ export default function LoginPage() {
           {/* Login Tabs */}
           <div className="flex mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
             <button
-              onClick={() => { setMode("PASSWORD"); setOtpSent(false); }}
+              onClick={() => { setMode("PASSWORD"); setOtpSent(false); setUserNotFound(false); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${mode === "PASSWORD" ? "bg-white dark:bg-gray-600 shadow-sm text-black dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700"}`}
             >
               Password
             </button>
             <button
-              onClick={() => setMode("OTP")}
+              onClick={() => { setMode("OTP"); setUserNotFound(false); }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${mode === "OTP" ? "bg-white dark:bg-gray-600 shadow-sm text-black dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700"}`}
             >
               No. HP (OTP)
@@ -99,6 +128,11 @@ export default function LoginPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
+                // Check user before submitting? Or allow submit to fail?
+                // If we want the "red text" behavior, we should check first.
+                const exists = await checkUser(email);
+                if (!exists) return;
+
                 const result = await signIn("credentials", {
                   email,
                   password,
@@ -120,11 +154,17 @@ export default function LoginPage() {
                   id="email"
                   type="text"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setUserNotFound(false); }}
+                  onBlur={() => checkUser(email)}
                   placeholder="nama@email.com atau 62812..."
                   required
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent transition-shadow"
+                  className={`w-full px-4 py-3 border rounded-xl bg-white dark:bg-gray-700 text-black dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-shadow ${userNotFound ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-600 focus:ring-[#458B73]'}`}
                 />
+                {userNotFound && (
+                  <p className="text-red-500 text-xs mt-1 animate-pulse">
+                    Akun belum terdaftar, silahkan register.
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -149,7 +189,8 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                disabled={userNotFound}
+                className="w-full py-3 rounded-xl text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "linear-gradient(135deg, #458B73 0%, #458B73 100%)" }}
               >
                 Masuk
@@ -168,16 +209,22 @@ export default function LoginPage() {
                     <input
                       type="text"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "")); setUserNotFound(false); }}
+                      onBlur={() => checkUser(phone)}
                       placeholder="62812..."
                       required
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-black dark:text-white"
+                      className={`w-full px-4 py-3 border rounded-xl bg-white dark:bg-gray-700 text-black dark:text-white ${userNotFound ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-600'}`}
                     />
+                    {userNotFound && (
+                      <p className="text-red-500 text-xs mt-1 animate-pulse">
+                        Nomor belum terdaftar, silahkan register.
+                      </p>
+                    )}
                   </div>
                   <button
                     type="submit"
-                    disabled={isLoading}
-                    className="w-full py-3 mt-4 rounded-xl text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all bg-[#458B73]"
+                    disabled={isLoading || userNotFound}
+                    className="w-full py-3 mt-4 rounded-xl text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all bg-[#458B73] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? "Mengirim..." : "Kirim OTP Login"}
                   </button>
@@ -197,7 +244,7 @@ export default function LoginPage() {
                   <div className="text-center mb-4">
                     <p className="text-sm text-gray-600 dark:text-gray-300">Kode OTP terkirim ke <strong>{phone}</strong></p>
                     <div className="flex gap-4 justify-center mt-2">
-                      <button type="button" onClick={() => setOtpSent(false)} className="text-xs text-gray-500 hover:text-gray-700 underline">Ubah Nomor</button>
+                      <button type="button" onClick={() => { setOtpSent(false); setUserNotFound(false); }} className="text-xs text-gray-500 hover:text-gray-700 underline">Ubah Nomor</button>
                       <button
                         type="button"
                         onClick={requestOtp}
@@ -273,7 +320,7 @@ export default function LoginPage() {
           </p>
 
           <p className="text-center text-sm text-gray-600 mt-4">
-            Belum punya akun? <a href="/register" className="font-bold hover:underline" style={{ color: "#458B73" }}>Daftar sekarang</a>
+            Belum punya akun? <a href="/register" className={`font-bold hover:underline transition-all duration-300 ${userNotFound ? 'animate-pulse text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] scale-110' : 'text-[#458B73]'}`} style={{ display: 'inline-block' }}>Daftar sekarang</a>
           </p>
         </div>
       </div>
