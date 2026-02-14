@@ -159,49 +159,127 @@ const server = http.createServer(async (req, res) => {
             }
         });
     } else if (req.url === '/qr' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'text/html', ...headers });
-        const resetBtn = `
-            <div style="margin-top: 20px;">
-                <button onclick="logout()" style="padding: 10px 20px; background: #e11d48; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                    Reset Connection / Logout
-                </button>
-            </div>
-            <script>
-                async function logout() {
-                    if(confirm("Are you sure you want to reset the connection? This will log you out.")) {
-                        const res = await fetch('/logout', { method: 'POST' });
-                        const data = await res.json();
-                        if(data.success) {
-                            alert('Session reset. Page will reload in 5 seconds.');
-                            setTimeout(() => location.reload(), 5000);
-                        } else {
-                            alert('Failed: ' + data.error);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headers });
+
+        const htmlContent = (content: string) => `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Kasaku WhatsApp Bot</title>
+                <style>
+                    body {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        margin: 0;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                        background: #0f172a; /* Slate 900 */
+                        color: #f8fafc; /* Slate 50 */
+                    }
+                    .container {
+                        text-align: center;
+                        background: #1e293b; /* Slate 800 */
+                        padding: 2rem;
+                        border-radius: 1.5rem;
+                        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                        max-width: 90%;
+                        width: 380px;
+                        border: 1px solid #334155;
+                    }
+                    h1 { margin-bottom: 0.5rem; font-size: 1.5rem; font-weight: 700; }
+                    p { color: #94a3b8; margin-bottom: 1.5rem; line-height: 1.5; font-size: 0.95rem; }
+                    .qr-wrapper {
+                        background: white;
+                        padding: 1rem;
+                        border-radius: 1rem;
+                        display: inline-block;
+                        margin: 0.5rem 0 1.5rem;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                    }
+                    img { display: block; width: 100%; height: auto; max-width: 250px; }
+                    button {
+                        background: #e11d48; /* Rose 600 */
+                        color: white;
+                        border: none;
+                        padding: 0.75rem 1.5rem;
+                        border-radius: 0.75rem;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        font-size: 0.9rem;
+                        width: 100%;
+                        margin-top: 0.5rem;
+                    }
+                    button:hover { background: #be123c; transform: translateY(-1px); }
+                    button:active { transform: translateY(0); }
+                    .status-badge {
+                        background: #10b981;
+                        color: #064e3b;
+                         padding: 0.35rem 1rem;
+                        border-radius: 9999px;
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        display: inline-block;
+                        margin-bottom: 1.5rem;
+                        box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    ${content}
+                </div>
+                <script>
+                    async function logout() {
+                        if(confirm("Yakin ingin mereset koneksi? Ini akan melogout bot.")) {
+                            const btn = document.querySelector('button');
+                            btn.disabled = true;
+                            btn.innerText = 'Resetting...';
+                            try {
+                                const res = await fetch('/logout', { method: 'POST' });
+                                const data = await res.json();
+                                if(data.success) {
+                                    alert('Sesi direset. Halaman akan dimuat ulang.');
+                                    setTimeout(() => location.reload(), 1000);
+                                } else {
+                                    alert('Gagal: ' + data.error);
+                                    btn.disabled = false;
+                                    btn.innerText = 'Reset Connection / Logout';
+                                }
+                            } catch (e) {
+                                alert('Error: ' + e.message);
+                                btn.disabled = false;
+                            }
                         }
                     }
-                }
-            </script>
+                </script>
+            </body>
+            </html>
         `;
 
         if (!latestQR) {
-            res.end(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
-                <div style="text-align:center">
-                    <h1>✅ WhatsApp Bot Connected</h1>
-                    <p>No QR code needed — already authenticated!</p>
-                    ${resetBtn}
-                </div>
-            </body></html>`);
+            res.end(htmlContent(`
+                <div class="status-badge" style="background:#dcfce7; color:#166534">✅ Connected</div>
+                <h1>WhatsApp Terhubung</h1>
+                <p>Bot Kasaku sudah aktif dan siap menerima pesan.</p>
+                <button onclick="logout()">Reset Connection / Logout</button>
+            `));
         } else {
             const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQR)}`;
-            res.end(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
-                <div style="text-align:center">
-                    <h1>📱 Scan QR Code</h1>
-                    <p>Buka WhatsApp → Linked Devices → Link a Device</p>
-                    <img src="${qrImageUrl}" alt="QR Code" style="margin:20px auto;border-radius:12px;background:#fff;padding:16px" />
-                    <p style="color:#888;font-size:14px">QR code akan refresh otomatis setiap 20 detik</p>
-                    ${resetBtn}
-                    <script>setTimeout(() => location.reload(), 20000);</script>
+            res.end(htmlContent(`
+                <h1>📱 Scan QR Code</h1>
+                <p>Buka WhatsApp &rarr; Perangkat Tertaut &rarr; Tautkan Perangkat</p>
+                <div class="qr-wrapper">
+                    <img src="${qrImageUrl}" alt="Scan QR Code" />
                 </div>
-            </body></html>`);
+                <p style="font-size: 0.8rem; margin-bottom: 0;">QR code refresh otomatis tiap 20 detik</p>
+                <script>setTimeout(() => location.reload(), 20000);</script>
+                <br/>
+                <button onclick="logout()">Reset Connection / Logout</button>
+            `));
         }
     } else if (req.url === '/' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json', ...headers });
