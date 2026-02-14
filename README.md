@@ -52,13 +52,13 @@ Built with modern web technologies, Kasaku ensures your data is secure, synchron
 <div align="center">
   <h3>Mobile & Features</h3>
   <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">
-    <img src="public/assets/gallery-2.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/gallery-3.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/gallery-4.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/gallery-5.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/gallery-6.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/gallery-7.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/gallery-8.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/login page.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/saldo.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/riwayat cashflow.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/piechart income spending.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/chart analisis.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/scheduled spending_income.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/target tabungan.png" width="300" style="border-radius: 10px;" />
   </div>
 </div>
 
