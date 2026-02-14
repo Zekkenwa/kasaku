@@ -103,6 +103,7 @@ export default async function DashboardPage(props: {
     prisma.wallet.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, type: true, initialBalance: true },
     }),
     prisma.goal.findMany({
       where: { userId: user.id },
