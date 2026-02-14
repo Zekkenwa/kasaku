@@ -130,18 +130,14 @@ const server = http.createServer(async (req, res) => {
                 </div>
             </body></html>`);
         } else {
-            res.end(`<html><head>
-                <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-            </head><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(latestQR)}`;
+            res.end(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
                 <div style="text-align:center">
                     <h1>📱 Scan QR Code</h1>
                     <p>Buka WhatsApp → Linked Devices → Link a Device</p>
-                    <canvas id="qr" style="margin:20px auto"></canvas>
-                    <p style="color:#888;font-size:14px">QR code akan refresh otomatis setiap 30 detik</p>
-                    <script>
-                        QRCode.toCanvas(document.getElementById('qr'), ${JSON.stringify(latestQR)}, { width: 300, margin: 2 });
-                        setTimeout(() => location.reload(), 30000);
-                    </script>
+                    <img src="${qrImageUrl}" alt="QR Code" style="margin:20px auto;border-radius:12px;background:#fff;padding:16px" />
+                    <p style="color:#888;font-size:14px">QR code akan refresh otomatis setiap 20 detik</p>
+                    <script>setTimeout(() => location.reload(), 20000);</script>
                 </div>
             </body></html>`);
         }
