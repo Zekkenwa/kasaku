@@ -106,15 +106,28 @@ export const authOptions: NextAuthOptions = {
 
         // 2. Metadata Update (Only on matching email)
         if (!profile?.email || profile.email === user.email) {
-          await prisma.user.update({
-            where: { email: user.email },
-            data: {
-              deleteRequestedAt: null,
-              deleteScheduledAt: null,
-              name: user.name,
-              image: user.image,
-            },
-          });
+          // Type assertion to access custom fields from Prisma User
+          const dbUser = user as any;
+          const profileName = profile?.name;
+          const profileImage = (profile as any)?.picture;
+
+          const shouldUpdate =
+            dbUser.deleteRequestedAt ||
+            dbUser.deleteScheduledAt ||
+            (profileName && dbUser.name !== profileName) ||
+            (profileImage && dbUser.image !== profileImage);
+
+          if (shouldUpdate) {
+            await prisma.user.update({
+              where: { email: user.email },
+              data: {
+                deleteRequestedAt: null,
+                deleteScheduledAt: null,
+                name: profileName || user.name,
+                image: profileImage || user.image,
+              },
+            });
+          }
         }
       }
       return true;

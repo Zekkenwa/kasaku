@@ -57,7 +57,7 @@ export default async function DashboardPage(props: {
 
   const daysInRange = Math.ceil((filterEnd.getTime() - filterStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  const [minTx, maxTx] = await Promise.all([
+  const [minTx, maxTx, categories, transactionsRaw, loansRaw, budgets, wallets, goalsRaw, incomeAgg, expenseAgg] = await Promise.all([
     prisma.transaction.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: "asc" },
@@ -68,16 +68,6 @@ export default async function DashboardPage(props: {
       orderBy: { createdAt: "desc" },
       select: { createdAt: true },
     }),
-  ]);
-
-  const startYear = minTx?.createdAt.getFullYear() ?? now.getFullYear();
-  const endYear = maxTx?.createdAt.getFullYear() ?? now.getFullYear();
-  const yearOptions = Array.from(
-    { length: endYear - startYear + 1 },
-    (_, i) => startYear + i
-  );
-
-  const [categories, transactionsRaw, loansRaw, budgets, wallets, goalsRaw] = await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id },
       orderBy: { name: "asc" },
@@ -109,7 +99,22 @@ export default async function DashboardPage(props: {
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.transaction.aggregate({
+      where: { userId: user.id, type: "INCOME" },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { userId: user.id, type: "EXPENSE" },
+      _sum: { amount: true },
+    }),
   ]);
+
+  const startYear = minTx?.createdAt.getFullYear() ?? now.getFullYear();
+  const endYear = maxTx?.createdAt.getFullYear() ?? now.getFullYear();
+  const yearOptions = Array.from(
+    { length: endYear - startYear + 1 },
+    (_, i) => startYear + i
+  );
 
   const categoryNames = categories.map((c) => c.name);
   const uncategorizedName = "Tanpa Kategori";
@@ -138,16 +143,7 @@ export default async function DashboardPage(props: {
     .reduce((sum, t) => sum + t.amount, 0);
 
   // Calculate lifetime balance using aggregation for better performance
-  const [incomeAgg, expenseAgg] = await Promise.all([
-    prisma.transaction.aggregate({
-      where: { userId: user.id, type: "INCOME" },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { userId: user.id, type: "EXPENSE" },
-      _sum: { amount: true },
-    }),
-  ]);
+  /* Aggregations moved to main Promise.all */
 
   const balance = (incomeAgg._sum.amount ?? 0) - (expenseAgg._sum.amount ?? 0);
 
