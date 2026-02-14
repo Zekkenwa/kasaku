@@ -28,6 +28,7 @@ export default function Footer() {
                         <a href="https://github.com/Zekkenwa" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
                     </div>
                 </div>
+            </div>
         </footer>
     );
 }
