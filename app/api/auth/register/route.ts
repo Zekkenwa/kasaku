@@ -36,6 +36,7 @@ export async function POST(req: Request) {
 
         // 3. Generate OTP
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        // console.log("DEV ONLY REGISTER OTP:", otpCode);
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
         // 4. Create User (Unverified Phone)

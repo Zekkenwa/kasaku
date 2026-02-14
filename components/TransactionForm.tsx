@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+
 type Wallet = {
     id: string;
     name: string;
@@ -35,7 +36,16 @@ export default function TransactionForm({
     const [walletId, setWalletId] = useState(initialData?.walletId || (wallets.length > 0 ? wallets[0].id : ""));
     const [loading, setLoading] = useState(false);
 
-    // ... (useEffect for categoryName)
+    const filteredCategories = useMemo(() =>
+        categoryObjects.filter(c => c.type === type).map(c => c.name),
+        [categoryObjects, type]
+    );
+
+    useEffect(() => {
+        if (!filteredCategories.includes(categoryName) && filteredCategories.length > 0) {
+            setCategoryName(filteredCategories[0]);
+        }
+    }, [filteredCategories, categoryName]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -69,7 +79,13 @@ export default function TransactionForm({
                     amount,
                     categoryId,
                     note,
-                    date,
+                    date: (() => {
+                        const now = new Date();
+                        const selectedDate = new Date(date);
+                        // Always append current time to the selected date to ensure unique timestamps for sorting
+                        selectedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                        return selectedDate.toISOString();
+                    })(),
                     walletId,
                 }),
             });
@@ -86,55 +102,47 @@ export default function TransactionForm({
         }
     };
 
-    const filteredCategories = categoryObjects.filter(c => c.type === type).map(c => c.name);
-
-    useEffect(() => {
-        if (!filteredCategories.includes(categoryName) && filteredCategories.length > 0) {
-            setCategoryName(filteredCategories[0]);
-        }
-    }, [type, filteredCategories, categoryName]);
-
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
             {/* Tipe */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipe</label>
-                <div className="flex gap-4 mt-1">
-                    <label className="flex items-center text-white dark:text-gray-200 cursor-pointer">
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Tipe Transaksi</label>
+                <div className="grid grid-cols-2 gap-3">
+                    <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "EXPENSE" ? "bg-[#F26076]/20 border-[#F26076] text-[#F26076]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
                         <input
                             type="radio"
                             value="EXPENSE"
                             checked={type === "EXPENSE"}
                             onChange={(e) => setType(e.target.value)}
-                            className="mr-2 accent-[#F26076]"
+                            className="hidden"
                         />
-                        Pengeluaran
+                        <span className="text-sm font-bold">Pengeluaran</span>
                     </label>
-                    <label className="flex items-center text-white dark:text-gray-200 cursor-pointer">
+                    <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "INCOME" ? "bg-[#458B73]/20 border-[#458B73] text-[#458B73]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
                         <input
                             type="radio"
                             value="INCOME"
                             checked={type === "INCOME"}
                             onChange={(e) => setType(e.target.value)}
-                            className="mr-2 accent-[#458B73]"
+                            className="hidden"
                         />
-                        Pemasukan
+                        <span className="text-sm font-bold">Pemasukan</span>
                     </label>
                 </div>
             </div>
 
             {/* Wallet Selection */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sumber Dana (Wallet)</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Sumber Dana</label>
                 <select
                     required
                     value={walletId}
                     onChange={(e) => setWalletId(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer"
                 >
-                    {wallets.length === 0 && <option value="">Belum ada wallet</option>}
+                    {wallets.length === 0 && <option value="" className="bg-[#252525]">Belum ada wallet</option>}
                     {wallets.map((w) => (
-                        <option key={w.id} value={w.id}>
+                        <option key={w.id} value={w.id} className="bg-[#252525]">
                             {w.name}
                         </option>
                     ))}
@@ -143,18 +151,18 @@ export default function TransactionForm({
 
             {/* Kategori */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">
                     Kategori
                 </label>
                 <select
                     required
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer"
                 >
-                    {filteredCategories.length === 0 && <option value="">Tidak ada kategori</option>}
+                    {filteredCategories.length === 0 && <option value="" className="bg-[#252525]">Tidak ada kategori</option>}
                     {filteredCategories.map((c) => (
-                        <option key={c} value={c}>
+                        <option key={c} value={c} className="bg-[#252525]">
                             {c}
                         </option>
                     ))}
@@ -163,20 +171,24 @@ export default function TransactionForm({
 
             {/* Amount */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Jumlah</label>
-                <input
-                    type="number"
-                    required
-                    min="1"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Jumlah</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-3 text-neutral-500 text-sm">Rp</span>
+                    <input
+                        type="number"
+                        required
+                        min="1"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
+                        placeholder="0"
+                    />
+                </div>
             </div>
 
             {/* Date */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">
                     Tanggal
                 </label>
                 <input
@@ -184,36 +196,38 @@ export default function TransactionForm({
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    style={{ colorScheme: "light dark" }}
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]"
+                    style={{ colorScheme: "dark" }}
                 />
             </div>
 
             {/* Note */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Catatan (Opsional)
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">
+                    Catatan <span className="text-neutral-600 font-normal normal-case">(Opsional)</span>
                 </label>
                 <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    rows={3}
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600 resize-none"
+                    placeholder="Contoh: Makan siang di warteg..."
                 />
             </div>
 
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                 <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    className="px-6 py-2.5 text-neutral-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors text-sm font-medium"
                 >
                     Batal
                 </button>
                 <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 bg-[#458B73] text-white rounded-md hover:bg-[#3aa381] disabled:opacity-50 transition-colors shadow-md shadow-emerald-100"
+                    className="px-8 py-2.5 bg-[#458B73] text-white rounded-xl hover:bg-[#3aa381] disabled:opacity-50 transition-all shadow-lg hover:shadow-[#458B73]/20 text-sm font-bold"
                 >
                     {loading ? "Menyimpan..." : "Simpan"}
                 </button>

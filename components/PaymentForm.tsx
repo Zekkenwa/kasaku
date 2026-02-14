@@ -50,7 +50,7 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 mb-4 text-sm">
+            <div className="p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#1a1a1a] mb-4 text-sm">
                 <p className="text-gray-500 dark:text-gray-400">{isPayable ? "Membayar hutang:" : "Menerima piutang:"}</p>
                 <p className="font-semibold text-gray-900 dark:text-white">{loanName}</p>
                 <p className="text-gray-500 dark:text-gray-400 mt-1">Sisa {isPayable ? "Tagihan" : "Piutang"}:</p>
@@ -75,7 +75,7 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
                     max={remaining}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
+                    className="mt-1 block w-full border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-[#1a1a1a] dark:text-white"
                     placeholder="Rp 0"
                 />
             </div>
@@ -87,7 +87,7 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
+                    className="mt-1 block w-full border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-[#1a1a1a] dark:text-white"
                     style={{ colorScheme: "light dark" }}
                 />
             </div>
@@ -97,7 +97,7 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
                 <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
+                    className="mt-1 block w-full border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-[#1a1a1a] dark:text-white"
                     rows={2}
                 />
             </div>

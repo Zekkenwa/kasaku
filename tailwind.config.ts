@@ -14,14 +14,19 @@ const config: Config = {
                 "gradient-conic":
                     "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
             },
+            fontFamily: {
+                sans: ["Manrope", "sans-serif"],
+            },
             colors: {
                 background: "var(--background)",
                 foreground: "var(--foreground)",
                 brand: {
-                    red: "#F26076",
-                    orange: "#FF9760",
-                    yellow: "#FFD150",
-                    green: "#458B73",
+                    red: "#F26076",    // Pinkish Red
+                    orange: "#FF9760", // Soft Orange
+                    yellow: "#FFD150", // Sunny Yellow
+                    green: "#458B73",  // Trusted Teal/Green
+                    dark: "#1E1E1E",   // Background Dark
+                    card: "#252525",   // Card Dark
                 },
             },
         },

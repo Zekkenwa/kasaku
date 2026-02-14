@@ -22,7 +22,6 @@ import RecurringManager from "@/components/RecurringManager";
 import DateRangePicker from "@/components/DateRangePicker";
 import PaymentForm from "@/components/PaymentForm";
 import TransactionManagerModal from "@/components/TransactionManagerModal";
-import Footer from "@/components/Footer";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
 
@@ -38,8 +37,15 @@ type Props = {
   categories: string[];
   categoryObjects: { id: string; name: string; type: string }[];
   transactions: Transaction[];
+
   totals: { balance: number; totalIncome: number; totalExpense: number };
-  charts: { labels: string[]; incomeLine: number[]; expenseLine: number[]; incomeByCategory: number[]; expenseByCategory: number[] };
+  charts: {
+    labels: string[];
+    incomeLine: number[];
+    expenseLine: number[];
+    incomePie: { labels: string[]; data: number[] };
+    expensePie: { labels: string[]; data: number[] };
+  };
   loans: Loan[];
   budgets: Budget[];
   wallets: Wallet[];
@@ -76,7 +82,7 @@ export default function DashboardClient({
 
   // Pagination / Carousel State
   const [txPage, setTxPage] = useState(1);
-  const ITEMS_PER_PAGE = 6;
+  const ITEMS_PER_PAGE = 25;
   const [activePie, setActivePie] = useState<"INCOME" | "EXPENSE">("INCOME");
 
   const [isRecurringManagerOpen, setIsRecurringManagerOpen] = useState(false);
@@ -97,7 +103,6 @@ export default function DashboardClient({
       if (stored !== null) {
         setHideSaldo(stored === "true");
       }
-      // If null, it stays true (default)
 
       // Process recurring transactions
       fetch("/api/recurring/process", { method: "POST" })
@@ -188,599 +193,405 @@ export default function DashboardClient({
   const payableLoans = loans.filter(l => l.type === "PAYABLE" || !l.type);
   const receivableLoans = loans.filter(l => l.type === "RECEIVABLE");
 
-  // px = clamp(1.25rem, 5vw, 8rem) for responsive margins
-  const sideMargin = "clamp(1.25rem, 5vw, 8rem)";
-
   return (
-    <main className="min-h-screen pb-20 transition-colors duration-300" style={{ background: "var(--background)" }}>
-      {/* ===== HEADER ===== */}
-      {/* ===== HEADER ===== */}
-      <div className="pt-8 pb-14 rounded-b-3xl shadow-sm relative" style={{ paddingLeft: sideMargin, paddingRight: sideMargin }}>
-        {/* Background & Decoration Container */}
-        <div className="absolute inset-0 overflow-hidden rounded-b-3xl z-0" style={{ background: "var(--header-gradient)" }}>
-          {/* Decorative Circles */}
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 md:w-64 md:h-64 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-24 h-24 md:w-48 md:h-48 rounded-full bg-yellow-400/20 blur-2xl pointer-events-none"></div>
-        </div>
+    <main className="min-h-screen pb-20 bg-[#1E1E1E] text-white font-sans selection:bg-[#458B73] selection:text-white relative overflow-hidden">
+      {/* Background Decoration */}
+      <div className="fixed top-[-20%] left-[-10%] w-[600px] h-[600px] bg-[#458B73]/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-[#F26076]/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 md:mb-10 gap-4 relative z-30">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Kasaku" className="w-10 h-10 rounded-xl shadow-lg" />
+      {/* ===== HEADER & QUICK ACTIONS ===== */}
+      <div className="relative z-10 px-6 pt-8 pb-4 md:px-12 md:pt-12">
+        <header className="flex flex-col md:flex-row items-center justify-between mb-8 gap-6">
+          <div className="flex items-center gap-4 self-start md:self-auto">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#458B73] to-teal-400 rounded-2xl blur opacity-40 group-hover:opacity-60 transition-opacity" />
+              <img src="/logo.png" alt="Kasaku" className="relative w-12 h-12 rounded-2xl shadow-2xl" />
+            </div>
             <div>
-              <p className="text-sm text-white/80 font-medium">Selamat datang</p>
-              <h1 className="text-2xl font-bold text-white drop-shadow-sm">{userName}</h1>
+              <p className="text-sm text-neutral-400 font-medium">Selamat datang kembali,</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{userName}</h1>
             </div>
           </div>
-          <div className="flex gap-2 items-center w-full md:w-auto">
-            <div className="flex gap-2 items-center overflow-x-auto pb-1 md:pb-0 no-scrollbar mask-grad-right flex-1 md:flex-none">
-              <button onClick={() => { setTxModalTab("CATEGORY"); setIsTxModalOpen(true); }} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">📁 Kategori</button>
-              <button onClick={() => setIsImportModalOpen(true)} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">📥 Import</button>
-              <button onClick={() => setIsWalletDistOpen(true)} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">💼 Wallet</button>
-              <button onClick={() => router.push('/donasi')} className="whitespace-nowrap px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium bg-[#FFD150]/20 text-[#FFD150] border border-[#FFD150]/30 hover:bg-[#FFD150]/30 backdrop-blur-sm cursor-pointer shadow-sm transition-all flex-shrink-0">🎁 Donasi</button>
-            </div>
 
-            <div className="flex-shrink-0">
-              <AccountMenu />
+          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+            {/* Search / Context could go here */}
+            <div className="flex gap-2">
+              {/* Quick Action Icons (Mobile Friendly) */}
+              <button onClick={() => { setTxModalTab("CATEGORY"); setIsTxModalOpen(true); }} className="p-3 rounded-xl bg-[#252525] border border-white/5 hover:bg-[#333] transition-colors text-xl" title="Kategori">📁</button>
+              <button onClick={() => setIsImportModalOpen(true)} className="p-3 rounded-xl bg-[#252525] border border-white/5 hover:bg-[#333] transition-colors text-xl" title="Import">📥</button>
+              <button onClick={() => router.push('/donasi')} className="p-3 rounded-xl bg-[#FFD150]/10 border border-[#FFD150]/20 hover:bg-[#FFD150]/20 transition-colors text-xl" title="Donasi">🎁</button>
             </div>
+            <AccountMenu />
           </div>
         </header>
 
+        {/* ===== BENTO GRID LAYOUT ===== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-        {/* ===== SALDO (left, wider) | PEMASUKAN + PENGELUARAN stacked (right) ===== */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-          {/* SALDO CARD — left: title+amount, right: wallet breakdown */}
-          <div className="p-7 rounded-2xl bg-white dark:bg-gray-800 card-fix backdrop-blur-sm shadow-lg card-hover flex flex-col md:flex-row items-stretch transition-colors duration-300">
-            {/* Left: icon + title + amount */}
-            <div className="flex flex-col justify-center min-w-0 pr-5 mb-4 md:mb-0">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center shadow-md transform rotate-3" style={{ background: "linear-gradient(135deg, #458B73, #458B73dd)" }}>
-                  <span className="text-white text-2xl">💰</span>
+          {/* 1. FINANCIAL OVERVIEW (Hero - Spans 2 cols, 2 rows on LG) */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-2 row-span-2 p-8 rounded-3xl bg-[#252525] border border-white/5 shadow-xl relative overflow-hidden group flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#458B73]/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+
+            <div className="space-y-6 relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-neutral-400">
+                  <span className="p-2 rounded-lg bg-white/5">💰</span>
+                  <span className="font-medium">Total Saldo</span>
                 </div>
-                <p className="text-4xl font-extrabold text-white dark:text-gray-200 tracking-tight">Saldo</p>
-                <button onClick={toggleHideSaldo} className="ml-1 text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer" title={hideSaldo ? "Tampilkan saldo" : "Sembunyikan saldo"}>
-                  {hideSaldo ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                  )}
-                </button>
+                <button onClick={toggleHideSaldo} className="text-neutral-500 hover:text-white transition-colors text-sm">{hideSaldo ? "Show" : "Hide"}</button>
               </div>
-              <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight" style={{ color: "#458B73" }}>{censor(currency(totals.balance))}</h2>
+              <div className="space-y-1">
+                <p className="text-5xl lg:text-6xl font-extrabold text-white tracking-tight">{censor(currency(totals.balance))}</p>
+                <div className="flex gap-4 text-sm font-medium pt-2">
+                  <span className="text-[#458B73] flex items-center gap-1">↓ {censor(currency(totals.totalIncome))} <span className="text-neutral-500 text-xs">(Masuk)</span></span>
+                  <span className="text-[#F26076] flex items-center gap-1">↑ {censor(currency(totals.totalExpense))} <span className="text-neutral-500 text-xs">(Keluar)</span></span>
+                </div>
+              </div>
             </div>
-            {/* Right: wallet distribution */}
-            <div className="pl-0 md:pl-5 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700 pt-4 md:pt-0 flex flex-col justify-center flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-gray-700 dark:text-gray-400 uppercase tracking-wide mb-2">Pembagian</p>
-              <div className="space-y-1.5">
+
+            <div className="mt-8">
+              <div className="flex items-center justify-between text-xs text-neutral-500 uppercase font-bold tracking-wider mb-3">
+                <span>Dompet Saya</span>
+                <button onClick={() => setIsWalletDistOpen(true)} className="text-[#458B73] hover:text-white transition-colors">Atur</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {wallets && wallets.length > 0 ? wallets.map(w => (
-                  <div key={w.id} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ background: w.type === "CASH" ? "#458B73" : w.type === "BANK" ? "#3b82f6" : "#8b5cf6" }} />
-                      <span className="text-xs text-white dark:text-gray-300 truncate font-medium">{w.name}</span>
+                  <div key={w.id} className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-2.5 h-2.5 rounded-full ${w.type === "CASH" ? "bg-[#458B73]" : w.type === "BANK" ? "bg-blue-500" : "bg-purple-500"}`} />
+                      <span className="text-sm text-neutral-300 font-medium">{w.name}</span>
                     </div>
-                    <span className="text-xs font-semibold text-white dark:text-gray-200 whitespace-nowrap">{censor(currency(w.initialBalance))}</span>
+                    <span className="text-sm font-bold text-white">{censor(currency(w.initialBalance))}</span>
                   </div>
-                )) : (
-                  <p className="text-[10px] text-gray-900 dark:text-gray-400 italic">Belum ada wallet</p>
-                )}
+                )) : <p className="text-neutral-500 italic text-sm">Belum ada wallet</p>}
               </div>
-              <button onClick={() => setIsWalletDistOpen(true)}
-                className="mt-2 w-full px-2 py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 dark:text-white hover:border-[#458B73] hover:text-[#458B73] dark:hover:border-[#458B73] dark:hover:text-[#458B73] transition-colors">
-                💼 Atur Saldo
-              </button>
             </div>
           </div>
-          {/* PEMASUKAN + PENGELUARAN stacked right */}
-          <div className="flex flex-col gap-6">
-            <div className="p-6 rounded-2xl bg-white dark:bg-gray-800 card-fix backdrop-blur-sm shadow-lg card-hover flex-1 flex flex-col justify-center transition-colors duration-300">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md" style={{ background: "linear-gradient(135deg, #FFD150, #FF9760)" }}>
-                  <span className="text-white text-xl">📈</span>
-                </div>
-                <p className="text-2xl font-extrabold text-white dark:text-gray-200">Pemasukan</p>
-                <button onClick={toggleHideSaldo} className="ml-1 text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 transition-colors cursor-pointer" title={hideSaldo ? "Tampilkan" : "Sembunyikan"}>
-                  {hideSaldo ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                  )}
-                </button>
-              </div>
-              <h2 className="text-3xl font-extrabold tracking-tight" style={{ color: "#FF9760" }}>{censor(currency(totals.totalIncome))}</h2>
-            </div>
-            <div className="p-6 rounded-2xl bg-white dark:bg-gray-800 card-fix backdrop-blur-sm shadow-lg card-hover flex-1 flex flex-col justify-center transition-colors duration-300">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md" style={{ background: "linear-gradient(135deg, #F26076, #F26076dd)" }}>
-                  <span className="text-white text-xl">📉</span>
-                </div>
-                <p className="text-2xl font-extrabold text-white dark:text-gray-200">Pengeluaran</p>
-                <button onClick={toggleHideSaldo} className="ml-1 text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 transition-colors cursor-pointer" title={hideSaldo ? "Tampilkan" : "Sembunyikan"}>
-                  {hideSaldo ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                  )}
-                </button>
-              </div>
-              <h2 className="text-3xl font-extrabold tracking-tight" style={{ color: "#F26076" }}>{censor(currency(totals.totalExpense))}</h2>
-            </div>
-          </div>
-        </section>
-      </div>
 
-      {/* ===== MAIN CONTENT ===== */}
-      <div className="py-8 space-y-8 md:py-16 md:space-y-16" style={{ paddingLeft: sideMargin, paddingRight: sideMargin }}>
-
-        {/* Recurring Transactions (Rutinitas) */}
-        <RecurringManager categories={categoryObjects} wallets={wallets || []} />
-
-        {/* Date Filter */}
-        <section className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-white dark:bg-gray-800 card-fix p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
-          <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-full sm:w-auto">
-            <button onClick={() => { setDateFilterMode("MONTHLY"); if (searchParams.has('start')) { updateMonthYear(new Date().getMonth() + 1, new Date().getFullYear()); } }}
-              className={`flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md cursor-pointer transition-colors ${dateFilterMode === "MONTHLY" ? "bg-white dark:bg-gray-600 shadow text-white dark:text-white font-medium" : "text-white dark:text-gray-400 hover:text-white dark:hover:text-gray-200"}`}>Bulanan</button>
-            <button onClick={() => setDateFilterMode("CUSTOM")}
-              className={`flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md cursor-pointer transition-colors ${dateFilterMode === "CUSTOM" ? "bg-white dark:bg-gray-600 shadow text-white dark:text-white font-medium" : "text-white dark:text-gray-400 hover:text-white dark:hover:text-gray-200"}`}>Kustom</button>
-          </div>
-          {dateFilterMode === "MONTHLY" && (
-            <div className="flex gap-2 w-full sm:w-auto">
-              <select className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-white dark:text-gray-200 focus:ring-2 focus:ring-[#458B73] focus:outline-none" value={selectedMonth} onChange={(e) => updateMonthYear(Number(e.target.value), selectedYear)}>
-                {monthOptions.map((m) => (<option key={m} value={m}>{monthLabel(m)}</option>))}
-              </select>
-              <select className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-white dark:text-gray-200 focus:ring-2 focus:ring-[#458B73] focus:outline-none" value={selectedYear} onChange={(e) => updateMonthYear(selectedMonth, Number(e.target.value))}>
-                {yearOptions.map((y) => (<option key={y} value={y}>{y}</option>))}
-              </select>
-            </div>
-          )}
-          {dateFilterMode === "CUSTOM" && <DateRangePicker startDate={dateRange.start} endDate={dateRange.end} firstTxDate={firstTxDate} onApply={updateCustomRange} />}
-        </section>
-
-        {/* ===== BUDGET (left) + TARGET TABUNGAN (right) ===== */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-          <div className="p-8 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
-            <h3 className="font-extrabold text-xl mb-4 text-white dark:text-white">📊 Budget Status</h3>
-            <button onClick={() => { setEditingBudget(null); setIsBudgetModalOpen(true); }}
-              className="text-sm px-5 py-2.5 rounded-xl font-medium mb-6 cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 text-white dark:text-gray-400 hover:border-gray-400 hover:text-gray-700 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors">
-              + Tambah Budget
+          {/* 2. ACTIONS & FILTERS (Col 3) */}
+          <div className="col-span-1 lg:col-span-1 flex flex-col gap-4">
+            {/* Quick Add Transaction */}
+            <button onClick={() => { setEditingTx(null); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }}
+              className="w-full py-4 rounded-3xl bg-[#458B73] hover:bg-[#3d7a65] text-white font-bold text-lg shadow-lg hover:shadow-[#458B73]/30 transition-all flex items-center justify-center gap-2 group">
+              <span className="text-2xl group-hover:scale-110 transition-transform">+</span> Catat Transaksi
             </button>
-            <div className="grid grid-cols-1 gap-4">
-              {budgets.map((b) => (
-                <BudgetProgress key={b.id} id={b.id} categoryName={b.categoryName} limit={b.limitAmount} spent={spentByCategory[b.categoryName] || 0} period={b.period}
-                  onEdit={() => { setEditingBudget({ categoryId: b.categoryId, limitAmount: b.limitAmount, id: b.id, period: b.period }); setIsBudgetModalOpen(true); }} />
-              ))}
-              {budgets.length === 0 && <p className="text-gray-900 dark:text-gray-400 italic text-sm">Belum ada budget yang diatur.</p>}
+
+            {/* Date Filter Card */}
+            <div className="flex-1 p-5 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col gap-3">
+              <div className="flex bg-black/40 p-1 rounded-xl">
+                <button onClick={() => { setDateFilterMode("MONTHLY"); if (searchParams.has('start')) { updateMonthYear(new Date().getMonth() + 1, new Date().getFullYear()); } }}
+                  className={`flex-1 py-2 text-xs rounded-lg font-bold transition-all ${dateFilterMode === "MONTHLY" ? "bg-[#333] text-white shadow" : "text-neutral-500 hover:text-white"}`}>Bulanan</button>
+                <button onClick={() => setDateFilterMode("CUSTOM")}
+                  className={`flex-1 py-2 text-xs rounded-lg font-bold transition-all ${dateFilterMode === "CUSTOM" ? "bg-[#333] text-white shadow" : "text-neutral-500 hover:text-white"}`}>Kustom</button>
+              </div>
+              {dateFilterMode === "MONTHLY" ? (
+                <div className="flex gap-2">
+                  <select className="flex-1 border border-white/10 rounded-xl px-3 py-2 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={selectedMonth} onChange={(e) => updateMonthYear(Number(e.target.value), selectedYear)}>
+                    {monthOptions.map((m) => (<option key={m} value={m} className="bg-[#252525]">{monthLabel(m)}</option>))}
+                  </select>
+                  <select className="flex-1 border border-white/10 rounded-xl px-3 py-2 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={selectedYear} onChange={(e) => updateMonthYear(selectedMonth, Number(e.target.value))}>
+                    {yearOptions.map((y) => (<option key={y} value={y} className="bg-[#252525]">{y}</option>))}
+                  </select>
+                </div>
+              ) : <DateRangePicker startDate={dateRange.start} endDate={dateRange.end} firstTxDate={firstTxDate} onApply={updateCustomRange} />}
             </div>
           </div>
 
-          <div className="p-8 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-extrabold text-xl text-white dark:text-white">🎯 Target Tabungan</h3>
-              <button onClick={() => { setEditingGoal(null); setIsGoalCreateOpen(true); }}
-                className="text-sm px-5 py-2.5 rounded-xl font-medium cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 text-white dark:text-gray-400 hover:border-gray-400 hover:text-gray-700 dark:hover:border-gray-500 dark:hover:text-gray-200 transition-colors">
-                + Buat Target
-              </button>
+          {/* 3. GOALS / TABUNGAN (Col 4) */}
+          <div className="col-span-1 lg:col-span-1 row-span-2 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <span className="text-xl">🎯</span> Target
+              </h3>
+              <button onClick={() => { setEditingGoal(null); setIsGoalCreateOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors">+</button>
             </div>
-            {goals.length === 0 ? (
-              <p className="text-gray-900 dark:text-gray-400 italic text-sm text-center py-10">Belum ada target. Klik &quot;Buat Target&quot; untuk menambahkan.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {goals.map(g => {
-                  const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
-                  return (
-                    <div key={g.id}
-                      onClick={() => { setEditingGoal(g); setIsGoalCreateOpen(true); }}
-                      className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-md card-hover relative cursor-pointer bg-white dark:bg-gray-800 card-fix transition-colors"
-                    >
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteGoal(g.id); }} className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer text-sm transition-colors" title="Hapus">✕</button>
-                      <div className="flex items-center justify-between mb-2 pr-8">
-                        <p className="font-bold text-sm text-white dark:text-gray-200">{g.name}</p>
-                        <span className="text-xs font-bold" style={{ color: pct >= 100 ? "#458B73" : "#FF9760" }}>{pct}%</span>
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
+              {goals.length === 0 ? <p className="text-neutral-500 italic text-xs text-center mt-10">Belum ada target.</p> : goals.map(g => {
+                const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
+                return (
+                  <div key={g.id} onClick={() => { setEditingGoal(g); setIsGoalCreateOpen(true); }} className="p-4 rounded-2xl bg-black/20 hover:bg-white/5 border border-transparent hover:border-white/5 transition-all cursor-pointer group">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-bold text-gray-200">{g.name}</span>
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${pct >= 100 ? "bg-[#458B73]/20 text-[#458B73]" : "bg-[#FF9760]/20 text-[#FF9760]"}`}>{pct}%</span>
+                    </div>
+                    <div className="w-full bg-white/5 rounded-full h-1.5 mb-2">
+                      <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 100 ? "#458B73" : "#FF9760" }} />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-neutral-400">
+                      <span>{currency(g.currentAmount)}</span>
+                      <span>{currency(g.targetAmount)}</span>
+                    </div>
+                    {/* Goal Actions */}
+                    <div className="flex gap-2 items-center mt-2 group-hover:opacity-100 opacity-50 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <input type="number" placeholder="Nominal" onClick={(e) => e.stopPropagation()} value={goalInputAmounts[g.id] || ""} onChange={(e) => setGoalInputAmounts(p => ({ ...p, [g.id]: e.target.value }))}
+                        className="w-full border border-white/10 rounded-md px-2 py-1 text-[10px] bg-[#333] text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]" />
+                      <div className="flex gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); handleGoalAddMoney(g); }} className="px-2 py-1 rounded-md text-[10px] bg-[#458B73]/20 text-[#458B73] hover:bg-[#458B73] hover:text-white transition-all">+</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleGoalWithdrawMoney(g); }} className="px-2 py-1 rounded-md text-[10px] bg-[#F26076]/20 text-[#F26076] hover:bg-[#F26076] hover:text-white transition-all">-</button>
                       </div>
-                      <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5 mb-2">
-                        <div className="h-2.5 rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 100 ? "#458B73" : "linear-gradient(90deg, #FFD150, #FF9760)" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4. BUDGET STATUS (Col 3, Row 2) */}
+          <div className="col-span-1 lg:col-span-1 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <span className="text-xl">📊</span> Budget
+              </h3>
+              <button onClick={() => { setEditingBudget(null); setIsBudgetModalOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors">+</button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
+              {budgets.length === 0 ? <p className="text-neutral-500 italic text-xs text-center mt-4">Belum ada budget.</p> : budgets.map((b) => (
+                <div key={b.id} onClick={() => { setEditingBudget({ categoryId: b.categoryId, limitAmount: b.limitAmount, id: b.id, period: b.period }); setIsBudgetModalOpen(true); }}
+                  className="cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors">
+                  <BudgetProgress id={b.id} categoryName={b.categoryName} limit={b.limitAmount} spent={spentByCategory[b.categoryName] || 0} period={b.period} onEdit={() => { }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 5. MAIN CONTENT AREA (Transaction History + Analytics) */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Transaction History (Takes up 2 cols) */}
+            <div className="col-span-1 lg:col-span-2 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg min-h-[500px] flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-xl text-white">Riwayat Transaksi</h3>
+                <div className="flex gap-2">
+                  <select className="bg-black/20 text-white text-xs border border-white/10 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
+                    <option value="ALL" className="bg-[#252525]">Semua Tipe</option><option value="INCOME" className="bg-[#252525]">Masuk</option><option value="EXPENSE" className="bg-[#252525]">Keluar</option>
+                  </select>
+                  <select className="bg-black/20 text-white text-xs border border-white/10 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer max-w-[150px] truncate" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                    <option value="ALL" className="bg-[#252525]">Semua Kategori</option>
+                    {categories.map(c => <option key={c} value={c} className="bg-[#252525]">{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar max-h-[600px] pr-2">
+                {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
+                  <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-black/20 hover:bg-white/5 border border-transparent hover:border-white/5 group transition-all mb-1">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${t.type === 'INCOME' ? 'bg-[#458B73]/20 text-[#458B73]' : 'bg-[#F26076]/20 text-[#F26076]'}`}>
+                        {t.type === 'INCOME' ? '↓' : '↑'}
                       </div>
-                      <div className="flex justify-between text-xs text-white dark:text-gray-400 mb-3">
-                        <span>{currency(g.currentAmount)}</span><span>{currency(g.targetAmount)}</span>
-                      </div>
-                      {g.deadline && <p className="text-[10px] text-white dark:text-gray-400 mb-3">Deadline: {new Date(g.deadline).toLocaleDateString("id-ID")}</p>}
-                      <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-stretch mt-3" onClick={(e) => e.stopPropagation()}>
-                        <input type="number" placeholder="Jumlah..." value={goalInputAmounts[g.id] || ""} onChange={(e) => setGoalInputAmounts(p => ({ ...p, [g.id]: e.target.value }))}
-                          className="w-full sm:flex-1 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent bg-white dark:bg-gray-700 text-white dark:text-gray-200" />
-                        <div className="flex gap-2 w-full sm:w-auto">
-                          <button onClick={() => handleGoalAddMoney(g)} className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer hover:bg-opacity-20 transition-all whitespace-nowrap" style={{ background: "rgba(69,139,115,0.15)", color: "#458B73" }}>+ Setor</button>
-                          <button onClick={() => handleGoalWithdrawMoney(g)} className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer hover:bg-opacity-20 transition-all whitespace-nowrap" style={{ background: "rgba(242,96,118,0.1)", color: "#F26076" }}>− Tarik</button>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-white truncate">{t.category}</p>
+                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                          <span className="shrink-0">{t.date}</span>
+                          {t.note && <span className="truncate max-w-[200px] text-neutral-600">• {t.note}</span>}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ===== PIE CHARTS (left, 2 stacked) + RIWAYAT CASHFLOW (right) ===== */}
-        <section className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-16">
-          {/* Pie Charts */}
-          <div className="lg:col-span-2 flex flex-col gap-4 lg:gap-8">
-            <div className="p-4 md:p-8 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 flex-1 flex flex-col transition-colors duration-300">
-              <h3 className="font-extrabold text-xl mb-5 text-white dark:text-white">Pengeluaran per Kategori</h3>
-              <div className="flex items-center gap-5 flex-1">
-                <div className="w-[120px] h-[120px] md:w-[150px] md:h-[150px] flex-shrink-0">
-                  <Pie data={{ labels: categories, datasets: [{ data: charts.expenseByCategory, backgroundColor: PIE_COLORS_EXPENSE, borderWidth: 0 }] }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: true }} />
-                </div>
-                <div className="flex flex-col gap-2 text-xs min-w-0">
-                  {categories.map((cat, i) => charts.expenseByCategory[i] > 0 && (
-                    <div key={cat} className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_COLORS_EXPENSE[i % PIE_COLORS_EXPENSE.length] }} />
-                      <span className="truncate text-white dark:text-gray-300">{cat}</span>
-                      <span className="ml-auto font-medium text-white dark:text-gray-200">{currency(charts.expenseByCategory[i])}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="p-4 md:p-8 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 flex-1 flex flex-col transition-colors duration-300">
-              <h3 className="font-extrabold text-xl mb-5 text-white dark:text-white">Pemasukan per Kategori</h3>
-              <div className="flex items-center gap-5 flex-1">
-                <div className="w-[120px] h-[120px] md:w-[150px] md:h-[150px] flex-shrink-0">
-                  <Pie data={{ labels: categories, datasets: [{ data: charts.incomeByCategory, backgroundColor: PIE_COLORS_INCOME, borderWidth: 0 }] }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: true }} />
-                </div>
-                <div className="flex flex-col gap-2 text-xs min-w-0">
-                  {categories.map((cat, i) => charts.incomeByCategory[i] > 0 && (
-                    <div key={cat} className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_COLORS_INCOME[i % PIE_COLORS_INCOME.length] }} />
-                      <span className="truncate text-white dark:text-gray-300">{cat}</span>
-                      <span className="ml-auto font-medium text-white dark:text-gray-200">{currency(charts.incomeByCategory[i])}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Riwayat Cashflow — stretches to match pies */}
-          <div className="lg:col-span-3 p-4 md:p-8 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col transition-colors duration-300">
-            <h3 className="font-extrabold text-xl mb-4 text-white dark:text-white">💸 Riwayat Cashflow</h3>
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
-              <button onClick={() => { setEditingTx(null); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl text-sm font-medium bg-white dark:bg-gray-700 shadow-sm border-2 cursor-pointer hover:shadow-md transition-colors"
-                style={{ borderColor: "#458B73", color: "#458B73" }}>+ Tambah Transaksi</button>
-              <div className="flex gap-2">
-                <select className="flex-1 w-full sm:w-auto border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-white dark:text-gray-200 focus:outline-none" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | TransactionType)}>
-                  <option value="ALL">Semua Tipe</option><option value="INCOME">Masuk</option><option value="EXPENSE">Keluar</option>
-                </select>
-                <select className="flex-1 w-full sm:w-auto border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-white dark:text-gray-200 focus:outline-none" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                  <option value="ALL">Semua Kategori</option>
-                  {categories.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1 flex-1">
-              {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
-                <div key={t.id} className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-                      style={{ background: t.type === "INCOME" ? "rgba(69,139,115,0.1)" : "rgba(242,96,118,0.1)", color: t.type === "INCOME" ? "#458B73" : "#F26076" }}>
-                      {t.type === "INCOME" ? "↑" : "↓"}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm text-white dark:text-gray-200 truncate">{t.category}</p>
-                      <div className="flex gap-1.5 text-[11px] text-gray-900 dark:text-gray-400">
-                        <span>{t.date}</span>{t.note && <span>• {t.note}</span>}
+                    <div className="flex items-center gap-3 pl-2">
+                      <span className={`font-bold text-sm whitespace-nowrap ${t.type === 'INCOME' ? 'text-[#458B73]' : 'text-[#F26076]'}`}>
+                        {t.type === 'INCOME' ? "+" : "-"}{currency(t.amount)}
+                      </span>
+                      <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                        <button onClick={() => { setEditingTx(t); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }} className="p-1.5 hover:bg-white/10 rounded text-neutral-400 hover:text-white">✏️</button>
+                        <button onClick={() => handleDeleteTransaction(t.id)} className="p-1.5 hover:bg-red-500/20 rounded text-neutral-400 hover:text-red-500">🗑️</button>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <p className="font-semibold text-sm" style={{ color: t.type === "INCOME" ? "#458B73" : "#F26076" }}>
-                      {t.type === "INCOME" ? "+" : "-"}{currency(t.amount)}
-                    </p>
-                    <div className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 flex gap-0.5 transition-opacity">
-                      <button onClick={() => { setEditingTx(t); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xs cursor-pointer">✏️</button>
-                      <button onClick={() => handleDeleteTransaction(t.id)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/40 rounded text-xs text-red-500 cursor-pointer">🗑️</button>
-                    </div>
+                ))}
+                {filteredTransactions.length === 0 && <div className="text-center py-10 text-neutral-500 italic">Tidak ada transaksi.</div>}
+              </div>
+
+              {/* Pagination */}
+              {filteredTransactions.length > ITEMS_PER_PAGE && (
+                <div className="flex justify-between items-center pt-4 mt-2 border-t border-white/5 text-xs">
+                  <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txPage === 1} className="px-3 py-1.5 rounded-lg bg-[#333] hover:bg-[#444] disabled:opacity-50 transition-colors">← Prev</button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-500">Halaman</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}
+                      value={pageInput}
+                      onChange={(e) => setPageInput(e.target.value)}
+                      onBlur={() => {
+                        const p = Math.max(1, Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), Number(pageInput) || 1));
+                        setTxPage(p);
+                        setPageInput(p.toString());
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const p = Math.max(1, Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), Number(pageInput) || 1));
+                          setTxPage(p);
+                          setPageInput(p.toString());
+                        }
+                      }}
+                      className="w-12 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-center text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]"
+                    />
+                    <span className="text-neutral-500">/ {Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}</span>
                   </div>
+                  <button onClick={() => setTxPage(p => Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), p + 1))} disabled={txPage === Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)} className="px-3 py-1.5 rounded-lg bg-[#333] hover:bg-[#444] disabled:opacity-50 transition-colors">Next →</button>
                 </div>
-              ))}
-              {filteredTransactions.length === 0 && <div className="text-center py-12 text-white dark:text-gray-400 text-sm">Belum ada transaksi.</div>}
+              )}
             </div>
 
-            {/* Pagination Controls */}
-            {filteredTransactions.length > ITEMS_PER_PAGE && (
-              <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
-                <button
-                  onClick={() => setTxPage(p => Math.max(1, p - 1))}
-                  disabled={txPage === 1}
-                  className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  ←
-                </button>
-                <div className="flex items-center gap-2 relative">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Page</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}
-                    value={pageInput}
-                    onChange={(e) => {
-                      const valStr = e.target.value;
-                      setPageInput(valStr);
-                      const val = parseInt(valStr);
-                      const max = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
-
-                      if (valStr === "") return;
-                      if (isNaN(val)) return;
-
-                      if (val > max) {
-                        setPageWarning(`Maks: ${max}`);
-                      } else {
-                        setPageWarning(null);
-                        if (val >= 1) setTxPage(val);
-                      }
-                    }}
-                    onFocus={() => setPageInput("")}
-                    onBlur={() => {
-                      setPageWarning(null);
-                      if (pageInput === "" || isNaN(parseInt(pageInput))) {
-                        setPageInput(txPage.toString());
-                      }
-                    }}
-                    className="w-12 px-1 py-0.5 text-center text-xs border rounded bg-white dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
-                  />
-                  {pageWarning && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded shadow whitespace-nowrap z-10 animate-fade-in-up">
-                      {pageWarning}
-                    </div>
-                  )}
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    / {Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}
-                  </span>
+            {/* Analytics Column (Stacked Charts) */}
+            <div className="col-span-1 flex flex-col gap-6">
+              {/* Expense Pie */}
+              <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col items-center h-[420px]">
+                <h3 className="font-bold text-white mb-4 self-start flex items-center gap-2"><span className="w-1.5 h-4 bg-[#F26076] rounded-full" /> Pengeluaran</h3>
+                <div className="w-40 h-40 relative flex-shrink-0">
+                  <div className="absolute inset-0 bg-[#F26076]/10 blur-xl rounded-full scale-75" />
+                  <Pie data={{ labels: charts.expensePie.labels, datasets: [{ data: charts.expensePie.data, backgroundColor: PIE_COLORS_EXPENSE, borderWidth: 0 }] }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: true }} />
                 </div>
-                <button
-                  onClick={() => setTxPage(p => Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), p + 1))}
-                  disabled={txPage === Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}
-                  className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  →
-                </button>
+                <div className="w-full mt-6 space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                  {charts.expensePie.labels.map((cat, i) => {
+                    const amount = charts.expensePie.data[i];
+                    if (!amount) return null;
+                    const pct = totals.totalExpense > 0 ? Math.round((amount / totals.totalExpense) * 100) : 0;
+                    return (
+                      <div key={cat} className="space-y-1">
+                        <div className="flex justify-between text-xs text-neutral-300">
+                          <span className="truncate pr-2">{cat}</span>
+                          <span className="font-bold whitespace-nowrap">{pct}% ({currency(amount)})</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-black/20 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS_EXPENSE[i % PIE_COLORS_EXPENSE.length] }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
-        </section>
+              {/* Income Pie */}
+              <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col items-center h-[420px]">
+                <h3 className="font-bold text-white mb-4 self-start flex items-center gap-2"><span className="w-1.5 h-4 bg-[#458B73] rounded-full" /> Pemasukan</h3>
+                <div className="w-40 h-40 relative flex-shrink-0">
+                  <div className="absolute inset-0 bg-[#458B73]/10 blur-xl rounded-full scale-75" />
+                  <Pie data={{ labels: charts.incomePie.labels, datasets: [{ data: charts.incomePie.data, backgroundColor: PIE_COLORS_INCOME, borderWidth: 0 }] }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: true }} />
+                </div>
+                <div className="w-full mt-6 space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                  {charts.incomePie.labels.map((cat, i) => {
+                    const amount = charts.incomePie.data[i];
+                    if (!amount) return null;
+                    const pct = totals.totalIncome > 0 ? Math.round((amount / totals.totalIncome) * 100) : 0;
+                    return (
+                      <div key={cat} className="space-y-1">
+                        <div className="flex justify-between text-xs text-neutral-300">
+                          <span className="truncate pr-2">{cat}</span>
+                          <span className="font-bold whitespace-nowrap">{pct}% ({currency(amount)})</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-black/20 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS_INCOME[i % PIE_COLORS_INCOME.length] }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
 
-        {/* ===== LINE CHART (left) + HUTANG/PIUTANG stacked (right) ===== */}
-        <section className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-16">
-          {/* Line Chart — left, wider */}
-          <div className="lg:col-span-3 p-4 md:p-8 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
-            <h3 className="font-extrabold text-xl mb-1 text-white dark:text-white">📈 Analisis Cashflow</h3>
-            <p className="text-sm text-gray-400 mb-5">{monthLabel(selectedMonth)} {selectedYear}</p>
-            <div className="h-[250px] md:h-[400px]">
+          </div>
+
+          {/* 6. SIDEBAR / EXTRA (Recurring & Debts) (Col 4, Row 3+) */}
+          <div className="col-span-1 lg:col-span-1 flex flex-col gap-6">
+
+            {/* Recurring Transactions (Moved to Sidebar/Col 4) */}
+            <div className="h-[420px]"> {/* Wrapper to fit RecurringManager */}
+              <RecurringManager categories={categoryObjects} wallets={wallets || []} />
+            </div>
+
+            {/* Debt Manager */}
+            <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col gap-4 h-[420px]">
+              <div className="flex justify-between items-center flex-shrink-0">
+                <h3 className="font-bold text-white">Hutang/Piutang</h3>
+                <div className="flex bg-black/40 rounded-lg p-0.5">
+                  <button onClick={() => setLoanTab("PAYABLE")} className={`px-2 py-1 text-[10px] rounded-md ${loanTab === "PAYABLE" ? "bg-[#F26076] text-white" : "text-neutral-500"}`}>Hutang</button>
+                  <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2 py-1 text-[10px] rounded-md ${loanTab === "RECEIVABLE" ? "bg-[#458B73] text-white" : "text-neutral-500"}`}>Piutang</button>
+                </div>
+              </div>
+
+              <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1">
+                {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).map(l => (
+                  <div key={l.id} className="p-3 rounded-xl bg-black/20 border border-white/5">
+                    <div className="flex justify-between mb-1">
+                      <span className="font-bold text-xs text-white">{l.name}</span>
+                      <span className={`text-xs font-bold ${loanTab === "PAYABLE" ? "text-[#F26076]" : "text-[#458B73]"}`}>{currency(l.remaining)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-neutral-500">{l.status === 'PAID' ? 'Lunas' : 'Belum Lunas'}</span>
+                      <button onClick={() => { setEditingLoan(l); setIsLoanModalOpen(true); }} className="text-[10px] px-2 py-0.5 bg-white/5 rounded hover:bg-white/10 text-neutral-300">Edit</button>
+                    </div>
+                  </div>
+                ))}
+                {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).length === 0 && <p className="text-center text-[10px] text-neutral-500 py-4">Kosong.</p>}
+              </div>
+
+              <button onClick={() => { setEditingLoan(null); setIsLoanModalOpen(true); }} className="w-full py-2 rounded-xl border border-dashed border-white/10 text-xs text-neutral-500 hover:text-white hover:border-white/30 transition-all flex-shrink-0">+ Tambah {loanTab === "PAYABLE" ? "Hutang" : "Piutang"}</button>
+            </div>
+          </div>
+
+          {/* 7. WIDE BOTTOM (Cashflow Line Chart) */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-4 p-8 rounded-3xl bg-[#252525] border border-white/5 shadow-lg">
+            <h3 className="font-bold text-xl text-white mb-6">Analisis Cashflow Tahunan</h3>
+            <div className="h-[300px] w-full">
               <Line
                 data={{
                   labels: charts.labels,
                   datasets: [
-                    {
-                      label: "Pemasukan",
-                      data: charts.incomeLine,
-                      borderColor: "#458B73",
-                      backgroundColor: "rgba(69,139,115,0.1)",
-                      tension: 0.4,
-                      borderWidth: 3,
-                      pointRadius: 0,
-                      pointHoverRadius: 6,
-                      fill: true
-                    },
-                    {
-                      label: "Pengeluaran",
-                      data: charts.expenseLine,
-                      borderColor: "#F26076",
-                      backgroundColor: "rgba(242,96,118,0.1)",
-                      tension: 0.4,
-                      borderWidth: 3,
-                      pointRadius: 0,
-                      pointHoverRadius: 6,
-                      fill: true
-                    },
+                    { label: "Pemasukan", data: charts.incomeLine, borderColor: "#458B73", backgroundColor: "rgba(69,139,115,0.1)", tension: 0.4, borderWidth: 3, pointRadius: 0, fill: true },
+                    { label: "Pengeluaran", data: charts.expenseLine, borderColor: "#F26076", backgroundColor: "rgba(242,96,118,0.1)", tension: 0.4, borderWidth: 3, pointRadius: 0, fill: true },
                   ],
                 }}
-                options={{
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: "top",
-                      labels: {
-                        usePointStyle: true,
-                        pointStyle: "circle",
-                        boxWidth: 6,
-                        font: { size: 12 },
-                        color: theme === "dark" ? "#e5e7eb" : "#374151"
-                      }
-                    },
-                    tooltip: {
-                      mode: 'index',
-                      intersect: false,
-                      backgroundColor: theme === "dark" ? "#1f2937" : "#fff",
-                      titleColor: theme === "dark" ? "#fff" : "#111827",
-                      bodyColor: theme === "dark" ? "#fff" : "#374151",
-                      borderColor: theme === "dark" ? "#374151" : "#e5e7eb",
-                      borderWidth: 1,
-                      callbacks: { title: (items: any[]) => items[0]?.label || '' }
-                    }
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      ticks: {
-                        font: { size: 10 },
-                        color: theme === "dark" ? "#9ca3af" : "#9ca3af",
-                        maxTicksLimit: 6,
-                        callback: (value) => {
-                          if (typeof value === 'number') {
-                            if (value >= 1000000) return (value / 1000000).toFixed(0) + 'jt';
-                            if (value >= 1000) return (value / 1000).toFixed(0) + 'kf';
-                            return value;
-                          }
-                          return value;
-                        }
-                      },
-                      grid: {
-                        display: false,
-                      },
-                      border: { display: false }
-                    },
-                    x: {
-                      ticks: {
-                        font: { size: 10 },
-                        maxRotation: 0,
-                        autoSkip: true,
-                        maxTicksLimit: 7,
-                        color: theme === "dark" ? "#9ca3af" : "#9ca3af"
-                      },
-                      grid: { display: false },
-                      border: { display: false }
-                    }
-                  }
-                }}
-                height={400}
+                options={{ maintainAspectRatio: false, plugins: { legend: { position: "top", align: "end", labels: { color: "#9ca3af", usePointStyle: true } } }, scales: { y: { grid: { color: "#374151" }, ticks: { color: "#6b7280" }, border: { display: false } }, x: { grid: { display: false }, ticks: { color: "#6b7280" }, border: { display: false } } } }}
               />
             </div>
           </div>
 
-          {/* Hutang (top) + Piutang (bottom) — stacked right */}
-          <div className="lg:col-span-2 flex flex-col gap-4 lg:gap-8">
-            {/* Hutang */}
-            <div className="p-4 md:p-7 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 flex-1 transition-colors duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-extrabold text-lg" style={{ color: "#F26076" }}>📕 Hutang Saya</h3>
-                <button onClick={() => { setLoanTab("PAYABLE"); setEditingLoan(null); setIsLoanModalOpen(true); }}
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer" style={{ background: "rgba(242,96,118,0.1)", color: "#F26076" }}>+ Hutang</button>
-              </div>
-              <div className="space-y-3 overflow-y-auto custom-scrollbar" style={{ maxHeight: "200px" }}>
-                {payableLoans.map((l) => {
-                  const isOverdue = l.dueDate && new Date(l.dueDate) < new Date() && l.status !== 'PAID';
-                  return (
-                    <div key={l.id} className={`border rounded-xl p-3 hover:shadow-sm transition-all ${isOverdue ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)] bg-red-50/10" : "border-gray-100 dark:border-gray-700"}`}>
-                      <div className="flex justify-between items-start mb-1">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-sm text-white dark:text-gray-200">{l.name}</p>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${l.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600'}`}>{l.status === 'PAID' ? 'Lunas' : 'Belum Lunas'}</span>
-                          </div>
-                          <p className="text-[11px] text-white dark:text-gray-400 mt-0.5">{l.dueDate && !l.dueDate.includes('2099') ? `Jatuh Tempo: ${new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Tanpa tenggat waktu'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[11px] text-white dark:text-gray-400">Sisa</p>
-                          <p className="font-bold text-sm" style={{ color: "#F26076" }}>{currency(l.remaining)}</p>
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-1.5 border-t border-gray-50 dark:border-gray-700 pt-2 mt-1">
-                        {l.status !== "PAID" && (
-                          <button onClick={() => { setActiveLoanForPayment(l); setIsPaymentModalOpen(true); }}
-                            className="text-[11px] px-2.5 py-1 rounded-lg font-medium cursor-pointer" style={{ background: "rgba(69,139,115,0.1)", color: "#458B73" }}>Bayar</button>
-                        )}
-                        <button onClick={() => { setEditingLoan(l); setLoanTab("PAYABLE"); setIsLoanModalOpen(true); }}
-                          className="text-[11px] px-2.5 py-1 bg-gray-50 dark:bg-gray-700 text-white dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">Edit</button>
-                        <button onClick={() => handleDeleteLoan(l.id)}
-                          className="text-[11px] px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: "rgba(242,96,118,0.1)", color: "#F26076" }}>Hapus</button>
-                      </div>
-                    </div>
-                  );
-                })}
-                {payableLoans.length === 0 && <div className="text-center py-5 text-white dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">Belum ada hutang.</div>}
-              </div>
-            </div>
-
-            {/* Piutang */}
-            <div className="p-4 md:p-7 rounded-2xl bg-white dark:bg-gray-800 card-fix shadow-sm border border-gray-100 dark:border-gray-700 flex-1 transition-colors duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-extrabold text-lg" style={{ color: "#458B73" }}>📗 Piutang</h3>
-                <button onClick={() => { setLoanTab("RECEIVABLE"); setEditingLoan(null); setIsLoanModalOpen(true); }}
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer" style={{ background: "rgba(69,139,115,0.1)", color: "#458B73" }}>+ Piutang</button>
-              </div>
-              <div className="space-y-3 overflow-y-auto custom-scrollbar" style={{ maxHeight: "200px" }}>
-                {receivableLoans.map((l) => (
-                  <div key={l.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3 hover:shadow-sm transition-all">
-                    <div className="flex justify-between items-start mb-1">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-white dark:text-gray-200">{l.name}</p>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${l.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-50 text-yellow-600'}`}>{l.status === 'PAID' ? 'Lunas' : 'Belum Dibayar'}</span>
-                        </div>
-                        <p className="text-[11px] text-white dark:text-gray-400 mt-0.5">{l.dueDate && !l.dueDate.includes('2099') ? `Jatuh Tempo: ${new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Tanpa tenggat waktu'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[11px] text-white dark:text-gray-400">Sisa</p>
-                        <p className="font-bold text-sm" style={{ color: "#458B73" }}>{currency(l.remaining)}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-1.5 border-t border-gray-50 dark:border-gray-700 pt-2 mt-1">
-                      {l.status !== "PAID" && (
-                        <button onClick={() => { setActiveLoanForPayment(l); setIsPaymentModalOpen(true); }}
-                          className="text-[11px] px-2.5 py-1 rounded-lg font-medium cursor-pointer" style={{ background: "rgba(69,139,115,0.1)", color: "#458B73" }}>Terima</button>
-                      )}
-                      <button onClick={() => { setEditingLoan(l); setLoanTab("RECEIVABLE"); setIsLoanModalOpen(true); }}
-                        className="text-[11px] px-2.5 py-1 bg-gray-50 dark:bg-gray-700 text-white dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">Edit</button>
-                      <button onClick={() => handleDeleteLoan(l.id)}
-                        className="text-[11px] px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: "rgba(242,96,118,0.1)", color: "#F26076" }}>Hapus</button>
-                    </div>
-                  </div>
-                ))}
-                {receivableLoans.length === 0 && <div className="text-center py-5 text-white dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">Belum ada piutang.</div>}
-              </div>
-            </div>
-          </div>
-        </section>
-
-
-        {/* ===== MODALS ===== */}
-        {isTxModalOpen && (
-          <TransactionManagerModal
-            isOpen={isTxModalOpen}
-            onClose={() => setIsTxModalOpen(false)}
-            defaultTab={txModalTab}
-            categories={categories}
-            categoryObjects={categoryObjects}
-            initialData={editingTx}
-            wallets={wallets}
-          />
-        )}
-        <Modal isOpen={isLoanModalOpen} onClose={() => setIsLoanModalOpen(false)} title={editingLoan ? "Edit Hutang/Piutang" : (loanTab === "PAYABLE" ? "Tambah Hutang" : "Tambah Piutang")}>
-          <LoanForm initialData={editingLoan} onClose={() => setIsLoanModalOpen(false)} defaultType={loanTab} />
-        </Modal>
-        <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Pembayaran Cicilan">
-          {activeLoanForPayment && <PaymentForm loanId={activeLoanForPayment.id} loanName={activeLoanForPayment.name} remaining={activeLoanForPayment.remaining} loanType={activeLoanForPayment.type} onClose={() => setIsPaymentModalOpen(false)} />}
-        </Modal>
-        <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Atur Budget">
-          <BudgetForm categories={categoryObjects} initialData={editingBudget} onClose={() => setIsBudgetModalOpen(false)} />
-        </Modal>
-        <Modal isOpen={isGoalCreateOpen} onClose={() => setIsGoalCreateOpen(false)} title="Target Tabungan">
-          <GoalCreateForm onClose={() => setIsGoalCreateOpen(false)} initialData={editingGoal} />
-        </Modal>
-        <Modal isOpen={isWalletDistOpen} onClose={() => setIsWalletDistOpen(false)} title="Atur Pembagian Saldo">
-          <WalletDistributor wallets={wallets || []} totalBalance={totals.balance} onClose={() => setIsWalletDistOpen(false)} />
-        </Modal>
-
-        {/* Recurring Manager Embed - No longer a modal */}
-        {/* We can place it here or where we want in the layout. 
-            User said "Move to top", so we should place it in the main content area, 
-            perhaps above the Date Filter or right below it. 
-            Let's move 'RecurringManager' call to the main content section instead of modal section.
-        */}
-
-        <ImportModal
-          isOpen={isImportModalOpen}
-          onClose={() => setIsImportModalOpen(false)}
-          title="Import & Ekspor CSV"
-          transactions={transactions}
-          totalBalance={totals.balance}
-        />
+        </div>
       </div>
+
+      {/* ===== MODALS ===== */}
+      {isTxModalOpen && (
+        <TransactionManagerModal
+          isOpen={isTxModalOpen}
+          onClose={() => setIsTxModalOpen(false)}
+          defaultTab={txModalTab}
+          categories={categories}
+          categoryObjects={categoryObjects}
+          initialData={editingTx}
+          wallets={wallets}
+        />
+      )}
+      <Modal isOpen={isLoanModalOpen} onClose={() => setIsLoanModalOpen(false)} title={editingLoan ? "Edit Hutang/Piutang" : (loanTab === "PAYABLE" ? "Tambah Hutang" : "Tambah Piutang")}>
+        <LoanForm initialData={editingLoan} onClose={() => setIsLoanModalOpen(false)} defaultType={loanTab} />
+      </Modal>
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Pembayaran Cicilan">
+        {activeLoanForPayment && <PaymentForm loanId={activeLoanForPayment.id} loanName={activeLoanForPayment.name} remaining={activeLoanForPayment.remaining} loanType={activeLoanForPayment.type} onClose={() => setIsPaymentModalOpen(false)} />}
+      </Modal>
+      <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Atur Budget">
+        <BudgetForm categories={categoryObjects} initialData={editingBudget} onClose={() => setIsBudgetModalOpen(false)} />
+      </Modal>
+      <Modal isOpen={isGoalCreateOpen} onClose={() => setIsGoalCreateOpen(false)} title="Target Tabungan">
+        <GoalCreateForm onClose={() => setIsGoalCreateOpen(false)} initialData={editingGoal} />
+      </Modal>
+      <Modal isOpen={isWalletDistOpen} onClose={() => setIsWalletDistOpen(false)} title="Atur Pembagian Saldo">
+        <WalletDistributor wallets={wallets || []} totalBalance={totals.balance} onClose={() => setIsWalletDistOpen(false)} />
+      </Modal>
+
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title="Import & Ekspor CSV"
+        transactions={transactions}
+        totalBalance={totals.balance}
+      />
 
       {/* Floating WhatsApp Bot Button */}
       <a
         href="https://wa.me/6285173270427?text=hi"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-[#25D366] text-white font-bold shadow-lg shadow-[#25D366]/30 hover:shadow-[#25D366]/50 hover:scale-105 active:scale-95 transition-all group animate-bounce-in"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-[#25D366] text-white font-bold shadow-lg shadow-[#25D366]/30 hover:shadow-[#25D366]/50 hover:scale-105 active:scale-95 transition-all group animate-bounce-in border border-white/20 backdrop-blur-sm"
         title="Chat Bot WhatsApp Kasaku"
       >
         {/* WhatsApp SVG Icon */}
@@ -796,7 +607,6 @@ export default function DashboardClient({
         </span>
       </a>
 
-      <Footer />
     </main>
   );
 }

@@ -94,7 +94,7 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
             {/* Allocation per wallet */}
             <div className="space-y-3">
                 {wallets.map(w => (
-                    <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 card-fix">
+                    <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#1a1a1a] card-fix">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                                 <p className="font-semibold text-sm text-white dark:text-gray-200 truncate">{w.name}</p>
@@ -105,7 +105,7 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
                             type="number"
                             value={allocations[w.id] || ""}
                             onChange={(e) => setAllocations(prev => ({ ...prev, [w.id]: e.target.value }))}
-                            className="w-40 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            className="w-40 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-[#252525] dark:text-white"
                             placeholder="0"
                         />
                         <button onClick={() => handleDeleteWallet(w.id, w.name)}
@@ -115,7 +115,7 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
             </div>
 
             {/* Unallocated */}
-            <div className="flex justify-between items-center p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-sm">
+            <div className="flex justify-between items-center p-3 rounded-xl border border-dashed border-gray-200 dark:border-white/10 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Saldo Utama (belum dialokasi)</span>
                 <span className="font-bold" style={{ color: unallocated >= 0 ? "#458B73" : "#F26076" }}>{currency(unallocated)}</span>
             </div>
@@ -125,11 +125,11 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
 
             {/* Add new wallet */}
             {showAdd ? (
-                <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 space-y-2 bg-gray-50 dark:bg-gray-800/50">
+                <div className="p-3 rounded-xl border border-gray-200 dark:border-white/10 space-y-2 bg-gray-50 dark:bg-[#1a1a1a]">
                     <input type="text" placeholder="Nama wallet" value={newName} onChange={(e) => setNewName(e.target.value)}
-                        className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white" />
+                        className="w-full border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-[#1a1a1a] dark:text-white" />
                     <select value={newType} onChange={(e) => setNewType(e.target.value as "CASH" | "BANK" | "EWALLET")}
-                        className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white">
+                        className="w-full border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm dark:bg-[#1a1a1a] dark:text-white">
                         <option value="CASH">Cash / Tunai</option>
                         <option value="BANK">Rekening Bank</option>
                         <option value="EWALLET">E-Wallet</option>
@@ -144,7 +144,8 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
             ) : (
                 <button onClick={() => setShowAdd(true)}
                     className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer transition-colors">+ Tambah Wallet Baru</button>
-            )}
+            )
+            }
 
             {/* Save */}
             <button onClick={handleSave} disabled={loading}
@@ -152,6 +153,6 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
                 style={{ background: "linear-gradient(135deg, #458B73, #458B73dd)" }}>
                 {loading ? "Menyimpan..." : "Simpan Alokasi"}
             </button>
-        </div>
+        </div >
     );
 }

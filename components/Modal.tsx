@@ -23,15 +23,15 @@ export default function Modal({ isOpen, onClose, title, children }: Props) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-full max-w-lg bg-white dark:bg-gray-800 card-fix rounded-2xl shadow-xl max-h-[90vh] flex flex-col transition-colors">
-                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
-                    <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">{title}</h3>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F26076]/10 hover:text-[#F26076] text-gray-400 transition-colors">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="relative w-full max-w-lg bg-[#252525] rounded-3xl shadow-2xl border border-white/5 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between p-6 border-b border-white/5">
+                    <h3 className="font-bold text-lg text-white tracking-wide">{title}</h3>
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 text-neutral-400 hover:text-white transition-colors">
                         ✕
                     </button>
                 </div>
-                <div className="p-5 overflow-y-auto">
+                <div className="p-6 overflow-y-auto custom-scrollbar">
                     {children}
                 </div>
             </div>

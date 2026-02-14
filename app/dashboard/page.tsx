@@ -127,7 +127,7 @@ export default async function DashboardPage(props: {
     (_, i) => startYear + i
   );
 
-  const categoryNames = categories.map((c) => c.name);
+  const uniqueCategoryNames = Array.from(new Set(categories.map((c) => c.name)));
   const uncategorizedName = "Tanpa Kategori";
 
   const transactions = transactionsRaw.map((t) => ({
@@ -142,8 +142,8 @@ export default async function DashboardPage(props: {
 
   const hasUncategorized = transactions.some((t) => t.category === uncategorizedName);
   const categoriesForFilter = hasUncategorized
-    ? [...categoryNames, uncategorizedName]
-    : categoryNames;
+    ? [...uniqueCategoryNames, uncategorizedName]
+    : uniqueCategoryNames;
 
   const totalIncome = transactions
     .filter((t) => t.type === "INCOME")
@@ -158,17 +158,35 @@ export default async function DashboardPage(props: {
 
   const balance = (incomeAgg._sum.amount ?? 0) - (expenseAgg._sum.amount ?? 0);
 
-  const incomeByCategory = categoriesForFilter.map((cat) =>
-    transactions
-      .filter((t) => t.type === "INCOME" && t.category === cat)
-      .reduce((sum, t) => sum + t.amount, 0)
-  );
+  // Helper to aggregate top N categories + "Lainnya"
+  const aggregateChartData = (type: "INCOME" | "EXPENSE") => {
+    const data = uniqueCategoryNames.map(cat => {
+      const amount = transactions
+        .filter(t => t.type === type && t.category === cat)
+        .reduce((sum, t) => sum + t.amount, 0);
+      return { category: cat, amount };
+    }).filter(d => d.amount > 0);
 
-  const expenseByCategory = categoriesForFilter.map((cat) =>
-    transactions
-      .filter((t) => t.type === "EXPENSE" && t.category === cat)
-      .reduce((sum, t) => sum + t.amount, 0)
-  );
+    data.sort((a, b) => b.amount - a.amount);
+
+    if (data.length <= 4) {
+      return {
+        labels: data.map(d => d.category),
+        data: data.map(d => d.amount)
+      };
+    }
+
+    const top4 = data.slice(0, 4);
+    const others = data.slice(4).reduce((sum, d) => sum + d.amount, 0);
+
+    return {
+      labels: [...top4.map(d => d.category), "Lainnya"],
+      data: [...top4.map(d => d.amount), others]
+    };
+  };
+
+  const incomeChart = aggregateChartData("INCOME");
+  const expenseChart = aggregateChartData("EXPENSE");
 
   // Generate labels for the range (full date format)
   const labels = Array.from({ length: daysInRange }, (_, i) => {
@@ -234,8 +252,8 @@ export default async function DashboardPage(props: {
         labels,
         incomeLine,
         expenseLine,
-        incomeByCategory,
-        expenseByCategory,
+        incomePie: incomeChart,
+        expensePie: expenseChart,
       }}
       loans={loans}
       budgets={budgets.map(b => ({

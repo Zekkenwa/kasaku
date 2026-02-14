@@ -61,7 +61,7 @@ export default function GoalCreateForm({ onClose, initialData }: { onClose: () =
                     placeholder="Contoh: Liburan Bali"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-[#1a1a1a] dark:text-white"
                     required
                 />
             </div>
@@ -72,7 +72,7 @@ export default function GoalCreateForm({ onClose, initialData }: { onClose: () =
                     placeholder="5000000"
                     value={targetAmount}
                     onChange={(e) => setTargetAmount(e.target.value)}
-                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-[#1a1a1a] dark:text-white"
                     required
                     min="1"
                 />
@@ -84,7 +84,7 @@ export default function GoalCreateForm({ onClose, initialData }: { onClose: () =
                     placeholder="0"
                     value={currentAmount}
                     onChange={(e) => setCurrentAmount(e.target.value)}
-                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-[#1a1a1a] dark:text-white"
                     min="0"
                 />
             </div>
@@ -107,7 +107,7 @@ export default function GoalCreateForm({ onClose, initialData }: { onClose: () =
                         value={deadline}
                         onChange={(e) => setDeadline(e.target.value)}
                         min={minDate}
-                        className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        className="w-full border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] focus:border-transparent dark:bg-[#1a1a1a] dark:text-white"
                         style={{ colorScheme: "light dark" }}
                         required={hasDeadline}
                     />

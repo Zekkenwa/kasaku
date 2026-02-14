@@ -105,62 +105,73 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <main className="min-h-screen flex items-center justify-center relative overflow-hidden transition-colors duration-500"
-            style={{
-                background: "var(--auth-gradient)",
-            }}
-        >
-            <div className="absolute top-[-120px] left-[-120px] w-80 h-80 rounded-full opacity-30 blur-3xl" style={{ background: "var(--brand-yellow)" }} />
-            <div className="absolute bottom-[-100px] right-[-100px] w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "var(--brand-red)" }} />
+        <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#1E1E1E]">
+            {/* Background Decoration (Stitch Style) */}
+            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-brand-green/20 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-brand-red/10 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="relative z-10 w-full max-w-md mx-4">
-                <div className="backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 rounded-3xl shadow-2xl p-10 border border-white/50 dark:border-gray-700 transition-colors">
+            <div className="relative z-10 w-full max-w-md mx-4 animate-fade-in-up">
+                <div className="bg-[#252525]/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-10 border border-white/5 relative overflow-hidden">
+                    {/* Top Glow inside card */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-brand-green/50 to-transparent opacity-50" />
 
-                    <div className="text-center mb-6">
-                        <h1 className="text-2xl font-bold text-white">Lupa Password?</h1>
-                        <p className="text-gray-400 text-sm mt-1">
-                            {step === "phone" ? "Masukkan nomor WhatsApp Anda" : "Verifikasi OTP & Buat Password Baru"}
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10 shadow-inner">
+                            <span className="text-4xl">🔐</span>
+                        </div>
+                        <h1 className="text-2xl font-bold text-white mb-2">Lupa Password?</h1>
+                        <p className="text-neutral-400 text-sm">
+                            {step === "phone" ? "Jangan panik. Masukkan nomor WhatsAppmu untuk reset." : "Buat password baru yang kuat."}
                         </p>
                     </div>
 
                     {step === "phone" ? (
                         <form onSubmit={handleRequestOtp} className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Nomor WhatsApp</label>
+                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Nomor WhatsApp</label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-gray-400 text-sm">📞</span>
+                                    <span className="absolute left-4 top-3.5 text-neutral-500">📱</span>
                                     <input
                                         required
                                         type="text"
                                         value={phone}
                                         onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
-                                        className="w-full pl-9 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#458B73] focus:outline-none"
-                                        placeholder="628123456789"
+                                        className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green/50 transition-all"
+                                        placeholder="62812..."
                                     />
                                 </div>
                             </div>
 
-                            {error && <p className="text-sm text-red-500 text-center bg-red-50 p-2 rounded-lg">{error}</p>}
+                            {error && <div className="text-xs text-brand-red bg-brand-red/10 p-3 rounded-lg border border-brand-red/20 text-center">⚠️ {error}</div>}
 
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-                                style={{ background: "linear-gradient(135deg, #458B73 0%, #458B73 100%)" }}
+                                className="w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg shadow-brand-green/20 hover:shadow-brand-green/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-gradient-to-r from-brand-green to-teal-500"
                             >
-                                {loading ? "Memproses..." : "Kirim OTP Reset"}
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Memproses...</span>
+                                    </>
+                                ) : (
+                                    "Kirim OTP Reset →"
+                                )}
                             </button>
 
-                            <div className="text-center mt-4">
-                                <Link href="/login" className="text-sm font-medium text-gray-400 hover:text-black">
+                            <div className="text-center mt-6">
+                                <Link href="/login" className="text-xs font-bold text-neutral-500 hover:text-white transition-colors uppercase tracking-widest">
                                     ← Kembali ke Login
                                 </Link>
                             </div>
                         </form>
                     ) : (
-                        <form onSubmit={handleResetPassword} className="space-y-4">
+                        <form onSubmit={handleResetPassword} className="space-y-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Kode OTP</label>
+                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-4 text-center">Kode OTP</label>
                                 <input
                                     required
                                     autoFocus
@@ -168,82 +179,94 @@ export default function ForgotPasswordPage() {
                                     maxLength={6}
                                     value={otp}
                                     onChange={e => setOtp(e.target.value)}
-                                    className="w-full text-center text-xl font-bold tracking-[0.5em] py-3 border border-gray-200 rounded-xl focus:border-[#458B73] focus:outline-none"
+                                    className="w-full text-center text-2xl font-bold tracking-[0.5em] py-4 border border-white/10 rounded-xl bg-[#1a1a1a] text-white focus:border-brand-green/50 focus:ring-2 focus:ring-brand-green/20 focus:outline-none transition-all placeholder-neutral-700"
                                     placeholder="XXXXXX"
                                 />
-                                <div className="flex justify-between items-center mt-1">
-                                    <p className="text-xs text-gray-400">Dikirim ke {phone}</p>
+                                <div className="flex justify-between items-center mt-3 px-1">
+                                    <p className="text-[10px] text-neutral-500">Dikirim ke <span className="text-white">{phone}</span></p>
                                     <button
                                         type="button"
                                         onClick={handleResendOtp}
                                         disabled={isActive || loading}
-                                        className="text-xs text-[#458B73] hover:underline disabled:text-gray-400 disabled:no-underline"
+                                        className="text-[10px] text-brand-green font-bold hover:underline disabled:text-neutral-600 disabled:no-underline"
                                     >
-                                        {isActive ? `Kirim Ulang (${formatTime(seconds)})` : "Kirim Ulang OTP"}
+                                        {isActive ? `Kirim Ulang (${formatTime(seconds)})` : "Kirim Ulang"}
                                     </button>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Password Baru</label>
-                                <div className="relative">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Password Baru</label>
+                                    <div className="relative">
+                                        <input
+                                            required
+                                            type={showPassword ? "text" : "password"}
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green/50 transition-all"
+                                            placeholder="••••••"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-3 text-neutral-500 hover:text-white focus:outline-none"
+                                        >
+                                            {showPassword ? "🙈" : "👁️"}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Konfirmasi</label>
                                     <input
                                         required
-                                        type={showPassword ? "text" : "password"}
-                                        value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#458B73] focus:outline-none"
-                                        placeholder="••••••••"
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={e => setConfirmPassword(e.target.value)}
+                                        className={`w-full px-4 py-3 rounded-xl bg-[#1a1a1a] border text-white placeholder-neutral-600 focus:outline-none focus:ring-2 transition-all ${password && confirmPassword && password !== confirmPassword ? "border-red-500 focus:ring-red-500/50" : "border-white/5 focus:ring-brand-green/50"}`}
+                                        placeholder="••••••"
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
-                                    >
-                                        {showPassword ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                                <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
-                                                <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" />
-                                            </svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                                <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" />
-                                                <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.244 4.243z" />
-                                                <path d="M6.75 12c0-.619.107-1.215.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.702 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" />
-                                            </svg>
-                                        )}
-                                    </button>
                                 </div>
                             </div>
+                            {password && confirmPassword && password !== confirmPassword && (
+                                <p className="text-xs text-brand-red mt-0 animate-pulse text-center">⚠️ Password tidak cocok</p>
+                            )}
 
-                            {error && <p className="text-sm text-red-500 text-center bg-red-50 p-2 rounded-lg">{error}</p>}
-                            {success && <p className="text-sm text-green-600 text-center bg-green-50 p-2 rounded-lg">{success}</p>}
+
+                            {error && <div className="text-xs text-brand-red bg-brand-red/10 p-3 rounded-lg border border-brand-red/20 text-center">⚠️ {error}</div>}
+                            {success && <div className="text-xs text-brand-green bg-brand-green/10 p-3 rounded-lg border border-brand-green/20 text-center">✅ {success}</div>}
 
                             <button
                                 type="submit"
                                 disabled={loading || !!success}
-                                className="w-full py-3 rounded-xl text-white font-bold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-                                style={{ background: "linear-gradient(135deg, #458B73 0%, #458B73 100%)" }}
+                                className="w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg shadow-brand-green/20 hover:shadow-brand-green/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 bg-gradient-to-r from-brand-green to-teal-500"
                             >
-                                {loading ? "Memproses..." : "Reset Password"}
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Menyimpan...</span>
+                                    </>
+                                ) : (
+                                    "Reset Password"
+                                )}
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => setStep("phone")}
-                                className="w-full text-sm text-gray-400 hover:text-black"
+                                className="w-full text-xs text-neutral-500 hover:text-white transition-colors"
                             >
                                 ← Ganti Nomor
                             </button>
 
-                            <div className="text-center mt-4 space-y-2">
-                                <Link href="/login" className="block text-sm font-medium text-gray-400 hover:text-black">
-                                    ← Kembali ke Login
-                                </Link>
+                            <div className="text-center mt-4 border-t border-white/5 pt-4">
                                 <button
                                     type="button"
                                     onClick={() => alert("Silakan hubungi developer di email: chalsinglalim@gmail.com dengan subjek 'Bantuan Login Kasaku' dan sertakan bukti kepemilikan akun.")}
-                                    className="block w-full text-xs text-[#F26076] hover:underline"
+                                    className="text-[10px] text-brand-red hover:text-brand-orange hover:underline transition-colors"
                                 >
                                     Tidak bisa akses nomor telepon?
                                 </button>

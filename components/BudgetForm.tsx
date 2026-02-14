@@ -74,53 +74,56 @@ export default function BudgetForm({ categories, initialData, onClose }: Props) 
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Kategori</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Kategori</label>
                 <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full border rounded-lg p-2.5 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none"
                     disabled={!!initialData?.id} // Disable changing category on edit usually safer
                 >
                     {expenseCategories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id} className="bg-[#252525]">{c.name}</option>
                     ))}
                 </select>
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Limit Budget</label>
-                <input
-                    type="number"
-                    value={limitAmount}
-                    onChange={(e) => setLimitAmount(e.target.value)}
-                    className="w-full border rounded-lg p-2.5 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    placeholder="Contoh: 1000000"
-                    required
-                    min="1"
-                />
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Limit Budget</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-3 text-neutral-500 text-sm">Rp</span>
+                    <input
+                        type="number"
+                        value={limitAmount}
+                        onChange={(e) => setLimitAmount(e.target.value)}
+                        className="w-full border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
+                        placeholder="Contoh: 1000000"
+                        required
+                        min="1"
+                    />
+                </div>
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Periode</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Periode</label>
                 <select
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
-                    className="w-full border rounded-lg p-2.5 text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none"
                 >
-                    <option value="MONTHLY">Bulanan</option>
-                    <option value="WEEKLY">Mingguan</option>
+                    <option value="MONTHLY" className="bg-[#252525]">Bulanan</option>
+                    <option value="WEEKLY" className="bg-[#252525]">Mingguan</option>
                 </select>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-3 pt-4 border-t border-white/5">
                 {initialData?.id && (
-                    <button type="button" onClick={handleDelete} disabled={loading} className="px-4 py-2.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/50">
+                    <button type="button" onClick={handleDelete} disabled={loading} className="px-5 py-2.5 text-[#F26076] bg-[#F26076]/10 rounded-xl text-sm font-bold hover:bg-[#F26076]/20 transition-colors">
                         Hapus
                     </button>
                 )}
-                <button type="submit" disabled={loading} className="flex-1 bg-black dark:bg-[#458B73] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-[#3aa381] disabled:opacity-50 transition-colors">
+                <button type="submit" disabled={loading} className="flex-1 bg-[#458B73] text-white py-2.5 rounded-xl text-sm font-bold hover:bg-[#3aa381] disabled:opacity-50 transition-all shadow-lg hover:shadow-[#458B73]/20">
                     {loading ? "Menyimpan..." : "Simpan Budget"}
                 </button>
             </div>

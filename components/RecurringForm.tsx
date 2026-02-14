@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 // Reuse similar props logic as TransactionForm
@@ -25,7 +25,10 @@ export default function RecurringForm({ onClose, categories, wallets, initialDat
     const [loading, setLoading] = useState(false);
 
     // Filter categories by type
-    const filteredCategories = categories.filter(c => c.type === type);
+    const filteredCategories = useMemo(() =>
+        categories.filter(c => c.type === type),
+        [categories, type]
+    );
 
     useEffect(() => {
         // Auto-select first category if current is invalid
@@ -35,7 +38,7 @@ export default function RecurringForm({ onClose, categories, wallets, initialDat
             if (filteredCategories.length > 0) setCategoryId(filteredCategories[0].id);
             else setCategoryId("");
         }
-    }, [type, categories, categoryId, filteredCategories]);
+    }, [type, filteredCategories, categoryId]);
 
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -76,58 +79,73 @@ export default function RecurringForm({ onClose, categories, wallets, initialDat
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
             {/* Name */}
             <div>
-                <label className="block text-sm font-medium dark:text-gray-200">Nama Rutinitas</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Nama Rutinitas</label>
                 <input
                     type="text"
                     required
                     placeholder="Contoh: Gaji Bulanan, Netflix"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
                 />
             </div>
 
             {/* Type */}
-            <div className="flex gap-4">
-                <label className="flex items-center text-gray-900 dark:text-gray-200">
-                    <input type="radio" value="EXPENSE" checked={type === "EXPENSE"} onChange={(e) => setType(e.target.value)} className="mr-2" />
-                    Pengeluaran
+            <div className="grid grid-cols-2 gap-3">
+                <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "EXPENSE" ? "bg-[#F26076]/20 border-[#F26076] text-[#F26076]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
+                    <input
+                        type="radio"
+                        value="EXPENSE"
+                        checked={type === "EXPENSE"}
+                        onChange={(e) => setType(e.target.value)}
+                        className="hidden"
+                    />
+                    <span className="text-sm font-bold">Pengeluaran</span>
                 </label>
-                <label className="flex items-center text-gray-900 dark:text-gray-200">
-                    <input type="radio" value="INCOME" checked={type === "INCOME"} onChange={(e) => setType(e.target.value)} className="mr-2" />
-                    Pemasukan
+                <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "INCOME" ? "bg-[#458B73]/20 border-[#458B73] text-[#458B73]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
+                    <input
+                        type="radio"
+                        value="INCOME"
+                        checked={type === "INCOME"}
+                        onChange={(e) => setType(e.target.value)}
+                        className="hidden"
+                    />
+                    <span className="text-sm font-bold">Pemasukan</span>
                 </label>
             </div>
 
             {/* Amount */}
             <div>
-                <label className="block text-sm font-medium dark:text-gray-200">Jumlah</label>
-                <input
-                    type="number"
-                    required
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Jumlah</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-3 text-neutral-500 text-sm">Rp</span>
+                    <input
+                        type="number"
+                        required
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
+                    />
+                </div>
             </div>
 
             {/* Category & Wallet */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium dark:text-gray-200">Kategori</label>
-                    <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
-                        {filteredCategories.length === 0 && <option value="">-</option>}
-                        {filteredCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Kategori</label>
+                    <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none" required>
+                        {filteredCategories.length === 0 && <option value="" className="bg-[#252525]">-</option>}
+                        {filteredCategories.map(c => <option key={c.id} value={c.id} className="bg-[#252525]">{c.name}</option>)}
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium dark:text-gray-200">Wallet</label>
-                    <select value={walletId} onChange={(e) => setWalletId(e.target.value)} className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
-                        {wallets.length === 0 && <option value="">-</option>}
-                        {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Wallet</label>
+                    <select value={walletId} onChange={(e) => setWalletId(e.target.value)} className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none" required>
+                        {wallets.length === 0 && <option value="" className="bg-[#252525]">-</option>}
+                        {wallets.map(w => <option key={w.id} value={w.id} className="bg-[#252525]">{w.name}</option>)}
                     </select>
                 </div>
             </div>
@@ -135,38 +153,41 @@ export default function RecurringForm({ onClose, categories, wallets, initialDat
             {/* Frequency */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium dark:text-gray-200">Frekuensi</label>
-                    <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                        <option value="DAILY">Harian</option>
-                        <option value="WEEKLY">Mingguan</option>
-                        <option value="MONTHLY">Bulanan</option>
+                    <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Frekuensi</label>
+                    <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none">
+                        <option value="DAILY" className="bg-[#252525]">Harian</option>
+                        <option value="WEEKLY" className="bg-[#252525]">Mingguan</option>
+                        <option value="MONTHLY" className="bg-[#252525]">Bulanan</option>
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium dark:text-gray-200">Interval (Setiap X)</label>
-                    <input
-                        type="number"
-                        min="1"
-                        value={interval}
-                        onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setInterval(isNaN(val) || val < 1 ? 1 : val);
-                        }}
-                        className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
+                    <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Interval</label>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            min="1"
+                            value={interval}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                setInterval(isNaN(val) || val < 1 ? 1 : val);
+                            }}
+                            className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]"
+                        />
+                        <span className="absolute right-4 top-3 text-neutral-500 text-xs text-right">x</span>
+                    </div>
                 </div>
             </div>
 
             {/* Start Date */}
             <div>
-                <label className="block text-sm font-medium dark:text-gray-200">Mulai Tanggal</label>
-                <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border rounded p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" style={{ colorScheme: "light dark" }} />
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Mulai Tanggal</label>
+                <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]" style={{ colorScheme: "dark" }} />
             </div>
 
             <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2 bg-black dark:bg-[#458B73] text-white rounded hover:bg-gray-800 dark:hover:bg-[#3aa381] disabled:opacity-50 transition-colors"
+                className="w-full py-3 bg-[#458B73] text-white rounded-xl hover:bg-[#3aa381] disabled:opacity-50 transition-all font-bold shadow-lg hover:shadow-[#458B73]/20"
             >
                 {loading ? "Menyimpan..." : "Simpan Rutinitas"}
             </button>

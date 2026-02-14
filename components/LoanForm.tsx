@@ -60,46 +60,46 @@ export default function LoanForm({ initialData, onClose, defaultType }: Props) {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
             {/* Type selector */}
             <div>
-                <label className="block text-sm font-medium text-white dark:text-gray-300">Tipe</label>
-                <div className="flex gap-3 mt-1">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-gray-200">
-                        <input type="radio" value="PAYABLE" checked={type === "PAYABLE"} onChange={(e) => setType(e.target.value as "PAYABLE" | "RECEIVABLE")} className="accent-[#F26076]" />
-                        <span className="text-sm">Hutang</span>
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Tipe</label>
+                <div className="grid grid-cols-2 gap-3">
+                    <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "PAYABLE" ? "bg-[#F26076]/20 border-[#F26076] text-[#F26076]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
+                        <input type="radio" value="PAYABLE" checked={type === "PAYABLE"} onChange={(e) => setType(e.target.value as "PAYABLE" | "RECEIVABLE")} className="hidden" />
+                        <span className="text-sm font-bold">Hutang</span>
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-gray-200">
-                        <input type="radio" value="RECEIVABLE" checked={type === "RECEIVABLE"} onChange={(e) => setType(e.target.value as "PAYABLE" | "RECEIVABLE")} className="accent-[#458B73]" />
-                        <span className="text-sm">Piutang</span>
+                    <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "RECEIVABLE" ? "bg-[#458B73]/20 border-[#458B73] text-[#458B73]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
+                        <input type="radio" value="RECEIVABLE" checked={type === "RECEIVABLE"} onChange={(e) => setType(e.target.value as "PAYABLE" | "RECEIVABLE")} className="hidden" />
+                        <span className="text-sm font-bold">Piutang</span>
                     </label>
                 </div>
             </div>
 
             {/* New/Old toggle — only for creation */}
             {!initialData && (
-                <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                    <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">
+                <div className="p-4 rounded-xl border border-white/10 bg-black/20">
+                    <label className="block text-xs font-bold text-neutral-400 mb-3 uppercase tracking-wide">
                         {type === "PAYABLE" ? "Jenis Hutang" : "Jenis Piutang"}
                     </label>
-                    <div className="flex gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer dark:text-gray-200">
-                            <input type="radio" checked={isNew} onChange={() => setIsNew(true)} className="accent-[#458B73]" />
-                            <span className="text-sm">Baru</span>
+                    <div className="flex gap-4 mb-3">
+                        <label className="flex items-center gap-2 cursor-pointer text-white">
+                            <input type="radio" checked={isNew} onChange={() => setIsNew(true)} className="accent-[#458B73] w-4 h-4" />
+                            <span className="text-sm font-medium">Baru (Catat Saldo)</span>
                         </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer dark:text-gray-200">
-                            <input type="radio" checked={!isNew} onChange={() => setIsNew(false)} className="accent-[#458B73]" />
-                            <span className="text-sm">Lama</span>
+                        <label className="flex items-center gap-2 cursor-pointer text-white">
+                            <input type="radio" checked={!isNew} onChange={() => setIsNew(false)} className="accent-[#458B73] w-4 h-4" />
+                            <span className="text-sm font-medium">Lama (Hanya Status)</span>
                         </label>
                     </div>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">
+                    <p className="text-xs text-neutral-500 leading-relaxed border-t border-white/5 pt-2">
                         {isNew
                             ? type === "PAYABLE"
-                                ? "💡 Hutang baru: saldo Anda akan bertambah karena Anda menerima uang pinjaman."
-                                : "💡 Piutang baru: saldo Anda akan berkurang karena Anda meminjamkan uang."
+                                ? "💡 Hutang baru: saldo Anda akan bertambah."
+                                : "💡 Piutang baru: saldo Anda akan berkurang."
                             : type === "PAYABLE"
-                                ? "💡 Hutang lama: hanya dicatat, tidak memengaruhi saldo saat ini."
-                                : "💡 Piutang lama: hanya dicatat, tidak memengaruhi saldo saat ini."
+                                ? "💡 Hutang lama: hanya dicatat, tidak memengaruhi saldo."
+                                : "💡 Piutang lama: hanya dicatat, tidak memengaruhi saldo."
                         }
                     </p>
                 </div>
@@ -107,36 +107,39 @@ export default function LoanForm({ initialData, onClose, defaultType }: Props) {
 
             {/* Name */}
             <div>
-                <label className="block text-sm font-medium text-white dark:text-gray-300">{type === "RECEIVABLE" ? "Nama Piutang" : "Nama Hutang"}</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">{type === "RECEIVABLE" ? "Nama Pemenjam" : "Nama Pemberi Pinjaman"}</label>
                 <input
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
-                    placeholder={type === "RECEIVABLE" ? "Contoh: Pinjaman ke Budi" : "Contoh: Cicilan Motor"}
+                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
+                    placeholder={type === "RECEIVABLE" ? "Contoh: Budi" : "Contoh: Bank BCA"}
                 />
             </div>
 
             {/* Amount */}
             <div>
-                <label className="block text-sm font-medium text-white dark:text-gray-300">Jumlah Total</label>
-                <input
-                    type="number"
-                    required
-                    min="1"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
-                />
+                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Jumlah Total</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-3 text-neutral-500 text-sm">Rp</span>
+                    <input
+                        type="number"
+                        required
+                        min="1"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
+                    />
+                </div>
             </div>
 
             {/* Due Date */}
             <div>
-                <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-white dark:text-gray-300">Jatuh Tempo</label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" checked={hasDueDate} onChange={(e) => setHasDueDate(e.target.checked)} className="accent-[#458B73]" />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Ada tenggat</span>
+                <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wide">Jatuh Tempo</label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={hasDueDate} onChange={(e) => setHasDueDate(e.target.checked)} className="accent-[#458B73] w-4 h-4" />
+                        <span className="text-xs text-neutral-400">Ada tenggat</span>
                     </label>
                 </div>
                 {hasDueDate ? (
@@ -145,42 +148,43 @@ export default function LoanForm({ initialData, onClose, defaultType }: Props) {
                         value={dueDate}
                         min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
                         onChange={(e) => setDueDate(e.target.value)}
-                        className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
-                        style={{ colorScheme: "light dark" }}
+                        className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]"
+                        style={{ colorScheme: "dark" }}
                     />
                 ) : (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-1">Tanpa tenggat waktu</p>
+                    <div className="w-full border border-dashed border-white/10 rounded-xl px-4 py-3 text-sm bg-black/10 text-neutral-500 italic text-center">
+                        Tanpa tenggat waktu
+                    </div>
                 )}
             </div>
 
             {/* Status (edit only) */}
             {initialData && (
                 <div>
-                    <label className="block text-sm font-medium text-white dark:text-gray-300">Status</label>
+                    <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Status</label>
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
+                        className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none"
                     >
-                        <option value="ONGOING">Belum Lunas</option>
-                        <option value="PAID">Lunas</option>
+                        <option value="ONGOING" className="bg-[#252525]">Belum Lunas</option>
+                        <option value="PAID" className="bg-[#252525]">Lunas</option>
                     </select>
                 </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                 <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl cursor-pointer transition-colors"
+                    className="px-6 py-2.5 text-neutral-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors text-sm font-medium"
                 >
                     Batal
                 </button>
                 <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer disabled:opacity-50"
-                    style={{ background: "#458B73" }}
+                    className="px-8 py-2.5 bg-[#458B73] text-white rounded-xl hover:bg-[#3aa381] disabled:opacity-50 transition-all shadow-lg hover:shadow-[#458B73]/20 text-sm font-bold"
                 >
                     {loading ? "Menyimpan..." : "Simpan"}
                 </button>

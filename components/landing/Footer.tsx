@@ -8,10 +8,14 @@ export default function Footer() {
                     <div className="text-center md:text-left">
                         <h2 className="text-3xl font-bold mb-2">Zekkenwa/Kasaku</h2>
                         <p className="text-neutral-400 max-w-sm">
-                            Open source personal finance manager. Built with ❤️ for the community.
+                            Open source personal finance manager. <br />
+                            Built with ❤️ for the community.
                         </p>
                     </div>
                     <div className="flex gap-6">
+                        <Link href="https://trakteer.id/kasaku" target="_blank" className="px-6 py-2 rounded-lg bg-pink-500/10 text-pink-500 hover:bg-pink-500/20 transition-colors font-semibold flex items-center gap-2">
+                            <span>🥟</span> Donate Me
+                        </Link>
                         <Link href="/login" className="px-6 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
                             Masuk
                         </Link>

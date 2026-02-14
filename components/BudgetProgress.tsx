@@ -29,28 +29,29 @@ export default function BudgetProgress({ categoryName, limit, spent, onEdit }: P
 
     return (
         <div
-            className={`p-4 rounded-xl border hover:shadow-md cursor-pointer transition-all bg-white dark:bg-gray-800 card-fix group relative ${isOver ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]" : "border-gray-200 dark:border-gray-700 shadow-sm"}`}
+            className={`p-4 rounded-xl border hover:shadow-md cursor-pointer transition-all bg-black/20 hover:bg-white/5 group relative ${isOver ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]" : "border-white/5 hover:border-white/20"}`}
             onClick={onEdit}
         >
             <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold text-sm text-gray-900 dark:text-gray-200">{categoryName}</span>
-                <span className={`text-xs font-bold ${isOver ? "text-red-500" : "text-gray-500"}`}>
+                <span className="font-semibold text-sm text-white group-hover:text-[#458B73] transition-colors">{categoryName}</span>
+                <span className={`text-xs font-bold ${isOver ? "text-[#F26076]" : "text-neutral-500"}`}>
                     {isOver ? "Overbudget!" : `${percentage}% Tersisa`}
                 </span>
             </div>
 
             {/* Depleting budget bar */}
-            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 mb-2 overflow-hidden">
+            <div className="w-full bg-white/5 rounded-full h-2 mb-2 overflow-hidden">
                 <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
                         width: `${percentage}%`,
                         backgroundColor: color,
+                        boxShadow: `0 0 10px ${color}`
                     }}
                 />
             </div>
 
-            <div className="flex justify-between text-xs text-gray-700 dark:text-gray-400">
+            <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
                 <span>Sisa: {formatCurrency(remaining)}</span>
                 <span>Limit: {formatCurrency(limit)}</span>
             </div>

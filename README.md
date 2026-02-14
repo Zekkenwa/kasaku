@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD033 MD041 MD036 -->
 <div align="center">
   <img src="public/assets/banner.png" alt="Kasaku Banner" width="100%" />
   
@@ -42,7 +43,7 @@ Built with modern web technologies, Kasaku ensures your data is secure, synchron
 - **Authentication**: Secure OTP login via WhatsApp.
 - **Real-time Sync**: Data entered via bot appears instantly on the dashboard.
 
-## � Gallery
+## Gallery
 
 <div align="center">
   <h3>Web Dashboard</h3>
@@ -51,14 +52,13 @@ Built with modern web technologies, Kasaku ensures your data is secure, synchron
 
 <div align="center">
   <h3>Mobile & Features</h3>
-  <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">
-    <img src="public/assets/login page.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/saldo.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/riwayat cashflow.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/piechart income spending.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/chart analisis.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/scheduled spending_income.png" width="300" style="border-radius: 10px;" />
-    <img src="public/assets/target tabungan.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/login page.png" alt="Login Page" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/saldo.png" alt="Saldo Dashboard" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/riwayat cashflow.png" alt="Riwayat Cashflow" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/piechart income spending.png" alt="Income Expense Chart" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/chart analisis.png" alt="Chart Analisis" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/scheduled spending_income.png" alt="Scheduled Transactions" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/target tabungan.png" alt="Target Tabungan" width="300" style="border-radius: 10px;" />
   </div>
 </div>
 

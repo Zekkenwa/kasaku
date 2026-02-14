@@ -2,18 +2,26 @@ import Link from "next/link";
 
 export default function DonationPage() {
     return (
-        <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 transition-colors duration-300">
-            <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="h-32 bg-gradient-to-r from-[#458B73] to-[#34d399] relative">
-                    <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800 font-extrabold text-3xl">
-                        ☕
+        <main className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Background Accents */}
+            <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-[#458B73]/10 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-[#F26076]/10 rounded-full blur-[100px] pointer-events-none" />
+
+            <div className="max-w-md w-full bg-[#252525] rounded-3xl shadow-2xl border border-white/5 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
+                {/* Header Icon */}
+                <div className="pt-12 pb-6 flex justify-center relative">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-white/10 blur-xl rounded-full" />
+                        <div className="w-24 h-24 bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] rounded-full flex items-center justify-center shadow-lg border border-white/5 relative z-10">
+                            <span className="text-4xl">☕</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="pt-12 pb-8 px-8 text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Dukung Kasaku</h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 leading-relaxed">
-                        Kasaku dikembangkan sebagai proyek open source. Jika aplikasi ini membantu keuanganmu, kamu bisa mentraktir kami kopi untuk semangat ngoding fitur baru! 🚀
+                <div className="px-8 pb-10 text-center">
+                    <h1 className="text-2xl font-bold text-white mb-3">Dukung Kasaku</h1>
+                    <p className="text-neutral-400 text-sm mb-8 leading-relaxed">
+                        Kasaku dikembangkan sebagai proyek <span className="text-white font-medium">open source</span>. Jika aplikasi ini membantu keuanganmu, kamu bisa mentraktir kami kopi untuk semangat ngoding fitur baru! 🚀
                     </p>
 
                     <div className="space-y-4">
@@ -21,37 +29,43 @@ export default function DonationPage() {
                             href="https://tako.id/Zekkenwa"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block w-full py-3.5 px-6 bg-[#40C4FF] hover:bg-[#29b6f6] text-white font-bold rounded-xl shadow-md transform hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                            className="group block w-full py-4 px-6 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-cyan-500/20 transform hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
                         >
-                            <span>🎁</span> Traktir di Tako (Zekkenwa)
+                            <span className="text-xl">🎁</span>
+                            <span>Traktir di Tako</span>
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                         </a>
 
                         <a
                             href="https://trakteer.id/zekkenwa"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block w-full py-3.5 px-6 bg-[#CD0A28] hover:bg-[#b00922] text-white font-bold rounded-xl shadow-md transform hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                            className="group block w-full py-4 px-6 bg-gradient-to-r from-red-500 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-500/20 transform hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
                         >
-                            <span>🧧</span> Traktir di Trakteer (Zekkenwa)
+                            <span className="text-xl">🧧</span>
+                            <span>Traktir di Trakteer</span>
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                         </a>
 
-                        <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-4">
-                            <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                            <span>atau scan QR (jika ada)</span>
-                            <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
+                        <div className="flex items-center gap-3 text-xs text-neutral-600 my-6">
+                            <div className="h-px bg-white/5 flex-1"></div>
+                            <span className="uppercase tracking-widest font-semibold">Atau</span>
+                            <div className="h-px bg-white/5 flex-1"></div>
                         </div>
 
                         <Link
                             href="/dashboard"
-                            className="block w-full py-3 px-6 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium rounded-xl transition-colors"
+                            className="block w-full py-3 px-6 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white font-medium rounded-xl transition-all border border-transparent hover:border-white/5"
                         >
                             Kembali ke Dashboard
                         </Link>
                     </div>
                 </div>
 
-                <div className="bg-gray-50 dark:bg-gray-700/30 py-4 px-8 text-center text-xs text-gray-400 dark:text-gray-500">
-                    Terima kasih atas dukunganmu! ❤️
+                <div className="bg-[#1f1f1f] py-4 px-8 text-center border-t border-white/5">
+                    <p className="text-xs text-neutral-500 flex items-center justify-center gap-2">
+                        Dibuat dengan <span className="text-[#F26076]">❤️</span> oleh Zekkenwa
+                    </p>
                 </div>
             </div>
         </main>

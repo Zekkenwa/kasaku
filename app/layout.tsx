@@ -1,7 +1,10 @@
-﻿import "./globals.css";
+﻿import { Manrope } from "next/font/google";
+import "./globals.css";
 import Providers from "./providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
+
+const manrope = Manrope({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Kasaku",
@@ -19,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body>
+      <body className={manrope.className}>
         <ThemeProvider>
           <Providers>{children}</Providers>
           <ThemeToggle />

@@ -11,9 +11,6 @@ type Props = {
     categories: string[];
     wallets: { id: string; name: string }[];
     initialData?: any;
-    // We might need to pass down categoryObjects or similar if CategoryManager needs it?
-    // Based on DashboardClient usage: <CategoryManager categories={categoryObjects} />
-    // TransactionForm needs: categories, categoryObjects, initialData, onClose, wallets
     categoryObjects: { id: string; name: string; type: string }[];
 };
 
@@ -24,29 +21,29 @@ export default function TransactionManagerModal({ isOpen, onClose, defaultTab = 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg bg-white dark:bg-gray-800 card-fix rounded-2xl shadow-xl max-h-[90vh] flex flex-col transition-colors">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="relative w-full max-w-lg bg-[#252525] rounded-3xl shadow-2xl border border-white/5 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header with Tabs */}
-                <div className="flex border-b border-gray-100 dark:border-gray-700">
+                <div className="flex border-b border-white/5 bg-black/20">
                     <button
-                        className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === "TRANSACTION" ? "text-[#458B73] border-b-2 border-[#458B73]" : "text-gray-900 hover:text-white dark:text-gray-400 dark:hover:text-gray-200"}`}
+                        className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === "TRANSACTION" ? "text-[#458B73] border-b-2 border-[#458B73] bg-white/5" : "text-neutral-400 hover:text-white hover:bg-white/5"}`}
                         onClick={() => setActiveTab("TRANSACTION")}
                     >
                         {initialData ? "Edit Transaksi" : "Transaksi Baru"}
                     </button>
                     <button
-                        className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === "CATEGORY" ? "text-[#458B73] border-b-2 border-[#458B73]" : "text-gray-900 hover:text-white dark:text-gray-400 dark:hover:text-gray-200"}`}
+                        className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === "CATEGORY" ? "text-[#458B73] border-b-2 border-[#458B73] bg-white/5" : "text-neutral-400 hover:text-white hover:bg-white/5"}`}
                         onClick={() => setActiveTab("CATEGORY")}
                     >
                         Kelola Kategori
                     </button>
-                    <button onClick={onClose} className="absolute right-4 top-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F26076]/10 hover:text-[#F26076] text-gray-400 transition-colors">
+                    <button onClick={onClose} className="absolute right-4 top-3.5 w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F26076]/20 text-neutral-500 hover:text-[#F26076] transition-colors">
                         ✕
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="p-5 overflow-y-auto">
+                <div className="p-6 overflow-y-auto custom-scrollbar">
                     {activeTab === "TRANSACTION" ? (
                         <TransactionForm
                             categoryObjects={categoryObjects}
