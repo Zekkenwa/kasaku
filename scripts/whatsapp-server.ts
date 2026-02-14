@@ -17,13 +17,12 @@ let sock: any = undefined;
 let latestQR: string | null = null;
 
 async function connectToWhatsApp() {
-    // const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
     const { state, saveCreds } = await usePrismaAuthState(prisma);
 
     // Create socket
     const socket = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Enable terminal QR for initial setup
+        printQRInTerminal: true,
         logger: pino({ level: 'silent' }) as any,
     });
 
@@ -39,7 +38,7 @@ async function connectToWhatsApp() {
         }
     });
 
-    socket.ev.on('connection.update', (update) => {
+    socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
@@ -49,23 +48,46 @@ async function connectToWhatsApp() {
         }
 
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+            const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
             console.error('Connection closed due to:', lastDisconnect?.error);
 
-            // Force reconnect for most errors during dev
-            if (shouldReconnect || (lastDisconnect?.error as Boom)?.message === 'Connection Failure') {
+            if (statusCode === DisconnectReason.loggedOut) {
+                console.log('Device logged out. Clearing session and restarting...');
+                await clearSession();
+                connectToWhatsApp();
+            } else if (shouldReconnect) {
                 console.log('Reconnecting...');
-                setTimeout(connectToWhatsApp, 3000); // Wait 3s before reconnecting
-            } else {
-                console.log('Not reconnecting. If this is unexpected, delete "auth_info_baileys" and try again.');
+                // Do NOT clear latestQR here, so user can still see it if it was just a blip?
+                // Actually, if we are reconnecting, the old QR might be invalid if the conn closed.
+                // But usually connection close doesn't invalidate QR immediately unless timed out.
+                // Safest to leave it or clear it if we want to force wait.
+                // If we clear it, the user sees "Connected" which is wrong.
+                // Let's NOT clear it here.
+                setTimeout(connectToWhatsApp, 3000);
             }
         }
         else if (connection === 'open') {
-            latestQR = null; // Clear QR once connected
+            latestQR = null;
             console.log('WhatsApp connection opened!');
         }
     });
 }
+
+async function clearSession() {
+    try {
+        console.log('Clearing WhatsApp session from database...');
+        await prisma.whatsAppAuth.deleteMany({});
+        sock = undefined;
+        latestQR = null;
+        console.log('Session cleared.');
+    } catch (e) {
+        console.error('Error clearing session:', e);
+    }
+}
+
+
 
 // Start WhatsApp Connection
 connectToWhatsApp();
@@ -81,6 +103,22 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
         res.writeHead(204, headers);
         res.end();
+        return;
+    }
+
+    if (req.url === '/logout' && req.method === 'POST') {
+        try {
+            if (sock) {
+                sock.end(undefined);
+            }
+            await clearSession();
+            connectToWhatsApp();
+            res.writeHead(200, { 'Content-Type': 'application/json', ...headers });
+            res.end(JSON.stringify({ success: true, message: 'Session cleared. Reconnecting...' }));
+        } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json', ...headers });
+            res.end(JSON.stringify({ error: err.message }));
+        }
         return;
     }
 
@@ -122,11 +160,34 @@ const server = http.createServer(async (req, res) => {
         });
     } else if (req.url === '/qr' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'text/html', ...headers });
+        const resetBtn = `
+            <div style="margin-top: 20px;">
+                <button onclick="logout()" style="padding: 10px 20px; background: #e11d48; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                    Reset Connection / Logout
+                </button>
+            </div>
+            <script>
+                async function logout() {
+                    if(confirm("Are you sure you want to reset the connection? This will log you out.")) {
+                        const res = await fetch('/logout', { method: 'POST' });
+                        const data = await res.json();
+                        if(data.success) {
+                            alert('Session reset. Page will reload in 5 seconds.');
+                            setTimeout(() => location.reload(), 5000);
+                        } else {
+                            alert('Failed: ' + data.error);
+                        }
+                    }
+                }
+            </script>
+        `;
+
         if (!latestQR) {
             res.end(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
                 <div style="text-align:center">
                     <h1>✅ WhatsApp Bot Connected</h1>
                     <p>No QR code needed — already authenticated!</p>
+                    ${resetBtn}
                 </div>
             </body></html>`);
         } else {
@@ -137,6 +198,7 @@ const server = http.createServer(async (req, res) => {
                     <p>Buka WhatsApp → Linked Devices → Link a Device</p>
                     <img src="${qrImageUrl}" alt="QR Code" style="margin:20px auto;border-radius:12px;background:#fff;padding:16px" />
                     <p style="color:#888;font-size:14px">QR code akan refresh otomatis setiap 20 detik</p>
+                    ${resetBtn}
                     <script>setTimeout(() => location.reload(), 20000);</script>
                 </div>
             </body></html>`);
@@ -149,6 +211,7 @@ const server = http.createServer(async (req, res) => {
         res.end();
     }
 });
+
 
 server.listen(PORT, () => {
     console.log(`WhatsApp Server running on http://localhost:${PORT}`);
