@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { signIn, useSession } from "next-auth/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useOtpCountdown } from "@/lib/hooks";
@@ -95,11 +96,11 @@ export default function LoginPage() {
         <div className="backdrop-blur-xl bg-white/90 dark:bg-gray-800/90 rounded-3xl shadow-2xl p-10 border border-white/50 dark:border-gray-700 transition-colors">
           {/* Logo / App Name */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 shadow-lg overflow-hidden"
+            <Link href="/" className="inline-flex items-center justify-center w-24 h-24 rounded-2xl mb-4 shadow-lg overflow-hidden transition-transform hover:scale-105"
               style={{ background: "var(--header-gradient)" }}
             >
-              <img src="/logo.png" alt="Kasaku Logo" className="w-16 h-16 object-contain" />
-            </div>
+              <img src="/logo.png" alt="Kasaku Logo" className="w-full h-full object-cover" />
+            </Link>
             <h1 className="text-3xl font-bold tracking-tight text-white"
             >
               Kasaku
