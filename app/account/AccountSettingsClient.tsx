@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import EmailChangeModal from "@/components/EmailChangeModal";
+import PhoneChangeModal from "@/components/PhoneChangeModal";
 
 type User = {
   name: string | null;
@@ -17,6 +18,7 @@ type User = {
   deleteScheduledAt: Date | null;
   hasPassword: boolean;
   isGoogleLinked: boolean;
+  googleEmail?: string;
 };
 
 export default function AccountSettingsClient({ user }: { user: User }) {
@@ -29,6 +31,7 @@ export default function AccountSettingsClient({ user }: { user: User }) {
   const [showPhone, setShowPhone] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isEmailChangeOpen, setIsEmailChangeOpen] = useState(false);
+  const [isPhoneChangeOpen, setIsPhoneChangeOpen] = useState(false);
   const [googleLinked, setGoogleLinked] = useState(user.isGoogleLinked);
   const [unlinkingGoogle, setUnlinkingGoogle] = useState(false);
 
@@ -168,7 +171,12 @@ export default function AccountSettingsClient({ user }: { user: User }) {
               <div>
                 <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Google Account</label>
                 <div className="flex justify-between items-center">
-                  <span className="text-neutral-200 font-medium">{googleLinked ? "Terhubung" : "Belum Terhubung"}</span>
+                  <div className="flex flex-col">
+                    <span className="text-neutral-200 font-medium">{googleLinked ? "Terhubung" : "Belum Terhubung"}</span>
+                    {googleLinked && user.googleEmail && (
+                      <span className="text-[10px] text-neutral-500 font-mono">{maskEmail(user.googleEmail)}</span>
+                    )}
+                  </div>
                   {googleLinked ? (
                     <button
                       onClick={handleUnlinkGoogle}
@@ -193,7 +201,12 @@ export default function AccountSettingsClient({ user }: { user: User }) {
                     {(showPhone ? user.phone : maskPhone(user.phone)) || "-"}
                   </span>
                   <div className="flex items-center gap-3">
-                    <button className="text-xs text-[#458B73] opacity-0 group-hover:opacity-100 transition-opacity hover:underline">Edit</button>
+                    <button
+                      onClick={() => setIsPhoneChangeOpen(true)}
+                      className="text-xs text-[#458B73] hover:underline"
+                    >
+                      Edit
+                    </button>
                     <button
                       onClick={() => setShowPhone(!showPhone)}
                       className="text-neutral-500 hover:text-white transition-colors"
@@ -295,6 +308,12 @@ export default function AccountSettingsClient({ user }: { user: User }) {
         onClose={() => setIsEmailChangeOpen(false)}
         currentEmail={user.email || ""}
         phone={user.phone}
+      />
+
+      <PhoneChangeModal
+        isOpen={isPhoneChangeOpen}
+        onClose={() => setIsPhoneChangeOpen(false)}
+        currentPhone={user.phone}
       />
     </div>
   );

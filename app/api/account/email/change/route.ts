@@ -12,14 +12,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { action, otp, newEmail } = await request.json();
+    const { action, otp, newEmail, phone } = await request.json();
     const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // 14-day limit check
-    if (user.lastEmailChangeAt) {
-        const daysSinceChange = (Date.now() - user.lastEmailChangeAt.getTime()) / (1000 * 60 * 60 * 24);
+    const u = user as any;
+    if (u.lastEmailChangeAt) {
+        const daysSinceChange = (Date.now() - new Date(u.lastEmailChangeAt).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceChange < 14) {
             const daysLeft = Math.ceil(14 - daysSinceChange);
             return NextResponse.json({ error: `Anda baru saja mengganti email. Tunggu ${daysLeft} hari lagi.` }, { status: 429 });
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
 
+        // Security Optimization: Verify input phone matches user phone
+        if (!phone || phone.replace(/\D/g, "") !== user.phone?.replace(/\D/g, "")) {
+            return NextResponse.json({ error: "Nomor WhatsApp tidak cocok dengan akun Anda." }, { status: 400 });
+        }
+
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
@@ -44,10 +50,9 @@ export async function POST(request: Request) {
             data: { otpCode, otpExpiresAt }
         });
 
-        await updateOtpRateLimit(user);
-
         try {
             await sendWhatsAppOTP(user.phone, otpCode);
+            await updateOtpRateLimit(user); // Optimization: Only update limit after successful send
             return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });
         } catch (e) {
             console.error("Failed send OTP", e);
@@ -84,7 +89,7 @@ export async function POST(request: Request) {
                 lastEmailChangeAt: new Date(),
                 otpCode: null,
                 otpExpiresAt: null
-            }
+            } as any
         });
 
         return NextResponse.json({ success: true });

@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
+import { useOtpCountdown } from "@/lib/hooks";
 
 export default function OnboardingPage() {
     const { data: session, status, update } = useSession();
@@ -14,6 +15,9 @@ export default function OnboardingPage() {
     const [isOtpSent, setIsOtpSent] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Timer
+    const { seconds, isActive, startCountdown, formatTime } = useOtpCountdown(60);
 
     // If already has phone, redirect to dashboard
     useEffect(() => {
@@ -59,6 +63,7 @@ export default function OnboardingPage() {
             if (!res.ok) throw new Error(data.error);
 
             setIsOtpSent(true);
+            startCountdown(); // Start timer ONLY on success
         } catch (err: any) {
             setError(err.message || "Gagal mengirim OTP");
         } finally {
@@ -152,7 +157,21 @@ export default function OnboardingPage() {
                             >
                                 {loading ? "Memproses..." : "Verifikasi & Masuk"}
                             </button>
-                            <button type="button" onClick={() => setIsOtpSent(false)} className="w-full text-sm text-gray-400">Ubah Nomor</button>
+                            <div className="flex justify-center my-4">
+                                {isActive ? (
+                                    <p className="text-xs text-gray-400">Kirim ulang dalam {formatTime(seconds)}</p>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={handleRequestOtp}
+                                        disabled={loading}
+                                        className="text-xs text-[#458B73] font-bold hover:underline disabled:text-gray-600 disabled:no-underline"
+                                    >
+                                        Kirim Ulang OTP
+                                    </button>
+                                )}
+                            </div>
+                            <button type="button" onClick={() => { setIsOtpSent(false); setError(null); }} className="w-full text-sm text-gray-400">Ubah Nomor</button>
                         </form>
                     )}
                 </div>

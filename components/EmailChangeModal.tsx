@@ -14,6 +14,7 @@ export default function EmailChangeModal({ isOpen, onClose, currentEmail, phone 
     const [step, setStep] = useState<"REQUEST" | "VERIFY">("REQUEST");
     const [otp, setOtp] = useState("");
     const [newEmail, setNewEmail] = useState("");
+    const [inputPhone, setInputPhone] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -35,12 +36,12 @@ export default function EmailChangeModal({ isOpen, onClose, currentEmail, phone 
             const res = await fetch("/api/account/email/change", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "request_otp" }),
+                body: JSON.stringify({ action: "request_otp", phone: inputPhone }),
             });
             const data = await res.json();
             if (res.ok) {
                 setStep("VERIFY");
-                setCountdown(60);
+                setCountdown(60); // Countdown starts ONLY on success
                 alert("OTP telah dikirim ke WhatsApp Anda.");
             } else {
                 setError(data.error || "Gagal mengirim OTP");
@@ -114,14 +115,22 @@ export default function EmailChangeModal({ isOpen, onClose, currentEmail, phone 
 
                 {step === "REQUEST" ? (
                     <div className="space-y-4">
-                        <div className="p-4 bg-black/20 rounded-xl border border-white/5">
-                            <p className="text-xs text-neutral-500 uppercase font-bold mb-1">Nomor WhatsApp</p>
-                            <p className="text-white font-mono">{phone || "Belum terdaftar"}</p>
+                        <div>
+                            <label className="block text-[10px] font-black text-neutral-500 uppercase mb-2 ml-1">Konfirmasi Nomor WhatsApp</label>
+                            <input
+                                type="tel"
+                                value={inputPhone}
+                                onChange={(e) => setInputPhone(e.target.value.replace(/\D/g, ""))}
+                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-[#458B73] transition-colors"
+                                placeholder="628123456789"
+                                required
+                            />
+                            <p className="text-[10px] text-neutral-500 mt-2 ml-1">Masukkan nomor WhatsApp Anda untuk menerima OTP.</p>
                         </div>
                         <button
                             onClick={requestOtp}
-                            disabled={loading || !phone}
-                            className="w-full py-3 bg-[#458B73] hover:bg-[#3aa381] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#458B73]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loading || !inputPhone}
+                            className="w-full py-3.5 bg-[#458B73] hover:bg-[#3aa381] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#458B73]/20 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? "Mengirim OTP..." : "Kirim Kode OTP"}
                         </button>

@@ -37,10 +37,9 @@ export async function POST(req: Request) {
             data: { otpCode, otpExpiresAt }
         });
 
-        await updateOtpRateLimit(user);
-
         try {
             await sendWhatsAppOTP(user.phone, otpCode);
+            await updateOtpRateLimit(user);
             return NextResponse.json({ success: true, message: "OTP terkirim" });
         } catch (e) {
             return NextResponse.json({ error: "Gagal kirim WhatsApp" }, { status: 500 });

@@ -34,6 +34,9 @@ export default async function AccountPage() {
     deleteScheduledAt: user.deleteScheduledAt,
     hasPassword: !!user.passwordHash,
     isGoogleLinked: user.accounts.some(acc => acc.provider === "google"),
+    googleEmail: user.accounts.find(acc => acc.provider === "google")?.providerAccountId?.includes("@")
+      ? user.accounts.find(acc => acc.provider === "google")?.providerAccountId
+      : user.email, // Fallback to primary if providerAccountId is not email (though for Google it usually is)
   };
 
   return <AccountSettingsClient user={userData} />;
