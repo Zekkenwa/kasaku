@@ -26,6 +26,15 @@ export default function DonationPage() {
                             <span>🎁</span> Traktir di Tako (Zekkenwa)
                         </a>
 
+                        <a
+                            href="https://trakteer.id/zekkenwa"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full py-3.5 px-6 bg-[#CD0A28] hover:bg-[#b00922] text-white font-bold rounded-xl shadow-md transform hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                        >
+                            <span>🧧</span> Traktir di Trakteer (Zekkenwa)
+                        </a>
+
                         <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-4">
                             <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
                             <span>atau scan QR (jika ada)</span>

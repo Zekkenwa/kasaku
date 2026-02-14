@@ -80,8 +80,14 @@ Jika Anda merasa terbantu dengan **Kasaku**, dukungan Anda sangat berarti untuk 
 <a href="https://tako.id/Zekkenwa" target="_blank">
   <img src="https://img.shields.io/badge/Traktir_Saya_di-Tako-40C4FF?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Traktir di Tako" />
 </a>
+<a href="https://trakteer.id/zekkenwa" target="_blank">
+  <img src="https://img.shields.io/badge/Traktir_Saya_di-Trakteer-CD0A28?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Traktir di Trakteer" />
+</a>
 
-Link Donasi: **[https://tako.id/Zekkenwa](https://tako.id/Zekkenwa)**
+Link Donasi:
+
+- Tako: **[https://tako.id/Zekkenwa](https://tako.id/Zekkenwa)**
+- Trakteer: **[https://trakteer.id/zekkenwa](https://trakteer.id/zekkenwa)**
 
 ## 🛠️ Tech Stack
 
