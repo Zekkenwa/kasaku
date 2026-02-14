@@ -14,6 +14,7 @@ const PORT = 3001;
 
 // Global socket variable
 let sock: any = undefined;
+let latestQR: string | null = null;
 
 async function connectToWhatsApp() {
     // const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
@@ -42,7 +43,8 @@ async function connectToWhatsApp() {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log('\nScan this QR code with your WhatsApp:');
+            latestQR = qr;
+            console.log('\nQR Code updated! Scan via browser: http://localhost:' + PORT + '/qr');
             qrcode.generate(qr, { small: true });
         }
 
@@ -59,6 +61,7 @@ async function connectToWhatsApp() {
             }
         }
         else if (connection === 'open') {
+            latestQR = null; // Clear QR once connected
             console.log('WhatsApp connection opened!');
         }
     });
@@ -71,7 +74,7 @@ connectToWhatsApp();
 const server = http.createServer(async (req, res) => {
     const headers = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
     };
 
@@ -117,6 +120,34 @@ const server = http.createServer(async (req, res) => {
                 res.end(JSON.stringify({ error: 'Failed to send message: ' + (err.message || 'Unknown error') }));
             }
         });
+    } else if (req.url === '/qr' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'text/html', ...headers });
+        if (!latestQR) {
+            res.end(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
+                <div style="text-align:center">
+                    <h1>✅ WhatsApp Bot Connected</h1>
+                    <p>No QR code needed — already authenticated!</p>
+                </div>
+            </body></html>`);
+        } else {
+            res.end(`<html><head>
+                <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+            </head><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background:#111;color:#fff">
+                <div style="text-align:center">
+                    <h1>📱 Scan QR Code</h1>
+                    <p>Buka WhatsApp → Linked Devices → Link a Device</p>
+                    <canvas id="qr" style="margin:20px auto"></canvas>
+                    <p style="color:#888;font-size:14px">QR code akan refresh otomatis setiap 30 detik</p>
+                    <script>
+                        QRCode.toCanvas(document.getElementById('qr'), ${JSON.stringify(latestQR)}, { width: 300, margin: 2 });
+                        setTimeout(() => location.reload(), 30000);
+                    </script>
+                </div>
+            </body></html>`);
+        }
+    } else if (req.url === '/' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json', ...headers });
+        res.end(JSON.stringify({ status: 'ok', connected: !!sock, qrAvailable: !!latestQR }));
     } else {
         res.writeHead(404, headers);
         res.end();
