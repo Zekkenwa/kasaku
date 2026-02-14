@@ -120,7 +120,7 @@ export default async function DashboardPage(props: {
     amount: t.amount,
     note: t.note ?? undefined,
     date: t.createdAt.toISOString().slice(0, 10),
-    walletId: t.walletId,
+    walletId: t.walletId ?? undefined,
   }));
 
   const hasUncategorized = transactions.some((t) => t.category === uncategorizedName);
@@ -187,7 +187,7 @@ export default async function DashboardPage(props: {
       ...loan,
       remaining: loan.amount - totalPaid,
       createdAt: loan.createdAt.toLocaleDateString("id-ID"),
-      dueDate: loan.dueDate ? loan.dueDate.toISOString() : null,
+      dueDate: loan.dueDate ? loan.dueDate.toISOString() : undefined,
       payments: loan.payments.map((p: { id: string; amount: number; date: Date; note: string | null }) => ({
         id: p.id,
         amount: p.amount,

@@ -97,7 +97,7 @@ export const authOptions: NextAuthOptions = {
                 googleEmail: profile.email,
                 conflictUserId: conflictingUser.id,
                 targetUserId: user.id,
-              },
+              } as any,
               secret,
             });
             return `/account/link-conflict?token=${conflictToken}`;

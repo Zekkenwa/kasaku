@@ -28,7 +28,7 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointE
 
 type TransactionType = "INCOME" | "EXPENSE";
 type Transaction = { id: string; type: TransactionType; category: string; amount: number; note?: string; date: string; walletId?: string };
-type Loan = { id: string; name: string; amount: number; remaining: number; createdAt: string; dueDate: string; status: "ONGOING" | "PAID"; type: "PAYABLE" | "RECEIVABLE"; payments: { id: string; amount: number; date: string; note?: string }[] };
+type Loan = { id: string; name: string; amount: number; remaining: number; createdAt: string; dueDate?: string; status: "ONGOING" | "PAID"; type: "PAYABLE" | "RECEIVABLE"; payments: { id: string; amount: number; date: string; note?: string }[] };
 type Budget = { id: string; categoryId: string; categoryName: string; limitAmount: number; period?: string };
 type Wallet = { id: string; name: string; type: "CASH" | "BANK" | "EWALLET"; initialBalance: number };
 type Goal = { id: string; name: string; targetAmount: number; currentAmount: number; deadline?: string; notes?: string };
@@ -619,7 +619,6 @@ export default function DashboardClient({
                       },
                       grid: {
                         display: false,
-                        drawBorder: false,
                       },
                       border: { display: false }
                     },
