@@ -42,11 +42,12 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
             for (const w of wallets) {
                 const amount = Number(allocations[w.id]) || 0;
                 if (amount !== w.initialBalance) {
-                    await fetch(`/api/wallets/${w.id}`, {
+                    const res = await fetch(`/api/wallets/${w.id}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ initialBalance: amount }),
                     });
+                    if (!res.ok) throw new Error("Gagal update wallet");
                 }
             }
             router.refresh();
