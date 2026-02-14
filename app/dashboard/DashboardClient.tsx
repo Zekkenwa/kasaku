@@ -83,7 +83,7 @@ export default function DashboardClient({
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeLoanForPayment, setActiveLoanForPayment] = useState<Loan | null>(null);
   const [loanTab, setLoanTab] = useState<"PAYABLE" | "RECEIVABLE">("PAYABLE");
-  const [hideSaldo, setHideSaldo] = useState(false);
+  const [hideSaldo, setHideSaldo] = useState(true);
   const [pageWarning, setPageWarning] = useState<string | null>(null);
   const [pageInput, setPageInput] = useState(txPage.toString());
 
@@ -93,7 +93,11 @@ export default function DashboardClient({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setHideSaldo(localStorage.getItem("kasaku_hide_saldo") === "true");
+      const stored = localStorage.getItem("kasaku_hide_saldo");
+      if (stored !== null) {
+        setHideSaldo(stored === "true");
+      }
+      // If null, it stays true (default)
 
       // Process recurring transactions
       fetch("/api/recurring/process", { method: "POST" })

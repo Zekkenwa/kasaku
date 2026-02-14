@@ -78,7 +78,18 @@ export default async function DashboardPage(props: {
         userId: user.id,
         createdAt: { gte: filterStart, lte: filterEnd },
       },
-      include: { category: true },
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        note: true,
+        createdAt: true,
+        categoryId: true,
+        walletId: true,
+        category: {
+          select: { name: true }
+        }
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.loan.findMany({

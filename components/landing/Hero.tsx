@@ -14,8 +14,8 @@ export default function Hero() {
                     Aplikasi Keuangan No. 1 di Hatimu
                 </div>
 
-                <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-6 leading-tight animate-fade-in-up delay-100">
-                    Kelola Uang <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-green to-teal-400">Jadi Mudah</span>.
+                <h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-6 leading-tight animate-fade-in-up delay-100">
+                    Kelola Uang <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-green to-teal-400 whitespace-nowrap">Jadi Mudah</span>.
                     <br />
                     Hidup Lebih <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-orange to-brand-red">Tenang</span>.
                 </h1>

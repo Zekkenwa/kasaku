@@ -6,7 +6,6 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
 };
 
-// Helper: Parse amount string (e.g. "10k", "1.5jt", "500") to number
 // Helper: Parse amount string (e.g. "10k", "1.5jt", "500", "seratus ribu") to number
 const parseAmount = (input: string): number | null => {
     if (!input) return null;
@@ -17,12 +16,12 @@ const parseAmount = (input: string): number | null => {
         'satu': 1, 'se': 1, 'dua': 2, 'tiga': 3, 'empat': 4, 'lima': 5,
         'enam': 6, 'tujuh': 7, 'delapan': 8, 'sembilan': 9, 'sepuluh': 10,
         'sebelas': 11, 'seratus': 100, 'seribu': 1000,
-        'nol': 0
+        'setengah': 0.5, 'nol': 0
     };
     const magnitudes: Record<string, number> = {
-        'belas': 10, // Special logic needed (e.g. dua belas = 2 + 10)
-        'puluh': 10, // Multiplier (dua puluh = 2 * 10)
-        'ratus': 100, // Multiplier
+        'belas': 10,
+        'puluh': 10,
+        'ratus': 100,
         'ribu': 1000,
         'juta': 1000000,
         'miliar': 1000000000,
@@ -31,7 +30,7 @@ const parseAmount = (input: string): number | null => {
 
     // Check if it contains words
     const words = str.split(/[\s-]+/);
-    const hasWord = words.some(w => numberWords[w] || magnitudes[w]);
+    const hasWord = words.some(w => numberWords[w] !== undefined || magnitudes[w] !== undefined);
 
     if (hasWord) {
         let total = 0;
@@ -41,10 +40,13 @@ const parseAmount = (input: string): number | null => {
             const val = numberWords[w];
             if (val !== undefined) {
                 if (w === 'se' && words[i + 1] && magnitudes[words[i + 1]]) {
-                    // handled by magnitude (seratus, seribu) or just 'se' -> 1
+                    // "se" prefix before magnitude (se-ribu, se-ratus) → treat as 1
                     current += 1;
                 } else if (w === 'sepuluh' || w === 'sebelas' || w === 'seratus' || w === 'seribu') {
                     current += val;
+                } else if (w === 'setengah') {
+                    // "setengah juta" = 500k, "setengah ribu" = 500
+                    current += 0.5;
                 } else {
                     current += val;
                 }
@@ -52,15 +54,12 @@ const parseAmount = (input: string): number | null => {
                 if (current === 0 && (w === 'ribu' || w === 'juta' || w === 'miliar')) current = 1;
 
                 if (w === 'belas') {
-                    current = (current === 0 ? 1 : current) + 10; // dua belas -> 2 + 10 ? No. belas adds 10 to unit. 
-                    // Actually usually 'dua belas' -> words are 'dua', 'belas'.
-                    // 'dua' makes current=2. 'belas' should make it 12. 
-                    // so current += 10? Yes. (sebelas is 11, defined above).
+                    // "dua belas" → current=2, belas makes it 12
                     current += 10;
                 } else if (w === 'puluh' || w === 'ratus') {
                     current = (current === 0 ? 1 : current) * magnitudes[w];
                 } else {
-                    // Ribu, Juta, Miliar
+                    // Ribu, Juta, Miliar → multiply current group and add to total
                     total += (current === 0 ? 1 : current) * magnitudes[w];
                     current = 0;
                 }
@@ -70,27 +69,24 @@ const parseAmount = (input: string): number | null => {
     }
 
     // 2. Numeric with specific formatting (ID: 15.000 = 15k; US: 15,000 = 15k)
-    // We assume strict ID format: dot = thousand, comma = decimal.
     // Clean currency symbol
     str = str.replace(/rp\.?|idr/g, '').trim();
 
-    // Check suffixes
+    // Check suffixes (anchored to end)
     let multiplier = 1;
-    if (str.endsWith('k') || str.endsWith('rb') || str.endsWith('ribu')) {
+    if (/(?:k|rb|ribu)$/.test(str)) {
         multiplier = 1000;
-        str = str.replace(/k|rb|ribu/, '');
-    } else if (str.endsWith('jt') || str.endsWith('juta')) {
+        str = str.replace(/(?:ribu|rb|k)$/, '');
+    } else if (/(?:jt|juta)$/.test(str)) {
         multiplier = 1000000;
-        str = str.replace(/jt|juta/, '');
-    } else if (str.endsWith('m') || str.endsWith('miliar')) {
+        str = str.replace(/(?:juta|jt)$/, '');
+    } else if (/(?:m|miliar)$/.test(str)) {
         multiplier = 1000000000;
-        str = str.replace(/m|miliar/, '');
+        str = str.replace(/(?:miliar|m)$/, '');
     }
 
     // Handle dots (thousands) and commas (decimals)
-    // Remove dots
     str = str.replace(/\./g, '');
-    // Replace comma with dot
     str = str.replace(/,/g, '.');
 
     const num = parseFloat(str);
@@ -112,27 +108,28 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
     console.log(`Received message from ${remoteJid}: ${text}`);
 
     // 1. Identify User
-    // Normalize phone: remove @s.whatsapp.net, replace 62 with 0 if needed or keep strictly as stored in DB.
-    // DB might store '08123' or '628123'. WhatsApp remoteJid is '628123...@s.whatsapp.net'.
+    // Normalize phone: remove @s.whatsapp.net
     const phone = remoteJid.split('@')[0];
 
-    // Try to find user with exact phone OR with '0' instead of '62' prefix
-    const localPhone = phone.startsWith('62') ? '0' + phone.slice(2) : phone;
+    // Try multiple formats to find user
+    // DB might store '08123', '628123', '+628123'
+    // Incoming 'phone' is usually '628123...'
+
+    const possiblePhones = [
+        phone, // 628...
+        phone.startsWith('62') ? '0' + phone.slice(2) : null, // 08...
+        phone.startsWith('62') ? '+' + phone : null, // +628...
+    ].filter(Boolean) as string[];
 
     let user = await prisma.user.findFirst({
-        where: {
-            OR: [
-                { phone: phone },
-                { phone: localPhone }
-            ]
-        },
+        where: { phone: { in: possiblePhones } },
         include: { wallets: true, categories: true }
     });
 
     // 2. Auth Check
     if (!user) {
         await sock.sendMessage(remoteJid, {
-            text: "👋 Halo! Nomor WhatsApp ini belum terhubung dengan akun Kasaku.\n\nSilakan login ke dashboard Kasaku dan lengkapi nomor WhatsApp Anda di menu *Pengaturan Akun* untuk mulai menggunakan bot ini.\n\n🌐 Dashboard: https://kasaku.vercel.app"
+            text: `👋 Halo! Nomor WhatsApp ini (*${phone}*) belum terdaftar di sistem kami.\n\nMohon pastikan nomor ini sudah sesuai dengan yang Anda masukkan di menu *Pengaturan Akun* di dashboard Kasaku.\n\n🌐 Dashboard: https://kasaku.vercel.app`
         });
         return;
     }
@@ -177,63 +174,49 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
 }
 
 async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean) {
-    let text = `📖 *PANDUAN KASAKU BOT*\nHalo ${name}!\n\n`;
+    let text = `🤖 *KASAKU BOT HELP*\n\nHalo ${name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\n`;
 
     if (!full) {
-        text += `🔹 *Perintah Dasar:*\n`;
-        text += `• \`keluar 15k bakso @makan\` (Catat Pengeluaran)\n`;
-        text += `• \`masuk 5jt gaji @kerja\` (Catat Pemasukan)\n`;
-        text += `• \`cek saldo\` (Lihat sisa saldo)\n\n`;
-        text += `💡 Ketik *help lengkap* untuk melihat panduan fitur hutang, budget, laporan, & koreksi.`;
+        text += `📝 *Perintah Cepat:*\n`;
+        text += `• *Catat Pengeluaran:*\n`;
+        text += `  \`keluar 15k bakso @makan\`\n`;
+        text += `• *Catat Pemasukan:*\n`;
+        text += `  \`masuk 5jt gaji @kerja\`\n`;
+        text += `• *Cek Saldo:*\n`;
+        text += `  \`cek saldo\`\n\n`;
+        text += `ℹ️ Ketik *help lengkap* untuk fitur hutang, budget, goal, dll.`;
     } else {
-        text += `🔹 *1. CATAT TRANSAKSI*\n`;
-        text += `• \`keluar [jml] [ket] @[kategori]\`\n`;
-        text += `  Ex: _keluar 18k nasi goreng @makan_\n`;
-        text += `• \`masuk [jml] [ket] @[kategori]\`\n`;
-        text += `  Ex: _masuk 5jt gaji bulan ini @gaji_\n\n`;
+        text += `📋 *DAFTAR PERINTAH LENGKAP*\n\n`;
 
-        text += `🔹 *2. HUTANG & PIUTANG*\n`;
-        text += `• \`hutang [jml] @[nama] [ket]\`\n`;
-        text += `  Ex: _hutang 100k @Budi pinjam dulu_\n`;
-        text += `• \`piutang [jml] @[nama] [ket]\`\n`;
-        text += `  Ex: _piutang 50k @Ani talangin makan_\n`;
+        text += `1️⃣ *TRANSAKSI*\n`;
+        text += `• \`keluar [jml] [ket] @[kategori]\`\n`;
+        text += `• \`masuk [jml] [ket] @[kategori]\`\n`;
+        text += `   _Cth: keluar 20rb kopi @jajan_\n\n`;
+
+        text += `2️⃣ *HUTANG / PIUTANG*\n`;
+        text += `• \`hutang [jml] @[nama] [ket]\` (Kita hutang)\n`;
+        text += `• \`piutang [jml] @[nama] [ket]\` (Org hutang)\n`;
         text += `• \`bayar [jml] @[nama]\`\n`;
-        text += `  Ex: _bayar 50k @Budi_\n`;
         text += `• \`lunas @[nama]\`\n`;
-        text += `  Ex: _lunas @Ani_\n`;
         text += `• \`cek hutang\`\n\n`;
 
-        text += `🔹 *3. WALLET & TRANSFER*\n`;
-        text += `• \`cek wallet\`\n`;
-        text += `• \`transfer [jml] dari @[A] ke @[B]\`\n`;
-        text += `  Ex: _transfer 500k dari @BCA ke @Gopay_\n\n`;
-
-        text += `🔹 *4. CELENGAN (GOALS)*\n`;
+        text += `3️⃣ *GOALS (CELENGAN)*\n`;
         text += `• \`goal [nama] [target]\`\n`;
-        text += `  Ex: _goal Laptop 15jt_\n`;
         text += `• \`isi goal [jml] @[nama]\`\n`;
-        text += `  Ex: _isi goal 500k @Laptop_\n`;
         text += `• \`cek goal\`\n\n`;
 
-        text += `🔹 *5. RUTINITAS (RECURRING)*\n`;
-        text += `• \`rutin [nama] [jml] [masuk/keluar] [harian/mingguan/bulanan]\`\n`;
-        text += `  Ex: _rutin Netflix 180k keluar bulanan_\n`;
-        text += `  Ex: _rutin Gaji 10jt masuk bulanan_\n\n`;
-
-        text += `🔹 *6. BUDGET & LAPORAN*\n`;
+        text += `4️⃣ *BUDGET & LAPORAN*\n`;
         text += `• \`budget [jml] @[kategori]\`\n`;
-        text += `  Ex: _budget 2jt @Makan_\n`;
         text += `• \`cek budget\`\n`;
-        text += `• \`laporan [periode]\`\n`;
-        text += `  Ex: _laporan hari_, _laporan minggu_, _laporan bulan_\n`;
-        text += `• \`cek saldo\`\n\n`;
+        text += `• \`laporan [hari/minggu/bulan]\`\n`;
+        text += `   _Cth: laporan bulan_\n\n`;
 
-        text += `🔹 *7. LAINNYA*\n`;
-        text += `• \`hapus kategori [nama] @[tipe]\`\n`;
-        text += `  Ex: _hapus kategori liburan @keluar_\n`;
-        text += `• \`undo\`\n\n`;
+        text += `5️⃣ *LAINNYA*\n`;
+        text += `• \`cek wallet\` (Lihat saldo per dompet)\n`;
+        text += `• \`transfer [jml] dari @[A] ke @[B]\`\n`;
+        text += `• \`undo\` (Batalkan aksi terakhir)\n\n`;
 
-        text += `💡 _Tips: Anda bisa menggunakan singkatan k (ribu), jt (juta). Cth: 50k, 1.5jt_`;
+        text += `💡 *Tips:* Gunakan singkatan *k* (ribu) dan *jt* (juta). Cth: *50k*, *1.5jt*`;
     }
 
     await sock.sendMessage(jid, { text });

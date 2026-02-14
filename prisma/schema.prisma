@@ -128,6 +128,7 @@ model Budget {
   category Category @relation(fields: [categoryId], references: [id])
 
   @@unique([userId, categoryId])
+  @@index([userId])
 }
 
 model Loan {
@@ -142,6 +143,8 @@ model Loan {
 
   user     User              @relation(fields: [userId], references: [id])
   payments PaymentHistory[]
+
+  @@index([userId])
 }
 
 model Wallet {

@@ -305,7 +305,7 @@ export default function AccountSettingsClient({ user }: { user: UserData }) {
   // Check if phone matches initial user phone (verified)
   const isModified = phone !== user.phone;
   const isValidPhone = phone.startsWith("62") && phone.length >= 10 && phone.length <= 13;
-  const [showPhone, setShowPhone] = useState(true);
+  const [showPhone, setShowPhone] = useState(false);
 
   return (
     <main className="min-h-screen transition-colors duration-300 dark:bg-gray-900" style={{ background: "var(--background)" }}>
