@@ -42,36 +42,36 @@ Built with modern web technologies, Kasaku ensures your data is secure, synchron
 - **Authentication**: Secure OTP login via WhatsApp.
 - **Real-time Sync**: Data entered via bot appears instantly on the dashboard.
 
-### 🔒 Security
-
-- **NextAuth.js**: Robust authentication system.
-- **Google Integration**: Link/Unlink Google accounts securely.
-- **OTP Verification**: Multi-factor authentication for sensitive actions (Password change, Email change).
-
-## 📸 Screenshots
-
-### 🖥️ Web Dashboard
+## � Gallery
 
 <div align="center">
-  <img src="public/assets/web-1.png" alt="Dashboard Top" width="100%" />
-  <img src="public/assets/web-2.png" alt="Dashboard Routine" width="100%" />
-  <img src="public/assets/web-3.png" alt="Dashboard Budget" width="100%" />
-  <p><em>Comprehensive Financial Overview</em></p>
+  <h3>Web Dashboard</h3>
+  <img src="public/assets/gallery-1.png" alt="Web Dashboard" width="100%" style="border-radius: 10px; margin-bottom: 20px;" />
 </div>
 
-<br />
-
-### 📱 Mobile Interface
-
-<div align="center" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">
-  <img src="public/assets/mobile-1.png" alt="Target Tabungan" width="220" />
-  <img src="public/assets/mobile-2.png" alt="Analisis Kategori" width="220" />
-  <img src="public/assets/mobile-3.png" alt="Analisis Cashflow" width="220" />
-  <img src="public/assets/mobile-4.png" alt="Hutang Piutang" width="220" />
-</div>
 <div align="center">
-  <p><em>Responsive Design for On-the-Go Tracking</em></p>
+  <h3>Mobile & Features</h3>
+  <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">
+    <img src="public/assets/gallery-2.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/gallery-3.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/gallery-4.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/gallery-5.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/gallery-6.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/gallery-7.png" width="300" style="border-radius: 10px;" />
+    <img src="public/assets/gallery-8.png" width="300" style="border-radius: 10px;" />
+  </div>
 </div>
+
+## 📜 Syarat & Ketentuan
+
+Dengan menggunakan Kasaku, Anda menyetujui:
+
+1. **Pengumpulan Data**: Kami mengumpulkan data nomor telepon (untuk login) dan informasi keuangan yang Anda input secara sukarela.
+2. **Penggunaan Data**: Data hanya digunakan untuk menyediakan layanan pencatatan keuangan pribadi Anda.
+3. **Privasi**: Kami **TIDAK** memperjualbelikan data Anda. Privasi adalah prioritas kami.
+4. **Hak Pengguna**: Anda memiliki kontrol penuh untuk mengubah atau menghapus data Anda kapan saja.
+
+Selengkapnya dapat dilihat di aplikasi pada menu **Akun > Syarat & Ketentuan** atau [baca kode sumber](app/syarat-ketentuan/page.tsx).
 
 ## 🛠️ Tech Stack
 
@@ -85,37 +85,7 @@ Built with modern web technologies, Kasaku ensures your data is secure, synchron
 
 ## 📦 Deployment
 
-Kasaku is designed to be deployed on **Vercel** (for the web app) and **Railway** (for the WhatsApp bot).
-
-### Web App (Vercel)
-
-1. Fork this repository.
-2. Import to Vercel.
-3. Configure Environment Variables (`DATABASE_URL`, `NEXTAUTH_SECRET`, etc.).
-4. Deploy!
-
-### WhatsApp Bot (Railway)
-
-1. Link repository to Railway.
-2. Set `start:bot` as the custom start command.
-3. Configure variables (`DATABASE_URL`, `PORT`).
-4. Scan the QR code at `/qr` endpoint to connect.
-
 See the full [Deployment Guide](deployment_guide.md) for detailed instructions.
-
-## 🤝 Contributing
-
-Contributions are always welcome!
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
