@@ -10,7 +10,7 @@ export default function Hero() {
 
             <div className="container mx-auto px-4 text-center relative z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-green/10 text-brand-green text-sm font-medium mb-6 animate-fade-in-up">
-                    <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
+                    <img src="/logo.png" alt="Kasaku" className="w-5 h-5 rounded" />
                     Aplikasi Keuangan No. 1 di Hatimu
                 </div>
 

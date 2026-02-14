@@ -21,8 +21,8 @@ export default async function Home() {
       {/* Navbar Overlay */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-4 py-4 md:py-6 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200/50 dark:border-neutral-800/50">
         <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-green flex items-center justify-center text-white font-bold text-lg shadow-sm">K</div>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Kasaku Logo" className="w-8 h-8 rounded-lg shadow-sm" />
             <span className="font-bold text-xl tracking-tight text-neutral-900 dark:text-white">Kasaku</span>
           </div>
 
