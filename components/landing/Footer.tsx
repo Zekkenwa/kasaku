@@ -13,8 +13,8 @@ export default function Footer() {
                         </p>
                     </div>
                     <div className="flex gap-6">
-                        <Link href="https://trakteer.id/kasaku" target="_blank" className="px-6 py-2 rounded-lg bg-pink-500/10 text-pink-500 hover:bg-pink-500/20 transition-colors font-semibold flex items-center gap-2">
-                            <span>🥟</span> Donate Me
+                        <Link href="/donasi" className="px-6 py-2 rounded-lg bg-pink-500/10 text-pink-500 hover:bg-pink-500/20 transition-colors font-semibold flex items-center gap-2">
+                            <span>🎁</span> Donate Me
                         </Link>
                         <Link href="/login" className="px-6 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
                             Masuk

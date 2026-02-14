@@ -25,6 +25,7 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
 
     const [step, setStep] = useState<"OLD_REQUEST" | "OLD_VERIFY" | "NEW_REQUEST" | "NEW_VERIFY">("OLD_REQUEST");
     const [otp, setOtp] = useState("");
+    const [oldPhoneInput, setOldPhoneInput] = useState("");
     const [newPhone, setNewPhone] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -60,8 +61,9 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
         }
     };
 
-    const handleRequestOldOtp = async () => {
-        const data = await apiCall("request_old_otp");
+    const handleRequestOldOtp = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        const data = await apiCall("request_old_otp", { oldPhone: oldPhoneInput });
         if (data) {
             setStep("OLD_VERIFY");
             setCountdown(60);
@@ -147,19 +149,28 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
                 )}
 
                 {step === "OLD_REQUEST" && (
-                    <div className="space-y-4">
-                        <div className="p-4 bg-black/20 rounded-xl border border-white/5">
-                            <p className="text-[10px] text-neutral-500 uppercase font-black mb-1">Nomor Sekarang</p>
-                            <p className="text-white font-mono text-lg">{currentPhone || "-"}</p>
+                    <form onSubmit={handleRequestOldOtp} className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] text-neutral-500 uppercase font-black ml-1">Verifikasi Nomor Lama</label>
+                            <input
+                                type="tel"
+                                value={oldPhoneInput}
+                                onChange={(e) => setOldPhoneInput(e.target.value.replace(/\D/g, ""))}
+                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-4 text-white font-mono text-lg focus:border-[#458B73] outline-none"
+                                placeholder="Masukkan nomor WhatsApp lama"
+                                required
+                                autoComplete="off"
+                            />
+                            <p className="text-[10px] text-neutral-500 italic px-1">Demi keamanan, masukkan nomor WhatsApp yang terdaftar saat ini secara manual.</p>
                         </div>
                         <button
-                            onClick={handleRequestOldOtp}
-                            disabled={loading || !currentPhone}
+                            type="submit"
+                            disabled={loading || !oldPhoneInput}
                             className="w-full py-3.5 bg-[#458B73] hover:bg-[#3aa381] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#458B73]/20 disabled:opacity-50"
                         >
                             {loading ? "Mengirim OTP..." : "Kirim OTP ke Nomor Lama"}
                         </button>
-                    </div>
+                    </form>
                 )}
 
                 {step === "OLD_VERIFY" && (
@@ -184,7 +195,7 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
                             {countdown > 0 ? (
                                 <p className="text-[11px] text-neutral-500">Kirim ulang dalam {countdown} detik</p>
                             ) : (
-                                <button type="button" onClick={handleRequestOldOtp} className="text-[11px] text-[#458B73] hover:underline font-bold">
+                                <button type="button" onClick={() => handleRequestOldOtp()} className="text-[11px] text-[#458B73] hover:underline font-bold">
                                     Kirim Ulang OTP
                                 </button>
                             )}

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { action, otp, newPhone } = await request.json();
+    const { action, otp, newPhone, oldPhone } = await request.json();
     const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -29,6 +29,15 @@ export async function POST(request: Request) {
     if (action === "request_old_otp") {
         if (!user.phone) {
             return NextResponse.json({ error: "Anda belum memiliki nomor telepon terdaftar." }, { status: 400 });
+        }
+
+        if (!oldPhone) return NextResponse.json({ error: "Nomor WhatsApp lama diperlukan." }, { status: 400 });
+
+        const cleanOld = oldPhone.replace(/\D/g, "");
+        const cleanCurrent = user.phone.replace(/\D/g, "");
+
+        if (cleanOld !== cleanCurrent) {
+            return NextResponse.json({ error: "Nomor WhatsApp lama tidak sesuai." }, { status: 400 });
         }
 
         const limitParams = await checkOtpRateLimit(user);

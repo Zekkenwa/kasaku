@@ -1,6 +1,11 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 
-export default function DonationPage() {
+export default async function DonationPage() {
+    const session = await getServerSession(authOptions);
+    const backHref = session ? "/dashboard" : "/";
+
     return (
         <main className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background Accents */}
@@ -54,10 +59,10 @@ export default function DonationPage() {
                         </div>
 
                         <Link
-                            href="/dashboard"
+                            href={backHref}
                             className="block w-full py-3 px-6 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white font-medium rounded-xl transition-all border border-transparent hover:border-white/5"
                         >
-                            Kembali ke Dashboard
+                            Kembali ke {session ? "Dashboard" : "Beranda"}
                         </Link>
                     </div>
                 </div>
