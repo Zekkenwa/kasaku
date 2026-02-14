@@ -37,11 +37,11 @@ export async function POST(req: Request) {
     // 4. Update Rate Limit Stats
     await updateOtpRateLimit(user);
 
-    try {
-        await sendWhatsAppOTP(cleanPhone, otpCode);
-        return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });
-    } catch (e) {
-        console.error("WA Error", e);
-        return NextResponse.json({ error: "Gagal kirim WhatsApp" }, { status: 500 });
+    // 4. Send OTP via WhatsApp
+    const sent = await sendWhatsAppOTP(cleanPhone, otpCode);
+    if (!sent) {
+        return NextResponse.json({ error: "Gagal mengirim OTP. Server WhatsApp sedang tidak tersedia, coba beberapa saat lagi." }, { status: 503 });
     }
+
+    return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });
 }

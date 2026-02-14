@@ -17,8 +17,6 @@ export async function sendWhatsAppOTP(phone: string, otp: string): Promise<boole
         return true;
     } catch (error) {
         console.error("Failed to connect to WhatsApp Server:", error);
-        // Fallback for dev/demo if server isn't running
-        console.log(`[Fallback] OTP for ${phone}: ${otp}`);
-        return true;
+        return false;
     }
 }

@@ -47,10 +47,9 @@ export async function POST(req: Request) {
         await updateOtpRateLimit(user);
 
         // Send OTP
-        try {
-            await sendWhatsAppOTP(cleanPhone, otpCode);
-        } catch (e) {
-            console.error("Failed to send WA", e);
+        const sent = await sendWhatsAppOTP(cleanPhone, otpCode);
+        if (!sent) {
+            return NextResponse.json({ error: "Gagal mengirim OTP. Server WhatsApp sedang tidak tersedia, coba beberapa saat lagi." }, { status: 503 });
         }
 
         return NextResponse.json({ success: true });

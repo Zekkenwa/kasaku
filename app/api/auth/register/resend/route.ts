@@ -42,7 +42,10 @@ export async function POST(req: Request) {
         await updateOtpRateLimit(user);
 
         // Send OTP
-        await sendWhatsAppOTP(user.phone || user.tempPhone || "", otpCode);
+        const sent = await sendWhatsAppOTP(user.phone || user.tempPhone || "", otpCode);
+        if (!sent) {
+            return NextResponse.json({ error: "Gagal mengirim OTP. Server WhatsApp sedang tidak tersedia, coba beberapa saat lagi." }, { status: 503 });
+        }
 
         return NextResponse.json({ success: true });
 

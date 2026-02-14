@@ -77,14 +77,14 @@ export async function POST(req: Request) {
         });
 
         // 5. Send OTP
-        try {
-            await sendWhatsAppOTP(phone, otpCode);
-        } catch (e) {
-            console.error("Failed to send OTP", e);
-            // We continue, user can resend later or use "Mock" code in dev
-        }
+        const sent = await sendWhatsAppOTP(phone, otpCode);
 
-        return NextResponse.json({ success: true, email: user.email });
+        return NextResponse.json({
+            success: true,
+            email: user.email,
+            otpSent: sent,
+            ...(sent ? {} : { warning: "OTP gagal terkirim. Gunakan tombol 'Kirim Ulang' setelah beberapa saat." })
+        });
 
     } catch (error) {
         console.error("Registration Error:", error);
