@@ -64,22 +64,74 @@ export async function DELETE(request: Request) {
         return new NextResponse("Category not found", { status: 404 });
     }
 
-    // Optional: Check if used in transactions before deleting? 
-    // For now, let's allow deletion but handle constraints if necessary. 
-    // Prisma schema doesn't strictly cascade delete on category relation in Transaction (it's optional in Transaction model), 
-    // but let's check.
-    // Transaction model: category Category? @relation(fields: [categoryId], references: [id])
-    // It is optional, so deleting category sets transaction.categoryId to null (if designed that way) or fails if foreign key constraint exists without SetNull.
-    // Actually, standard Prisma behavior for optional relation without onDelete action is usually SetNull or Restrict.
-    // Let's assume we can delete. If it fails due to FK, we'll catch it.
-
     try {
-        await prisma.category.delete({
-            where: { id },
-        });
-    } catch (error) {
-        return new NextResponse("Cannot delete category in use", { status: 400 });
-    }
+        const result = await prisma.$transaction(async (tx) => {
+            // Check dependencies: Transactions, RecurringTransactions, Budgets within transaction
+            const txCount = await tx.transaction.count({
+                where: { userId: user.id, categoryId: category.id }
+            });
 
-    return NextResponse.json({ success: true });
+            const recurringCount = await tx.recurringTransaction.count({
+                where: { userId: user.id, categoryId: category.id }
+            });
+
+            // Loop constraints
+            if (category.name === "Lainnya") {
+                throw new Error("Cannot delete default category 'Lainnya'");
+            }
+
+            if (txCount > 0 || recurringCount > 0) {
+                let otherCategory = await tx.category.findFirst({
+                    where: {
+                        userId: user.id,
+                        name: "Lainnya",
+                        type: category.type
+                    }
+                });
+
+                if (!otherCategory) {
+                    otherCategory = await tx.category.create({
+                        data: {
+                            userId: user.id,
+                            name: "Lainnya",
+                            type: category.type
+                        }
+                    });
+                }
+
+                // Move Transactions
+                if (txCount > 0) {
+                    await tx.transaction.updateMany({
+                        where: { userId: user.id, categoryId: category.id },
+                        data: { categoryId: otherCategory.id }
+                    });
+                }
+
+                // Move Recurring Transactions
+                if (recurringCount > 0) {
+                    await tx.recurringTransaction.updateMany({
+                        where: { userId: user.id, categoryId: category.id },
+                        data: { categoryId: otherCategory.id }
+                    });
+                }
+            }
+
+            // Delete Budgets associated with this category
+            await tx.budget.deleteMany({
+                where: { userId: user.id, categoryId: category.id }
+            });
+
+            // Finally delete the category
+            await tx.category.delete({
+                where: { id },
+            });
+
+            return { moved: txCount > 0 || recurringCount > 0 };
+        });
+
+        return NextResponse.json({ success: true, moved: result.moved });
+    } catch (error: any) {
+        console.error("Delete category error:", error);
+        return new NextResponse(error.message || "Internal Error", { status: 500 });
+    }
 }

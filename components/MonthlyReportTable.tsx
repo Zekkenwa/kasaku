@@ -102,19 +102,19 @@ export default function MonthlyReportTable({
     }, [goals]);
 
     return (
-        <div className="space-y-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="space-y-8 bg-white dark:bg-gray-800 card-fix p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Laporan Bulanan</h2>
+                <h2 className="text-2xl font-bold text-white dark:text-white">Laporan Bulanan</h2>
                 <div className="text-right">
-                    <span className="block text-sm text-gray-500">Periode</span>
-                    <span className="font-medium">{new Date(currentYear, currentMonth).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
+                    <span className="block text-sm text-gray-600 dark:text-gray-400">Periode</span>
+                    <span className="font-medium text-white dark:text-gray-200">{new Date(currentYear, currentMonth).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
                 </div>
             </div>
 
             {/* 1. Transaction Table */}
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                    <thead className="bg-gray-50 dark:bg-gray-700 text-white dark:text-gray-200 font-semibold border-b border-gray-200 dark:border-gray-700">
                         <tr>
                             <th className="py-3 px-4">No</th>
                             <th className="py-3 px-4">Tanggal</th>
@@ -124,23 +124,23 @@ export default function MonthlyReportTable({
                             <th className="py-3 px-4">Keterangan</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                         {filteredTransactions.map((t, idx) => (
-                            <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                                <td className="py-2 px-4 text-gray-500">{idx + 1}</td>
-                                <td className="py-2 px-4">{t.date}</td>
+                            <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <td className="py-2 px-4 text-gray-700 dark:text-gray-400">{idx + 1}</td>
+                                <td className="py-2 px-4 text-white dark:text-gray-200">{t.date}</td>
                                 <td className="py-2 px-4">
-                                    <span className="px-2 py-1 rounded-full bg-gray-100 text-xs">
+                                    <span className="px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-xs text-white dark:text-gray-300">
                                         {t.category}
                                     </span>
                                 </td>
-                                <td className="py-2 px-4 text-right text-red-600">
+                                <td className="py-2 px-4 text-right text-red-600 dark:text-red-400">
                                     {t.type === "EXPENSE" ? currency(t.amount) : "-"}
                                 </td>
-                                <td className="py-2 px-4 text-right text-green-600">
+                                <td className="py-2 px-4 text-right text-green-600 dark:text-green-400">
                                     {t.type === "INCOME" ? currency(t.amount) : "-"}
                                 </td>
-                                <td className="py-2 px-4 text-gray-600 italic">
+                                <td className="py-2 px-4 text-white dark:text-gray-400 italic">
                                     {t.note || "-"}
                                 </td>
                             </tr>
@@ -151,16 +151,16 @@ export default function MonthlyReportTable({
                             </tr>
                         )}
                     </tbody>
-                    <tfoot className="border-t-2 border-gray-200 font-bold bg-gray-50">
+                    <tfoot className="border-t-2 border-gray-200 dark:border-gray-700 font-bold bg-gray-50 dark:bg-gray-700 text-white dark:text-white">
                         <tr>
                             <td colSpan={3} className="py-3 px-4 text-right">TOTAL</td>
-                            <td className="py-3 px-4 text-right text-red-700">{currency(totals.expense)}</td>
-                            <td className="py-3 px-4 text-right text-green-700">{currency(totals.income)}</td>
+                            <td className="py-3 px-4 text-right text-red-700 dark:text-red-400">{currency(totals.expense)}</td>
+                            <td className="py-3 px-4 text-right text-green-700 dark:text-green-400">{currency(totals.income)}</td>
                             <td></td>
                         </tr>
                         <tr>
                             <td colSpan={3} className="py-3 px-4 text-right">SELISIH (Sisa)</td>
-                            <td colSpan={2} className={`py-3 px-4 text-center ${totals.income - totals.expense >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                            <td colSpan={2} className={`py-3 px-4 text-center ${totals.income - totals.expense >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                                 {currency(totals.income - totals.expense)}
                             </td>
                             <td></td>
@@ -172,21 +172,21 @@ export default function MonthlyReportTable({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
                 {/* 2. Budget Report */}
                 <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Status Budget</h3>
+                    <h3 className="text-lg font-semibold mb-3 text-white dark:text-white border-b dark:border-gray-700 pb-2">Status Budget</h3>
                     <div className="space-y-3">
                         {budgetStatus.map((b) => (
-                            <div key={b.categoryId} className="flex justify-between items-center text-sm p-3 rounded-lg border bg-gray-50">
+                            <div key={b.categoryId} className="flex justify-between items-center text-sm p-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
                                 <div>
-                                    <p className="font-medium capitalize">{b.categoryName}</p>
-                                    <p className="text-xs text-gray-500">
+                                    <p className="font-medium capitalize text-white dark:text-gray-200">{b.categoryName}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
                                         Limit: {currency(b.limitAmount)}
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className={`font-bold ${b.isOver ? "text-red-600" : "text-green-600"}`}>
+                                    <p className={`font-bold ${b.isOver ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
                                         {b.isOver ? "Over Budget" : "Aman"}
                                     </p>
-                                    <p className="text-xs">
+                                    <p className="text-xs text-gray-600 dark:text-gray-400">
                                         {b.isOver ? (
                                             <span>Lebih: {currency(Math.abs(b.remaining))}</span>
                                         ) : (
@@ -202,19 +202,19 @@ export default function MonthlyReportTable({
 
                 {/* 3. Goal Milestones */}
                 <div>
-                    <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Target Tercapai 🎉</h3>
+                    <h3 className="text-lg font-semibold mb-3 text-white dark:text-white border-b dark:border-gray-700 pb-2">Target Tercapai 🎉</h3>
                     <div className="space-y-3">
                         {reachedGoals.map(g => (
                             <div key={g.id} className="bg-brand-yellow/20 border border-brand-yellow p-4 rounded-lg flex items-center gap-3">
                                 <div className="text-2xl">🏆</div>
                                 <div>
-                                    <p className="font-bold text-gray-900">{g.title}</p>
-                                    <p className="text-sm text-gray-700">Tercapai 100%! ({currency(g.savedAmount)})</p>
+                                    <p className="font-bold text-white dark:text-white">{g.title}</p>
+                                    <p className="text-sm text-gray-700 dark:text-white">Tercapai 100%! ({currency(g.savedAmount)})</p>
                                 </div>
                             </div>
                         ))}
                         {reachedGoals.length === 0 && (
-                            <p className="text-gray-500 text-sm italic border-dashed border p-4 rounded text-center">
+                            <p className="text-gray-500 text-sm italic border-dashed border dark:border-gray-700 p-4 rounded text-center">
                                 Belum ada target keuangan yang tercapai penuh bulan ini. Semangat!
                             </p>
                         )}

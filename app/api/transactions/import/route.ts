@@ -2,8 +2,39 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CategoryType } from "@prisma/client";
 
 const parseCSVLine = (line: string) => {
+    // ... existing code ...
+    // Find or create category
+    let category = await prisma.category.findFirst({
+        where: {
+            userId: user.id,
+            name: { equals: categoryName, mode: "insensitive" },
+            type: type as CategoryType,
+        },
+    });
+
+    if (!category) {
+        category = await prisma.category.create({
+            data: {
+                userId: user.id,
+                name: categoryName,
+                type: type as CategoryType,
+            },
+        });
+    }
+
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            categoryId: category.id,
+            type: type as CategoryType,
+            amount,
+            createdAt: date,
+            note: note?.replace(/^"|"$/g, "") || "",
+        }
+    });
     const values = [];
     let currentValue = "";
     let inQuotes = false;
@@ -138,7 +169,7 @@ export async function POST(request: Request) {
                         data: {
                             userId: user.id,
                             name: categoryName,
-                            type: type,
+                            type: type as CategoryType,
                         },
                     });
                 }
@@ -147,7 +178,7 @@ export async function POST(request: Request) {
                     data: {
                         userId: user.id,
                         categoryId: category.id,
-                        type,
+                        type: type as CategoryType,
                         amount,
                         createdAt: date,
                         note: note?.replace(/^"|"$/g, "") || "",

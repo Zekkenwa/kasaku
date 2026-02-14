@@ -164,8 +164,11 @@ export default async function DashboardPage(props: {
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
   });
 
-  const incomeLine = Array(daysInRange).fill(0);
-  const expenseLine = Array(daysInRange).fill(0);
+  // Ensure daysInRange is valid (at least 1) to prevent RangeError
+  const safeDaysInRange = Math.max(1, daysInRange);
+
+  const incomeLine = Array(safeDaysInRange).fill(0);
+  const expenseLine = Array(safeDaysInRange).fill(0);
 
   transactionsRaw.forEach((t) => {
     // Calculate index relative to filterStart
@@ -184,7 +187,7 @@ export default async function DashboardPage(props: {
       ...loan,
       remaining: loan.amount - totalPaid,
       createdAt: loan.createdAt.toLocaleDateString("id-ID"),
-      dueDate: loan.dueDate ? loan.dueDate.toLocaleDateString("id-ID") : null,
+      dueDate: loan.dueDate ? loan.dueDate.toISOString() : null,
       payments: loan.payments.map((p: { id: string; amount: number; date: Date; note: string | null }) => ({
         id: p.id,
         amount: p.amount,
@@ -239,6 +242,7 @@ export default async function DashboardPage(props: {
         start: filterStart.toISOString().split('T')[0],
         end: filterEnd.toISOString().split('T')[0]
       }}
+      firstTxDate={minTx?.createdAt.toISOString().split('T')[0] ?? null}
     />
   );
 }

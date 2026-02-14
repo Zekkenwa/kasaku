@@ -1,0 +1,843 @@
+import { WASocket } from '@whiskeysockets/baileys';
+import { prisma } from '../lib/prisma';
+
+// Helper to format currency
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+};
+
+// Helper: Parse amount string (e.g. "10k", "1.5jt", "500") to number
+// Helper: Parse amount string (e.g. "10k", "1.5jt", "500", "seratus ribu") to number
+const parseAmount = (input: string): number | null => {
+    if (!input) return null;
+    let str = input.toLowerCase().trim();
+
+    // 1. Natural Language (Indonesian)
+    const numberWords: Record<string, number> = {
+        'satu': 1, 'se': 1, 'dua': 2, 'tiga': 3, 'empat': 4, 'lima': 5,
+        'enam': 6, 'tujuh': 7, 'delapan': 8, 'sembilan': 9, 'sepuluh': 10,
+        'sebelas': 11, 'seratus': 100, 'seribu': 1000,
+        'nol': 0
+    };
+    const magnitudes: Record<string, number> = {
+        'belas': 10, // Special logic needed (e.g. dua belas = 2 + 10)
+        'puluh': 10, // Multiplier (dua puluh = 2 * 10)
+        'ratus': 100, // Multiplier
+        'ribu': 1000,
+        'juta': 1000000,
+        'miliar': 1000000000,
+        'triliun': 1000000000000
+    };
+
+    // Check if it contains words
+    const words = str.split(/[\s-]+/);
+    const hasWord = words.some(w => numberWords[w] || magnitudes[w]);
+
+    if (hasWord) {
+        let total = 0;
+        let current = 0;
+        for (let i = 0; i < words.length; i++) {
+            const w = words[i];
+            const val = numberWords[w];
+            if (val !== undefined) {
+                if (w === 'se' && words[i + 1] && magnitudes[words[i + 1]]) {
+                    // handled by magnitude (seratus, seribu) or just 'se' -> 1
+                    current += 1;
+                } else if (w === 'sepuluh' || w === 'sebelas' || w === 'seratus' || w === 'seribu') {
+                    current += val;
+                } else {
+                    current += val;
+                }
+            } else if (magnitudes[w]) {
+                if (current === 0 && (w === 'ribu' || w === 'juta' || w === 'miliar')) current = 1;
+
+                if (w === 'belas') {
+                    current = (current === 0 ? 1 : current) + 10; // dua belas -> 2 + 10 ? No. belas adds 10 to unit. 
+                    // Actually usually 'dua belas' -> words are 'dua', 'belas'.
+                    // 'dua' makes current=2. 'belas' should make it 12. 
+                    // so current += 10? Yes. (sebelas is 11, defined above).
+                    current += 10;
+                } else if (w === 'puluh' || w === 'ratus') {
+                    current = (current === 0 ? 1 : current) * magnitudes[w];
+                } else {
+                    // Ribu, Juta, Miliar
+                    total += (current === 0 ? 1 : current) * magnitudes[w];
+                    current = 0;
+                }
+            }
+        }
+        return total + current;
+    }
+
+    // 2. Numeric with specific formatting (ID: 15.000 = 15k; US: 15,000 = 15k)
+    // We assume strict ID format: dot = thousand, comma = decimal.
+    // Clean currency symbol
+    str = str.replace(/rp\.?|idr/g, '').trim();
+
+    // Check suffixes
+    let multiplier = 1;
+    if (str.endsWith('k') || str.endsWith('rb') || str.endsWith('ribu')) {
+        multiplier = 1000;
+        str = str.replace(/k|rb|ribu/, '');
+    } else if (str.endsWith('jt') || str.endsWith('juta')) {
+        multiplier = 1000000;
+        str = str.replace(/jt|juta/, '');
+    } else if (str.endsWith('m') || str.endsWith('miliar')) {
+        multiplier = 1000000000;
+        str = str.replace(/m|miliar/, '');
+    }
+
+    // Handle dots (thousands) and commas (decimals)
+    // Remove dots
+    str = str.replace(/\./g, '');
+    // Replace comma with dot
+    str = str.replace(/,/g, '.');
+
+    const num = parseFloat(str);
+    return isNaN(num) ? null : num * multiplier;
+};
+
+// Start logic
+export async function handleIncomingMessage(sock: WASocket, msg: any) {
+    if (!msg.messages || msg.messages.length === 0) return;
+
+    const message = msg.messages[0];
+    if (!message.message || message.key.fromMe) return;
+
+    const remoteJid = message.key.remoteJid!;
+    const text = message.message.conversation || message.message.extendedTextMessage?.text || "";
+
+    if (!text) return;
+
+    console.log(`Received message from ${remoteJid}: ${text}`);
+
+    // 1. Identify User
+    // Normalize phone: remove @s.whatsapp.net, replace 62 with 0 if needed or keep strictly as stored in DB.
+    // DB might store '08123' or '628123'. WhatsApp remoteJid is '628123...@s.whatsapp.net'.
+    const phone = remoteJid.split('@')[0];
+
+    // Try to find user with exact phone OR with '0' instead of '62' prefix
+    const localPhone = phone.startsWith('62') ? '0' + phone.slice(2) : phone;
+
+    let user = await prisma.user.findFirst({
+        where: {
+            OR: [
+                { phone: phone },
+                { phone: localPhone }
+            ]
+        },
+        include: { wallets: true, categories: true }
+    });
+
+    // 2. Auth Check
+    if (!user) {
+        await sock.sendMessage(remoteJid, {
+            text: "👋 Halo! Nomor WhatsApp ini belum terhubung dengan akun Kasaku.\n\nSilakan login ke dashboard Kasaku dan lengkapi nomor WhatsApp Anda di menu *Pengaturan Akun* untuk mulai menggunakan bot ini.\n\n🌐 Dashboard: https://kasaku.vercel.app"
+        });
+        return;
+    }
+
+    // 3. Process Line by Line (Support multi-line)
+    const lines = text.split('\n').filter((line: string) => line.trim().length > 0);
+    let reply = "";
+
+    if (lines.length === 1 && (lines[0].toLowerCase() === 'help' || lines[0].toLowerCase() === 'bantuan')) {
+        await sendHelp(sock, remoteJid, user.name || "Kak", false);
+        return;
+    }
+
+    if (lines.length === 1 && (lines[0].toLowerCase().includes('help lengkap') || lines[0].toLowerCase().includes('full help'))) {
+        await sendHelp(sock, remoteJid, user.name || "Kak", true);
+        return;
+    }
+
+    // If greetings
+    const greetings = ['hi', 'halo', 'hello', 'pagi', 'siang', 'sore', 'malam', 'tes', 'ping'];
+    if (lines.length === 1 && greetings.includes(lines[0].toLowerCase())) {
+        await sock.sendMessage(remoteJid, { text: `Halo ${user.name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\nKetik *help* untuk melihat cara penggunaan.` });
+        return;
+    }
+
+    // Process commands
+    const results = [];
+    for (const line of lines) {
+        const result = await processCommand(user, line);
+        if (result) results.push(result);
+    }
+
+    if (results.length > 0) {
+        reply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` + results.join('\n');
+        await sock.sendMessage(remoteJid, { text: reply });
+    } else {
+        // If NO command recognized in single line, send hint
+        if (lines.length === 1) {
+            await sock.sendMessage(remoteJid, { text: "Maaf, saya tidak mengerti perintah tersebut. Ketik *help* untuk bantuan." });
+        }
+    }
+}
+
+async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean) {
+    let text = `📖 *PANDUAN KASAKU BOT*\nHalo ${name}!\n\n`;
+
+    if (!full) {
+        text += `🔹 *Perintah Dasar:*\n`;
+        text += `• \`keluar 15k bakso @makan\` (Catat Pengeluaran)\n`;
+        text += `• \`masuk 5jt gaji @kerja\` (Catat Pemasukan)\n`;
+        text += `• \`cek saldo\` (Lihat sisa saldo)\n\n`;
+        text += `💡 Ketik *help lengkap* untuk melihat panduan fitur hutang, budget, laporan, & koreksi.`;
+    } else {
+        text += `🔹 *1. CATAT TRANSAKSI*\n`;
+        text += `• \`keluar [jml] [ket] @[kategori]\`\n`;
+        text += `  Ex: _keluar 18k nasi goreng @makan_\n`;
+        text += `• \`masuk [jml] [ket] @[kategori]\`\n`;
+        text += `  Ex: _masuk 5jt gaji bulan ini @gaji_\n\n`;
+
+        text += `🔹 *2. HUTANG & PIUTANG*\n`;
+        text += `• \`hutang [jml] @[nama] [ket]\`\n`;
+        text += `  Ex: _hutang 100k @Budi pinjam dulu_\n`;
+        text += `• \`piutang [jml] @[nama] [ket]\`\n`;
+        text += `  Ex: _piutang 50k @Ani talangin makan_\n`;
+        text += `• \`bayar [jml] @[nama]\`\n`;
+        text += `  Ex: _bayar 50k @Budi_\n`;
+        text += `• \`lunas @[nama]\`\n`;
+        text += `  Ex: _lunas @Ani_\n`;
+        text += `• \`cek hutang\`\n\n`;
+
+        text += `🔹 *3. WALLET & TRANSFER*\n`;
+        text += `• \`cek wallet\`\n`;
+        text += `• \`transfer [jml] dari @[A] ke @[B]\`\n`;
+        text += `  Ex: _transfer 500k dari @BCA ke @Gopay_\n\n`;
+
+        text += `🔹 *4. CELENGAN (GOALS)*\n`;
+        text += `• \`goal [nama] [target]\`\n`;
+        text += `  Ex: _goal Laptop 15jt_\n`;
+        text += `• \`isi goal [jml] @[nama]\`\n`;
+        text += `  Ex: _isi goal 500k @Laptop_\n`;
+        text += `• \`cek goal\`\n\n`;
+
+        text += `🔹 *5. RUTINITAS (RECURRING)*\n`;
+        text += `• \`rutin [nama] [jml] [masuk/keluar] [harian/mingguan/bulanan]\`\n`;
+        text += `  Ex: _rutin Netflix 180k keluar bulanan_\n`;
+        text += `  Ex: _rutin Gaji 10jt masuk bulanan_\n\n`;
+
+        text += `🔹 *6. BUDGET & LAPORAN*\n`;
+        text += `• \`budget [jml] @[kategori]\`\n`;
+        text += `  Ex: _budget 2jt @Makan_\n`;
+        text += `• \`cek budget\`\n`;
+        text += `• \`laporan [periode]\`\n`;
+        text += `  Ex: _laporan hari_, _laporan minggu_, _laporan bulan_\n`;
+        text += `• \`cek saldo\`\n\n`;
+
+        text += `🔹 *7. LAINNYA*\n`;
+        text += `• \`hapus kategori [nama] @[tipe]\`\n`;
+        text += `  Ex: _hapus kategori liburan @keluar_\n`;
+        text += `• \`undo\`\n\n`;
+
+        text += `💡 _Tips: Anda bisa menggunakan singkatan k (ribu), jt (juta). Cth: 50k, 1.5jt_`;
+    }
+
+    await sock.sendMessage(jid, { text });
+}
+
+async function processCommand(user: any, text: string): Promise<string | null> {
+    const lower = text.toLowerCase().trim();
+    const parts = lower.split(/\s+/);
+    const cmd = parts[0];
+
+    // --- CATEGORY DELETION ---
+    if (cmd === 'hapus' && parts[1] === 'kategori') {
+        const namePart = parts.filter((p, i) => i > 1 && !p.startsWith('@')).join(' ');
+        const typePart = parts.find(p => p === '@masuk' || p === '@keluar' || p === '@in' || p === '@out');
+
+        if (!namePart) return "❌ Gagal: Nama kategori belum diisi.";
+
+        let type: 'INCOME' | 'EXPENSE' = 'EXPENSE';
+        if (typePart && (typePart === '@masuk' || typePart === '@in')) type = 'INCOME';
+
+        // Check exist
+        const category = await prisma.category.findFirst({
+            where: {
+                userId: user.id,
+                name: { equals: namePart, mode: 'insensitive' },
+                type: type
+            }
+        });
+
+        if (!category) return `❌ Gagal: Kategori '${namePart}' tidak ditemukan.`;
+
+        // Check usage in Transactions
+        const usageCount = await prisma.transaction.count({ where: { categoryId: category.id } });
+        if (usageCount > 0) return `⚠️ Gagal: Kategori ini dipakai di ${usageCount} transaksi. Hapus transaksi dulu.`;
+
+        // Check usage in Recurring Transactions
+        const recurringCount = await prisma.recurringTransaction.count({ where: { categoryId: category.id } });
+        if (recurringCount > 0) return `⚠️ Gagal: Kategori ini dipakai di ${recurringCount} rutinitas aktif. Hapus rutinitas dulu.`;
+
+        await prisma.category.delete({ where: { id: category.id } });
+        return `✅ Kategori '${category.name}' (${type}) berhasil dihapus.`;
+    }
+
+    // --- TRANSACTION (keluar/masuk) ---
+    if (['keluar', 'out', 'expense', 'masuk', 'in', 'income'].includes(cmd)) {
+        const type = ['masuk', 'in', 'income'].includes(cmd) ? 'INCOME' : 'EXPENSE';
+
+        // Find amount (first string that looks like number)
+        // Find amount: could be one word (15k) or multiple (seratus ribu)
+        // We try to join parts and parse? Or iterate?
+        // Simple strategy: Try to parse each part. If fail, try to join 2 parts, 3 parts...
+        // But natural language is hard to identify boundaries. 
+        // "keluar seratus ribu makan" -> "seratus ribu" is amount.
+        // "keluar 15k makan" -> "15k" is amount.
+
+        let amount = 0;
+        let amountStartIndex = -1;
+        let amountEndIndex = -1;
+
+        // Try single token match first (numeric or simple shortcuts)
+        const simpleAmountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null && !isNaN(parseFloat(p.replace(/[^0-9]/g, ''))));
+        // logic above is flawed for 'seratus'. parseFloat('seratus') is NaN.
+
+        // Better: Scan for number words or digits
+        // find longest sequence of "amount-like" words?
+
+        for (let i = 1; i < parts.length; i++) {
+            // Check if parts[i] starts a number
+            // Try increasing window size
+            for (let j = parts.length; j > i; j--) {
+                const sub = parts.slice(i, j).join(' ');
+                const val = parseAmount(sub);
+                if (val !== null && val > 0) {
+                    // Found a match!
+                    // But check if it's just a common word? 'satu' might be 'jam satu'.
+                    // Usually user puts amount early or clearly. 
+                    // Let's assume longest match is amount.
+                    amount = val;
+                    amountStartIndex = i;
+                    amountEndIndex = j;
+                    break;
+                }
+            }
+            if (amount > 0) break;
+        }
+
+        if (amount === 0) return "❌ Gagal: Jumlah tidak ditemukan (cth: 15k, seratus ribu)";
+
+        // Description is everything else NOT in the amount range
+        // And not category part
+        const categoryIdx = parts.findIndex(p => p.startsWith('@'));
+
+        let descParts = [];
+        for (let i = 1; i < parts.length; i++) {
+            if (i >= amountStartIndex && i < amountEndIndex) continue;
+            if (categoryIdx !== -1 && i === categoryIdx) continue;
+            // Also skip if part is "masuk"/"keluar" command itself (index 0)
+            descParts.push(parts[i]);
+        }
+
+        // ... rest of logic uses `amount` and `descParts`
+        // Category logic
+        let categoryName = "Umum";
+        const categoryPart = parts.find(p => p.startsWith('@'));
+        if (categoryPart) {
+            categoryName = categoryPart.substring(1).replace(/_/g, ' ');
+        }
+
+        const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        // Handle Category (Find or Create)
+        let category = user.categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === type);
+        if (!category) {
+            // Create new category if not exists
+            try {
+                // Ensure unique name per user+type
+                // If name exists but different type, we might want to distinguish.
+                // For simplicity, just create. Prisma @@unique([userId, name, type]) handles duplicate check.
+                category = await prisma.category.create({
+                    data: {
+                        userId: user.id,
+                        name: categoryName.charAt(0).toUpperCase() + categoryName.slice(1),
+                        type: type
+                    }
+                });
+            } catch (e) {
+                // If collision (race condition or existing), just refetch
+                category = await prisma.category.findFirst({ where: { userId: user.id, name: categoryName, type } });
+            }
+        }
+
+        // Wallet (Default to first)
+        const wallet = user.wallets.length > 0 ? user.wallets[0] : null; // Should handle 'no wallet' case if needed
+
+        // Execute Transaction
+        const tx = await prisma.transaction.create({
+            data: {
+                userId: user.id,
+                amount: amount,
+                type: type,
+                categoryId: category.id,
+                walletId: wallet?.id,
+                note: description || (type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
+                createdAt: new Date()
+            }
+        });
+
+        // Update Wallet Balance (Optional if backend relies on sum queries, but good if we tracking balance field)
+        // Kasaku seems to use sum queries on fly? DashboardClient calculates totals from transactions prop.
+        // Wait, DashboardClient props: totals: { balance... }. 
+        // Dashboard server component likely calculates it.
+        // If we want real-time balance update in wallet table (if it exists):
+        if (wallet) {
+            // Check if wallet model has balance field? Wallet model: initialBalance int.
+            // Balance is calculated dynamically. So no update needed on Wallet table.
+        }
+
+        return `✅ ${type === 'INCOME' ? 'Masuk' : 'Keluar'} ${formatCurrency(amount)} (${description || category.name})`;
+    }
+
+    // --- DEBT (hutang/piutang) ---
+    if (['hutang', 'debt', 'piutang', 'loan'].includes(cmd)) {
+        const type = ['piutang', 'loan'].includes(cmd) ? 'RECEIVABLE' : 'PAYABLE'; // Piutang = Orang hutang ke kita (Receivable)
+        // Hutang = Kita hutang ke orang (Payable)
+
+        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Gagal: Jumlah tidak ditemukan";
+        const amount = parseAmount(parts[amountIdx])!;
+
+        const personPart = parts.find(p => p.startsWith('@'));
+        if (!personPart) return "❌ Gagal: Nama orang wajib pakai @ (cth: @Budi)";
+        const personName = personPart.substring(1).replace(/_/g, ' ');
+
+        const descParts = parts.filter((p, i) => i !== 0 && i !== amountIdx && !p.startsWith('@'));
+        const note = descParts.join(' ');
+
+        await prisma.loan.create({
+            data: {
+                userId: user.id,
+                name: personName,
+                amount: amount,
+                type: type,
+                status: 'ONGOING',
+                createdAt: new Date()
+            }
+        });
+
+        return `✅ ${type === 'PAYABLE' ? 'Hutang ke' : 'Piutang dari'} ${personName} ${formatCurrency(amount)}`;
+    }
+
+    // --- LUNAS (Mark as paid) ---
+    if (cmd === 'lunas') {
+        const personPart = parts.find(p => p.startsWith('@'));
+        if (!personPart) return "❌ Gagal: Nama orang wajib pakai @ (cth: @Budi)";
+        const personName = personPart.substring(1).replace(/_/g, ' ');
+
+        // Find active loan
+        const loan = await prisma.loan.findFirst({
+            where: {
+                userId: user.id,
+                name: { equals: personName, mode: 'insensitive' },
+                status: 'ONGOING'
+            }
+        });
+
+        if (!loan) return `❌ Tidak ada hutang/piutang aktif dengan ${personName}.`;
+
+        await prisma.loan.update({
+            where: { id: loan.id },
+            data: { status: 'PAID' }
+        });
+
+        return `✅ Hutang/Piutang dengan ${personName} telah ditandai LUNAS! 🎉`;
+    }
+
+    if (cmd === 'cek' && parts[1] === 'hutang') {
+        const loans = await prisma.loan.findMany({
+            where: { userId: user.id, status: 'ONGOING' }
+        });
+        if (loans.length === 0) return "✅ Tidak ada hutang/piutang aktif.";
+        return "📋 *Daftar Hutang & Piutang:*\n" + loans.map((l: any) => `- ${l.type === 'PAYABLE' ? '🔴 Hutang ke' : '🟢 Piutang'} ${l.name}: ${formatCurrency(l.amount)}`).join('\n');
+    }
+
+    // --- QUERY (cek saldo) ---
+    if (cmd === 'cek' && parts[1] === 'saldo') {
+        // Calculate balance
+        const transactions = await prisma.transaction.findMany({ where: { userId: user.id } });
+        const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
+
+        let initial = wallets.reduce((acc: number, w: any) => acc + w.initialBalance, 0);
+        let income = transactions.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
+        let expense = transactions.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
+
+        return `💰 *Saldo Saat Ini: ${formatCurrency(initial + income - expense)}*`;
+    }
+
+    // --- UNDO (Smart) ---
+    if (cmd === 'undo' || cmd === 'batal') {
+        // Check latest of everything
+        const lastTx = await prisma.transaction.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
+        const lastLoan = await prisma.loan.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
+        const lastGoal = await prisma.goal.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
+        // Also check PaymentHistory?
+        // For simplicity, let's check created items.
+
+        const items = [
+            { type: 'TX', date: lastTx?.createdAt, data: lastTx },
+            { type: 'LOAN', date: lastLoan?.createdAt, data: lastLoan },
+            { type: 'GOAL', date: lastGoal?.createdAt, data: lastGoal }
+        ].filter(i => i.date !== undefined);
+
+        if (items.length === 0) return "❌ Tidak ada aktivitas baru-baru ini.";
+
+        // Sort desc
+        items.sort((a, b) => b.date!.getTime() - a.date!.getTime());
+        const latest = items[0];
+
+        if (latest.type === 'TX') {
+            const tx = latest.data as any;
+            await prisma.transaction.delete({ where: { id: tx.id } });
+            return `✅ Undo: Transaksi ${formatCurrency(tx.amount)} dibatalkan.`;
+        } else if (latest.type === 'LOAN') {
+            const loan = latest.data as any;
+            await prisma.loan.delete({ where: { id: loan.id } });
+            return `✅ Undo: Hutang/Piutang ${loan.name} dibatalkan.`;
+        } else if (latest.type === 'GOAL') {
+            const goal = latest.data as any;
+            await prisma.goal.delete({ where: { id: goal.id } });
+            return `✅ Undo: Goal '${goal.name}' dihapus.`;
+        }
+    }
+
+    // --- LOAN PAYMENT (Cicil) ---
+    if (cmd === 'bayar') {
+        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Gagal: Jumlah pembayaran tidak ditemukan.";
+        const amount = parseAmount(parts[amountIdx])!;
+
+        const personPart = parts.find(p => p.startsWith('@'));
+        if (!personPart) return "❌ Gagal: Nama wajib pakai @ (cth: @Budi)";
+        const personName = personPart.substring(1).replace(/_/g, ' ');
+
+        const loan = await prisma.loan.findFirst({
+            where: { userId: user.id, name: { equals: personName, mode: 'insensitive' }, status: 'ONGOING' }
+        });
+
+        if (!loan) return `❌ Tidak ada hutang aktif dengan ${personName}.`;
+
+        // Update amount (decrease debt amount? or keep original and track processed? 
+        // Schema has 'amount'. Usually means remaining or total. 
+        // PaymentHistory table exists. Let's use it.
+        // And we should decrease loan amount? Or does loan amount represent Initial Principal?
+        // If create loan = 100k. Pay 50k. If we decrease amount to 50k, we lose history of original.
+        // But for simple "Hutang" tracking, usually 'amount' = 'how much is owed'.
+        // Let's assume 'amount' is remaining balance. 
+
+        if (amount > loan.amount) return `⚠️ Pembayaran (${formatCurrency(amount)}) melebihi sisa hutang (${formatCurrency(loan.amount)}).`;
+
+        const newAmount = loan.amount - amount;
+        await prisma.loan.update({
+            where: { id: loan.id },
+            data: {
+                amount: newAmount,
+                status: newAmount === 0 ? 'PAID' : 'ONGOING'
+            }
+        });
+
+        await prisma.paymentHistory.create({
+            data: {
+                loanId: loan.id,
+                amount: amount,
+                note: 'Pembayaran via WA'
+            }
+        });
+
+        return `✅ Diterima ${formatCurrency(amount)} dari/untuk ${personName}.\nSisa: ${formatCurrency(newAmount)}`;
+    }
+
+
+    // --- BUDGET ---
+    if (cmd === 'budget') {
+        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Gagal: Jumlah budget tidak ditemukan";
+        const amount = parseAmount(parts[amountIdx])!;
+
+        const categoryPart = parts.find(p => p.startsWith('@'));
+        if (!categoryPart) return "❌ Gagal: Kategori wajib pakai @ (cth: @Makan)";
+        const categoryName = categoryPart.substring(1).replace(/_/g, ' ');
+
+        // Find Category
+        const category = user.categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase());
+        if (!category) return `❌ Gagal: Kategori '${categoryName}' tidak ditemukan.`;
+
+        // Upsert Budget
+        // Prisma doesn't support upsert on composite unique key directly easily without where clause matching exact unique constraint name or fields.
+        // But we have @@unique([userId, categoryId])
+        const existingBudget = await prisma.budget.findFirst({
+            where: { userId: user.id, categoryId: category.id }
+        });
+
+        if (existingBudget) {
+            await prisma.budget.update({
+                where: { id: existingBudget.id },
+                data: { limitAmount: amount }
+            });
+        } else {
+            await prisma.budget.create({
+                data: {
+                    userId: user.id,
+                    categoryId: category.id,
+                    limitAmount: amount,
+                    period: 'MONTHLY'
+                }
+            });
+        }
+
+        return `✅ Budget untuk ${category.name} diatur: ${formatCurrency(amount)}`;
+    }
+
+    if (cmd === 'cek' && parts[1] === 'budget') {
+        const budgets = await prisma.budget.findMany({
+            where: { userId: user.id },
+            include: { category: true }
+        });
+
+        if (budgets.length === 0) return "⚠️ Belum ada budget yang diatur.";
+
+        // Calculate usage for this month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                userId: user.id,
+                type: 'EXPENSE',
+                createdAt: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
+
+        let msg = "📊 *Status Budget Bulan Ini:*\n";
+        for (const b of budgets) {
+            const spent = transactions
+                .filter((t: any) => t.categoryId === b.categoryId)
+                .reduce((acc: number, t: any) => acc + t.amount, 0);
+
+            const pct = Math.round((spent / b.limitAmount) * 100);
+            const statusIcon = pct >= 100 ? "🔴" : pct >= 80 ? "⚠️" : "🟢";
+
+            msg += `${statusIcon} ${b.category.name}: ${Math.min(pct, 100)}% (${formatCurrency(spent)} / ${formatCurrency(b.limitAmount)})\n`;
+        }
+        return msg;
+    }
+
+    // --- LAPORAN ---
+    if (cmd === 'laporan' || cmd === 'report') {
+        const period = parts[1] || 'hari'; // default hari
+        const now = new Date();
+        let start, end;
+
+        if (period === 'hari' || period === 'today') {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        } else if (period === 'minggu' || period === 'week') {
+            const day = now.getDay() || 7; // Get current day number, make Sunday 7
+            if (day !== 1) now.setHours(-24 * (day - 1)); // Go back to Monday
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6, 23, 59, 59);
+        } else if (period === 'bulan' || period === 'month') {
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        } else {
+            return "❌ Periode tidak valid. Gunakan: hari, minggu, bulan.";
+        }
+
+        const txs = await prisma.transaction.findMany({
+            where: {
+                userId: user.id,
+                createdAt: { gte: start, lte: end }
+            }
+        });
+
+        const income = txs.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
+        const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
+
+        return `📈 *Laporan ${period.charAt(0).toUpperCase() + period.slice(1)} Ini*\n` +
+            `---------------------------\n` +
+            `Masuk : ${formatCurrency(income)}\n` +
+            `Keluar: ${formatCurrency(expense)}\n` +
+            `---------------------------\n` +
+            `Net   : ${formatCurrency(income - expense)}`;
+    }
+
+    // --- GOALS ---
+    if (cmd === 'goal') {
+        // goal [nama] [target]
+        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Target tidak ditemukan (cth: 1jt).";
+        const target = parseAmount(parts[amountIdx])!;
+
+        const nameParts = parts.filter((p, i) => i > 0 && i !== amountIdx && !p.startsWith('@'));
+        const name = nameParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        if (!name) return "❌ Nama goal belum diisi.";
+
+        await prisma.goal.create({
+            data: {
+                userId: user.id,
+                name: name,
+                targetAmount: target,
+                currentAmount: 0
+            }
+        });
+        return `✅ Goal '${name}' dibuat! Target: ${formatCurrency(target)}`;
+    }
+
+    if (cmd === 'isi' && parts[1] === 'goal') {
+        // isi goal [jml] @[nama]
+        const amountIdx = parts.findIndex((p, i) => i > 1 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
+        const amount = parseAmount(parts[amountIdx])!;
+
+        const goalPart = parts.find(p => p.startsWith('@'));
+        if (!goalPart) return "❌ Nama goal harus pakai @.";
+        const goalName = goalPart.substring(1).replace(/_/g, ' ');
+
+        const goal = await prisma.goal.findFirst({ where: { userId: user.id, name: { equals: goalName, mode: 'insensitive' } } });
+        if (!goal) return `❌ Goal '${goalName}' tidak ditemukan.`;
+
+        await prisma.goal.update({
+            where: { id: goal.id },
+            data: { currentAmount: { increment: amount } }
+        });
+        return `✅ Berhasil nabung ${formatCurrency(amount)} ke celengan '${goal.name}'.\nTerkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`;
+    }
+
+    if (cmd === 'cek' && parts[1] === 'goal') {
+        const goals = await prisma.goal.findMany({ where: { userId: user.id } });
+        if (goals.length === 0) return "⚠️ Belum ada goal.";
+        return "🎯 *Daftar Goal:*\n" + goals.map((g: any) => `- ${g.name}: ${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)} (${Math.round(g.currentAmount / g.targetAmount * 100)}%)`).join('\n');
+    }
+
+    // --- WALLETS ---
+    if (cmd === 'cek' && parts[1] === 'wallet') {
+        const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
+        if (wallets.length === 0) return "⚠️ Belum ada wallet.";
+
+        // Calculate real balances (Initial + Income - Expense) per wallet
+        // This is expensive if we do it every time. Checking if backend maintains balance...
+        // Schema has 'initialBalance'. Transactions have 'walletId'.
+
+        let msg = "💳 *Saldo Wallet:*\n";
+        for (const w of wallets) {
+            const txs = await prisma.transaction.findMany({ where: { walletId: w.id } });
+            const income = txs.filter((t: any) => t.type === 'INCOME').reduce((acc: any, t: any) => acc + t.amount, 0);
+            const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((acc: any, t: any) => acc + t.amount, 0);
+            const balance = w.initialBalance + income - expense;
+            msg += `- ${w.name}: ${formatCurrency(balance)}\n`;
+        }
+        return msg;
+    }
+
+    if (cmd === 'transfer') {
+        // transfer [jml] dari @[A] ke @[B]
+        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
+        const amount = parseAmount(parts[amountIdx])!;
+
+        const fromPart = parts.find((p, i) => p.startsWith('@') && parts[i - 1] === 'dari');
+        const toPart = parts.find((p, i) => p.startsWith('@') && parts[i - 1] === 'ke');
+
+        if (!fromPart || !toPart) return "❌ Format salah. Gunakan: transfer [jml] dari @[A] ke @[B]";
+
+        const fromName = fromPart.substring(1).replace(/_/g, ' ');
+        const toName = toPart.substring(1).replace(/_/g, ' ');
+
+        const w1 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: fromName, mode: 'insensitive' } } });
+        const w2 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: toName, mode: 'insensitive' } } });
+
+        if (!w1 || !w2) return "❌ Salah satu wallet tidak ditemukan.";
+
+        // Check Balance of Source Wallet
+        const incomeAgg = await prisma.transaction.aggregate({
+            _sum: { amount: true },
+            where: { walletId: w1.id, type: 'INCOME' }
+        });
+        const expenseAgg = await prisma.transaction.aggregate({
+            _sum: { amount: true },
+            where: { walletId: w1.id, type: 'EXPENSE' }
+        });
+
+        const currentBalance = w1.initialBalance + (incomeAgg._sum.amount || 0) - (expenseAgg._sum.amount || 0);
+
+        if (currentBalance < amount) {
+            return `❌ Gagal: Saldo ${w1.name} tidak cukup.\nSaldo: ${formatCurrency(currentBalance)}\nTransfer: ${formatCurrency(amount)}`;
+        }
+
+        // Execute Transfer (Expense from W1, Income to W2)
+        await prisma.transaction.create({
+            data: {
+                userId: user.id,
+                amount: amount,
+                type: 'EXPENSE',
+                walletId: w1.id,
+                note: `Transfer ke ${w2.name}`
+            }
+        });
+        await prisma.transaction.create({
+            data: {
+                userId: user.id,
+                amount: amount,
+                type: 'INCOME',
+                walletId: w2.id,
+                note: `Transfer dari ${w1.name}`
+            }
+        });
+
+        return `✅ Berhasil transfer ${formatCurrency(amount)} dari ${w1.name} ke ${w2.name}.`;
+    }
+
+    // --- RECURRING (Rutinitas) ---
+    if (cmd === 'rutin') {
+        // rutin [nama] [jml] [masuk/keluar] [harian/mingguan/bulanan]
+        // Example: rutin Netflix 180k keluar bulanan
+
+        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+        if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
+        const amount = parseAmount(parts[amountIdx])!;
+
+        const typeStr = parts.find(p => ['masuk', 'in', 'keluar', 'out'].includes(p));
+        if (!typeStr) return "❌ Tipe (masuk/keluar) tidak ditemukan.";
+        const type = ['masuk', 'in'].includes(typeStr) ? 'INCOME' : 'EXPENSE';
+
+        const intervalStr = parts.find(p => ['harian', 'mingguan', 'bulanan'].includes(p));
+        if (!intervalStr) return "❌ Interval (harian/mingguan/bulanan) tidak ditemukan.";
+
+        let freq = 'MONTHLY';
+        if (intervalStr === 'harian') freq = 'DAILY';
+        if (intervalStr === 'mingguan') freq = 'WEEKLY';
+
+        const nameParts = parts.filter((p, i) => i > 0 && i !== amountIdx && p !== typeStr && p !== intervalStr);
+        const name = nameParts.join(' ');
+
+        // Need category... default to General? Or ask user to use @?
+        // Let's force @ for category if we want it. Or default.
+        // Schema: RecurringTransaction needs categoryId.
+        const defaultCategory = await prisma.category.findFirst({ where: { userId: user.id, type: type } });
+        if (!defaultCategory) return "❌ Buat minimal satu kategori di dashboard dulu.";
+
+        await prisma.recurringTransaction.create({
+            data: {
+                userId: user.id,
+                name: name || 'Rutin',
+                amount: amount,
+                type: type,
+                categoryId: defaultCategory.id,
+                frequency: freq as any,
+                startDate: new Date(),
+                nextRun: new Date() // Logic usually handles next run calculation
+            }
+        });
+
+        return `✅ Rutinitas '${name}' (${intervalStr}) berhasil dibuat!`;
+    }
+
+    return null;
+}

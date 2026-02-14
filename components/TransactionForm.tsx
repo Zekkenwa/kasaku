@@ -98,25 +98,25 @@ export default function TransactionForm({
         <form onSubmit={handleSubmit} className="space-y-4">
             {/* Tipe */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">Tipe</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipe</label>
                 <div className="flex gap-4 mt-1">
-                    <label className="flex items-center">
+                    <label className="flex items-center text-white dark:text-gray-200 cursor-pointer">
                         <input
                             type="radio"
                             value="EXPENSE"
                             checked={type === "EXPENSE"}
                             onChange={(e) => setType(e.target.value)}
-                            className="mr-2"
+                            className="mr-2 accent-[#F26076]"
                         />
                         Pengeluaran
                     </label>
-                    <label className="flex items-center">
+                    <label className="flex items-center text-white dark:text-gray-200 cursor-pointer">
                         <input
                             type="radio"
                             value="INCOME"
                             checked={type === "INCOME"}
                             onChange={(e) => setType(e.target.value)}
-                            className="mr-2"
+                            className="mr-2 accent-[#458B73]"
                         />
                         Pemasukan
                     </label>
@@ -125,12 +125,12 @@ export default function TransactionForm({
 
             {/* Wallet Selection */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">Sumber Dana (Wallet)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sumber Dana (Wallet)</label>
                 <select
                     required
                     value={walletId}
                     onChange={(e) => setWalletId(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 >
                     {wallets.length === 0 && <option value="">Belum ada wallet</option>}
                     {wallets.map((w) => (
@@ -143,14 +143,14 @@ export default function TransactionForm({
 
             {/* Kategori */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Kategori
                 </label>
                 <select
                     required
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 >
                     {filteredCategories.length === 0 && <option value="">Tidak ada kategori</option>}
                     {filteredCategories.map((c) => (
@@ -163,20 +163,20 @@ export default function TransactionForm({
 
             {/* Amount */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">Jumlah</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Jumlah</label>
                 <input
                     type="number"
                     required
                     min="1"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
             </div>
 
             {/* Date */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Tanggal
                 </label>
                 <input
@@ -184,19 +184,20 @@ export default function TransactionForm({
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    style={{ colorScheme: "light dark" }}
                 />
             </div>
 
             {/* Note */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Catatan (Opsional)
                 </label>
                 <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    className="mt-1 block w-full border rounded-md px-3 py-2"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
             </div>
 
@@ -205,14 +206,14 @@ export default function TransactionForm({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
                 >
                     Batal
                 </button>
                 <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:opacity-50"
+                    className="px-4 py-2 bg-[#458B73] text-white rounded-md hover:bg-[#3aa381] disabled:opacity-50 transition-colors shadow-md shadow-emerald-100"
                 >
                     {loading ? "Menyimpan..." : "Simpan"}
                 </button>

@@ -1,5 +1,7 @@
 ﻿import "./globals.css";
 import Providers from "./providers";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata = {
   title: "Kasaku",
@@ -16,9 +18,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body>
-        <Providers>{children}</Providers>
+        <ThemeProvider>
+          <Providers>{children}</Providers>
+          <ThemeToggle />
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,0 +1,32 @@
+.next/dev/types/validator.ts(324,31): error TS2344: Type 'typeof import("D:/kasaku/kasaku/app/api/recurring/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/recurring/[id]">'.
+  Types of property 'PUT' are incompatible.
+    Type '(req: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ name: string; id: string; createdAt: Date; updatedAt: Date; userId: string; type: TransactionType; ... 8 more ...; lastRun: Date | null; }> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/dev/types/validator.ts(378,31): error TS2344: Type 'typeof import("D:/kasaku/kasaku/app/api/wallets/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/wallets/[id]">'.
+  Types of property 'DELETE' are incompatible.
+    Type '(request: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ error: string; }> | NextResponse<{ success: boolean; }>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+app/api/transactions/import/route.ts(132,25): error TS2322: Type 'string' is not assignable to type 'CategoryType | EnumCategoryTypeFilter<"Category"> | undefined'.
+app/api/transactions/import/route.ts(141,29): error TS2322: Type 'string' is not assignable to type 'CategoryType'.
+app/api/transactions/import/route.ts(150,25): error TS2322: Type 'string' is not assignable to type 'TransactionType'.
+app/dashboard/page.tsx(214,7): error TS2322: Type '{ id: string; type: TransactionType; category: string; amount: number; note: string | undefined; date: string; walletId: string | null; }[]' is not assignable to type 'Transaction[]'.
+  Type '{ id: string; type: $Enums.TransactionType; category: string; amount: number; note: string | undefined; date: string; walletId: string | null; }' is not assignable to type 'Transaction'.
+    Types of property 'walletId' are incompatible.
+      Type 'string | null' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+app/dashboard/page.tsx(227,7): error TS2322: Type '{ remaining: number; createdAt: string; dueDate: string | null; payments: { id: string; amount: number; date: string; note: string | undefined; }[]; name: string; id: string; userId: string; type: LoanType; amount: number; status: LoanStatus; }[]' is not assignable to type 'Loan[]'.
+  Type '{ remaining: number; createdAt: string; dueDate: string | null; payments: { id: string; amount: number; date: string; note: string | undefined; }[]; name: string; id: string; userId: string; type: $Enums.LoanType; amount: number; status: $Enums.LoanStatus; }' is not assignable to type 'Loan'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.
+components/TransactionManagerModal.tsx(52,63): error TS2339: Property 'name' does not exist on type 'string'.
+components/TransactionManagerModal.tsx(57,29): error TS17001: JSX elements cannot have multiple attributes with the same name.
+scripts/whatsapp-bot-logic.ts(71,43): error TS7006: Parameter 'line' implicitly has an 'any' type.
+scripts/whatsapp-server.ts(4,25): error TS7016: Could not find a declaration file for module 'qrcode-terminal'. 'D:/kasaku/kasaku/node_modules/qrcode-terminal/lib/main.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/qrcode-terminal` if it exists or add a new declaration (.d.ts) file containing `declare module 'qrcode-terminal';`

@@ -16,9 +16,20 @@ model User {
   passwordHash  String?
   phone         String?
   monthlyReportOptIn Boolean @default(false)
+  tempPhone     String?
+  otpCode       String?
+  otpExpiresAt  DateTime?
   deleteRequestedAt  DateTime?
   deleteScheduledAt  DateTime?
+  lastEmailChangeAt  DateTime?
+  
+  // OTP Rate Limiting
+  otpLastSentAt      DateTime?
+  otpAttempts        Int       @default(0)
+  otpBlockedUntil    DateTime?
+
   createdAt     DateTime @default(now())
+
   updatedAt     DateTime @updatedAt
 
   accounts     Account[]
@@ -241,4 +252,10 @@ model Goal {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model WhatsAppAuth {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @db.Text
 }

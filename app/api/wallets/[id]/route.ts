@@ -3,57 +3,58 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function PUT(
-    req: Request,
-    props: { params: Promise<{ id: string }> }
-) {
-    const params = await props.params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    try {
-        const body = await req.json();
-        const { name, type, initialBalance } = body;
-
-        const data: Record<string, unknown> = {};
-        if (name !== undefined) data.name = name;
-        if (type !== undefined) data.type = type;
-        if (initialBalance !== undefined) data.initialBalance = Number(initialBalance);
-
-        const wallet = await prisma.wallet.update({
-            where: { id: params.id },
-            data,
-        });
-
-        return NextResponse.json(wallet);
-    } catch (error) {
-        return NextResponse.json({ error: "Error updating" }, { status: 500 });
-    }
-}
-
 export async function DELETE(
-    req: Request,
-    props: { params: Promise<{ id: string }> }
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
 ) {
-    const params = await props.params;
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+    });
+
+    if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const { id } = await params;
+
+    // Verify wallet belongs to user
+    const wallet = await prisma.wallet.findUnique({
+        where: { id },
+    });
+
+    if (!wallet || wallet.userId !== user.id) {
+        return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
+    }
 
     try {
-        // Unlink transactions from this wallet first
+        // 1. Unlink transactions (set walletId to null)
         await prisma.transaction.updateMany({
-            where: { walletId: params.id },
+            where: { walletId: id },
             data: { walletId: null },
         });
+
+        // Also unlink recurring transactions if any
         await prisma.recurringTransaction.updateMany({
-            where: { walletId: params.id },
+            where: { walletId: id },
             data: { walletId: null },
         });
+
+        // 2. Delete the wallet
         await prisma.wallet.delete({
-            where: { id: params.id },
+            where: { id },
         });
+
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json({ error: "Error deleting" }, { status: 500 });
+        console.error("Error deleting wallet:", error);
+        return NextResponse.json(
+            { error: "Internal Server Error" },
+            { status: 500 }
+        );
     }
 }

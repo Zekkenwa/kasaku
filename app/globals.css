@@ -1,12 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8f9fb;
-  --foreground: #1a1a2e;
+  /* Enforced Dark Mode Variables */
+  --background: #111827;
+  /* gray-900 */
+  --foreground: #ffffff;
+  --card-bg: #1f2937;
+  /* gray-800 */
+
+  /* Brand Colors */
   --brand-red: #F26076;
   --brand-orange: #FF9760;
   --brand-yellow: #FFD150;
   --brand-green: #458B73;
+
+  /* Gradients */
+  --header-gradient: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+  --card-gradient: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  --auth-gradient: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -40,24 +53,29 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #4b5563;
+  /* gray-600 */
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #6b7280;
+  /* gray-500 */
 }
 
-/* Focus ring using brand green */
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(69, 139, 115, 0.3);
-  border-color: #458B73 !important;
+/* Failsafe for cards/bubbles */
+.card-fix {
+  background-color: var(--card-bg) !important;
 }
 
-/* Smooth transitions globally */
+/* Card hover animation (Restored) */
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  /* Darker shadow for dark mode */
+}
+
+/* Smooth transitions globally (Restored) */
 *,
 *::before,
 *::after {
@@ -66,8 +84,20 @@ textarea:focus {
   transition-duration: 150ms;
 }
 
-/* Card hover animation */
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+/* Force dark mode styles for inputs */
+input,
+select,
+textarea {
+  background-color: #374151 !important;
+  /* gray-700 */
+  color: #ffffff !important;
+  border-color: #4b5563;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(69, 139, 115, 0.3);
+  border-color: #458B73 !important;
 }

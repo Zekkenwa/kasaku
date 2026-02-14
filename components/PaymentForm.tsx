@@ -50,10 +50,10 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="p-3 rounded-xl border border-gray-200 bg-gray-50 mb-4 text-sm">
-                <p className="text-gray-500">{isPayable ? "Membayar hutang:" : "Menerima piutang:"}</p>
-                <p className="font-semibold text-gray-900">{loanName}</p>
-                <p className="text-gray-500 mt-1">Sisa {isPayable ? "Tagihan" : "Piutang"}:</p>
+            <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 mb-4 text-sm">
+                <p className="text-gray-500 dark:text-gray-400">{isPayable ? "Membayar hutang:" : "Menerima piutang:"}</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{loanName}</p>
+                <p className="text-gray-500 dark:text-gray-400 mt-1">Sisa {isPayable ? "Tagihan" : "Piutang"}:</p>
                 <p className="font-semibold" style={{ color: isPayable ? "#F26076" : "#458B73" }}>
                     Rp {remaining.toLocaleString("id-ID")}
                 </p>
@@ -67,7 +67,7 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700">Jumlah Bayar</label>
+                <label className="block text-sm font-medium text-white dark:text-gray-300">Jumlah Bayar</label>
                 <input
                     type="number"
                     required
@@ -75,28 +75,29 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
                     max={remaining}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73]"
+                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
                     placeholder="Rp 0"
                 />
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700">Tanggal</label>
+                <label className="block text-sm font-medium text-white dark:text-gray-300">Tanggal</label>
                 <input
                     type="date"
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73]"
+                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
+                    style={{ colorScheme: "light dark" }}
                 />
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700">Catatan (Opsional)</label>
+                <label className="block text-sm font-medium text-white dark:text-gray-300">Catatan (Opsional)</label>
                 <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    className="mt-1 block w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73]"
+                    className="mt-1 block w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#458B73] bg-white dark:bg-gray-700 dark:text-white"
                     rows={2}
                 />
             </div>
@@ -105,7 +106,7 @@ export default function PaymentForm({ loanId, loanName, remaining, loanType, onC
                 <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                    className="px-4 py-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl cursor-pointer transition-colors"
                 >
                     Batal
                 </button>
