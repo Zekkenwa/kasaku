@@ -8,39 +8,35 @@ type Props = {
     spent: number;
     period?: string;
     onEdit: () => void;
+    compact?: boolean;
 };
 
-export default function BudgetProgress({ categoryName, limit, spent, onEdit }: Props) {
+export default function BudgetProgress({ categoryName, limit, spent, onEdit, compact }: Props) {
     const remaining = limit - spent;
-    // visual percentage for the bar (0 to 100)
-    // If overbudget, remaining is negative, so bar should be 0 or show negative state? 
-    // User said "mengurang sampai habis" (shrink to empty). So max(0, %).
     let percentage = Math.max(0, Math.min(100, Math.round((remaining / limit) * 100)));
 
     const isOver = spent > limit;
 
-    // Color logic
-    let color = "#10B981"; // Green (safe)
-    if (percentage < 20) color = "#EF4444"; // Red (critical)
-    else if (percentage < 50) color = "#F59E0B"; // Yellow (warning)
+    let color = "#10B981";
+    if (percentage < 20) color = "#EF4444";
+    else if (percentage < 50) color = "#F59E0B";
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(val);
 
     return (
         <div
-            className={`p-4 rounded-xl border hover:shadow-md cursor-pointer transition-all bg-black/20 hover:bg-white/5 group relative ${isOver ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]" : "border-white/5 hover:border-white/20"}`}
+            className={`${compact ? "p-2.5" : "p-4"} rounded-xl border hover:shadow-md cursor-pointer transition-all bg-black/20 hover:bg-white/5 group relative ${isOver ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]" : "border-white/5 hover:border-white/20"}`}
             onClick={onEdit}
         >
-            <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold text-sm text-white group-hover:text-[#458B73] transition-colors">{categoryName}</span>
-                <span className={`text-xs font-bold ${isOver ? "text-[#F26076]" : "text-neutral-500"}`}>
-                    {isOver ? "Overbudget!" : `${percentage}% Tersisa`}
+            <div className="flex justify-between items-center mb-1">
+                <span className={`font-semibold ${compact ? "text-xs" : "text-sm"} text-white group-hover:text-[#458B73] transition-colors`}>{categoryName}</span>
+                <span className={`text-xs font-bold py-0.5 px-2 rounded-full ${isOver ? "bg-[#F26076]/20 text-[#F26076]" : "bg-[#458B73]/20 text-[#458B73]"}`}>
+                    {isOver ? "Over!" : `${percentage}%`}
                 </span>
             </div>
 
-            {/* Depleting budget bar */}
-            <div className="w-full bg-white/5 rounded-full h-2 mb-2 overflow-hidden">
+            <div className={`w-full bg-white/5 rounded-full ${compact ? "h-2" : "h-2.5"} mb-1 overflow-hidden`}>
                 <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
@@ -51,10 +47,12 @@ export default function BudgetProgress({ categoryName, limit, spent, onEdit }: P
                 />
             </div>
 
-            <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
-                <span>Sisa: {formatCurrency(remaining)}</span>
-                <span>Limit: {formatCurrency(limit)}</span>
-            </div>
+            {!compact && (
+                <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
+                    <span>Sisa: {formatCurrency(remaining)}</span>
+                    <span>Limit: {formatCurrency(limit)}</span>
+                </div>
+            )}
         </div>
     );
 }

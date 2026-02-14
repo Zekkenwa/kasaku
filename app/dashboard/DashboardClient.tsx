@@ -4,7 +4,7 @@ import {
   Chart as ChartJS, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale, PointElement, LineElement, Filler,
 } from "chart.js";
-import { Pie, Line } from "react-chartjs-2";
+import { Doughnut, Line } from "react-chartjs-2";
 import { useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
@@ -24,6 +24,35 @@ import PaymentForm from "@/components/PaymentForm";
 import TransactionManagerModal from "@/components/TransactionManagerModal";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
+
+const centerTextPlugin = {
+  id: 'centerText',
+  afterDraw: (chart: any) => {
+    const { ctx, chartArea: { top, bottom, left, right } } = chart;
+    const text = chart.options.plugins.centerText?.text || '';
+    const subtext = chart.options.plugins.centerText?.subtext || '';
+    const isVisible = chart.options.plugins.centerText?.visible !== false;
+
+    if (!isVisible) return;
+
+    ctx.save();
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // "Total" text (Subtext)
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#737373';
+    ctx.fillText(subtext.toUpperCase(), centerX, centerY - 12);
+
+    // Amount text (Main)
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, centerX, centerY + 8);
+    ctx.restore();
+  }
+};
 
 type TransactionType = "INCOME" | "EXPENSE";
 type Transaction = { id: string; type: TransactionType; category: string; amount: number; note?: string; date: string; walletId?: string };
@@ -59,6 +88,12 @@ type Props = {
 };
 
 const currency = (v: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(v);
+const formatCompactNumber = (number: number) => {
+  if (number >= 1000000000) return (number / 1000000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (number >= 1000000) return (number / 1000000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (number >= 1000) return (number / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return number.toString();
+};
 const monthLabel = (m: number) => new Intl.DateTimeFormat("id-ID", { month: "long" }).format(new Date(2020, m - 1, 1));
 
 const PIE_COLORS_EXPENSE = ["#F26076", "#FF9760", "#FFD150", "#458B73", "#e11d48", "#ea580c", "#ca8a04", "#0f766e"];
@@ -80,17 +115,14 @@ export default function DashboardClient({
   const [isGoalCreateOpen, setIsGoalCreateOpen] = useState(false);
   const [isWalletDistOpen, setIsWalletDistOpen] = useState(false);
 
-  // Pagination / Carousel State
   const [txPage, setTxPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
-  const [activePie, setActivePie] = useState<"INCOME" | "EXPENSE">("INCOME");
 
-  const [isRecurringManagerOpen, setIsRecurringManagerOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeLoanForPayment, setActiveLoanForPayment] = useState<Loan | null>(null);
   const [loanTab, setLoanTab] = useState<"PAYABLE" | "RECEIVABLE">("PAYABLE");
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [hideSaldo, setHideSaldo] = useState(true);
-  const [pageWarning, setPageWarning] = useState<string | null>(null);
   const [pageInput, setPageInput] = useState(txPage.toString());
 
   useEffect(() => {
@@ -104,16 +136,8 @@ export default function DashboardClient({
         setHideSaldo(stored === "true");
       }
 
-      // Process recurring transactions
-      fetch("/api/recurring/process", { method: "POST" })
-        .then(res => res.json())
-        .then(data => {
-          if (data.processed > 0) {
-            console.log("Processed recurring:", data.processed);
-            router.refresh();
-          }
-        })
-        .catch(err => console.error("Error processing recurring:", err));
+      // Process recurring transactions once on mount
+      fetch("/api/recurring/process", { method: "POST" }).catch(err => console.error("Auto-process error:", err));
     }
   }, []);
   const toggleHideSaldo = () => {
@@ -193,6 +217,8 @@ export default function DashboardClient({
   const payableLoans = loans.filter(l => l.type === "PAYABLE" || !l.type);
   const receivableLoans = loans.filter(l => l.type === "RECEIVABLE");
 
+  const [activeAnalysis, setActiveAnalysis] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+
   return (
     <main className="min-h-screen pb-20 bg-[#1E1E1E] text-white font-sans selection:bg-[#458B73] selection:text-white relative overflow-hidden">
       {/* Background Decoration */}
@@ -214,9 +240,7 @@ export default function DashboardClient({
           </div>
 
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-            {/* Search / Context could go here */}
             <div className="flex gap-2">
-              {/* Quick Action Icons (Mobile Friendly) */}
               <button onClick={() => { setTxModalTab("CATEGORY"); setIsTxModalOpen(true); }} className="p-3 rounded-xl bg-[#252525] border border-white/5 hover:bg-[#333] transition-colors text-xl" title="Kategori">📁</button>
               <button onClick={() => setIsImportModalOpen(true)} className="p-3 rounded-xl bg-[#252525] border border-white/5 hover:bg-[#333] transition-colors text-xl" title="Import">📥</button>
               <button onClick={() => router.push('/donasi')} className="p-3 rounded-xl bg-[#FFD150]/10 border border-[#FFD150]/20 hover:bg-[#FFD150]/20 transition-colors text-xl" title="Donasi">🎁</button>
@@ -226,70 +250,112 @@ export default function DashboardClient({
         </header>
 
         {/* ===== BENTO GRID LAYOUT ===== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-12 gap-6">
 
-          {/* 1. FINANCIAL OVERVIEW (Hero - Spans 2 cols, 2 rows on LG) */}
-          <div className="col-span-1 md:col-span-2 lg:col-span-2 row-span-2 p-8 rounded-3xl bg-[#252525] border border-white/5 shadow-xl relative overflow-hidden group flex flex-col justify-between">
+          {/* 1. FINANCIAL OVERVIEW - Row 1 (Col 1-8) */}
+          <div className="col-span-12 lg:col-span-8 p-6 lg:p-8 rounded-3xl bg-[#252525] border border-white/5 shadow-xl relative overflow-hidden group flex flex-col justify-between h-[400px]">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#458B73]/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
 
-            <div className="space-y-6 relative z-10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-neutral-400">
-                  <span className="p-2 rounded-lg bg-white/5">💰</span>
-                  <span className="font-medium">Total Saldo</span>
+            <div className="relative z-10 flex justify-between items-start mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-sm text-neutral-400 font-medium">Total Balance</p>
+                  <button onClick={toggleHideSaldo} className="text-neutral-500 hover:text-white transition-colors text-xs">{hideSaldo ? "Show" : "Hide"}</button>
                 </div>
-                <button onClick={toggleHideSaldo} className="text-neutral-500 hover:text-white transition-colors text-sm">{hideSaldo ? "Show" : "Hide"}</button>
-              </div>
-              <div className="space-y-1">
-                <p className="text-5xl lg:text-6xl font-extrabold text-white tracking-tight">{censor(currency(totals.balance))}</p>
-                <div className="flex gap-4 text-sm font-medium pt-2">
-                  <span className="text-[#458B73] flex items-center gap-1">↓ {censor(currency(totals.totalIncome))} <span className="text-neutral-500 text-xs">(Masuk)</span></span>
-                  <span className="text-[#F26076] flex items-center gap-1">↑ {censor(currency(totals.totalExpense))} <span className="text-neutral-500 text-xs">(Keluar)</span></span>
+                <h3 className="text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">{censor(currency(totals.balance))}</h3>
+                <div className="flex gap-4 text-sm font-medium pt-3">
+                  <span className="text-[#458B73] flex items-center gap-1 bg-[#458B73]/10 px-2 py-0.5 rounded-lg border border-[#458B73]/20">
+                    ↓ {censor(currency(totals.totalIncome))}
+                  </span>
+                  <span className="text-[#F26076] flex items-center gap-1 bg-[#F26076]/10 px-2 py-0.5 rounded-lg border border-[#F26076]/20">
+                    ↑ {censor(currency(totals.totalExpense))}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8">
-              <div className="flex items-center justify-between text-xs text-neutral-500 uppercase font-bold tracking-wider mb-3">
-                <span>Dompet Saya</span>
-                <button onClick={() => setIsWalletDistOpen(true)} className="text-[#458B73] hover:text-white transition-colors">Atur</button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {wallets && wallets.length > 0 ? wallets.map(w => (
-                  <div key={w.id} className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-2.5 h-2.5 rounded-full ${w.type === "CASH" ? "bg-[#458B73]" : w.type === "BANK" ? "bg-blue-500" : "bg-purple-500"}`} />
-                      <span className="text-sm text-neutral-300 font-medium">{w.name}</span>
-                    </div>
-                    <span className="text-sm font-bold text-white">{censor(currency(w.initialBalance))}</span>
-                  </div>
-                )) : <p className="text-neutral-500 italic text-sm">Belum ada wallet</p>}
-              </div>
+            {/* Line Chart Area */}
+            <div className="flex-1 w-full relative min-h-[160px]">
+              <Line
+                data={{
+                  labels: charts.labels,
+                  datasets: [
+                    {
+                      label: "Pemasukan",
+                      data: charts.incomeLine,
+                      borderColor: "#458B73",
+                      backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, "rgba(69,139,115,0.2)");
+                        gradient.addColorStop(1, "rgba(69,139,115,0)");
+                        return gradient;
+                      },
+                      tension: 0.4,
+                      borderWidth: 3,
+                      pointRadius: 0,
+                      fill: true
+                    },
+                    {
+                      label: "Pengeluaran",
+                      data: charts.expenseLine,
+                      borderColor: "#F26076",
+                      backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, "rgba(242,96,118,0.2)");
+                        gradient.addColorStop(1, "rgba(242,96,118,0)");
+                        return gradient;
+                      },
+                      tension: 0.4,
+                      borderWidth: 3,
+                      pointRadius: 0,
+                      fill: true
+                    },
+                  ],
+                }}
+                options={{
+                  maintainAspectRatio: false,
+                  responsive: true,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                  },
+                  scales: {
+                    y: { display: false },
+                    x: { display: false }
+                  }
+                }}
+              />
             </div>
           </div>
 
-          {/* 2. ACTIONS & FILTERS (Col 3) */}
-          <div className="col-span-1 lg:col-span-1 flex flex-col gap-4">
-            {/* Quick Add Transaction */}
+          {/* 2. ACTIONS & DATE FILTER - Row 1 (Col 9-12) */}
+          <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
             <button onClick={() => { setEditingTx(null); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }}
-              className="w-full py-4 rounded-3xl bg-[#458B73] hover:bg-[#3d7a65] text-white font-bold text-lg shadow-lg hover:shadow-[#458B73]/30 transition-all flex items-center justify-center gap-2 group">
-              <span className="text-2xl group-hover:scale-110 transition-transform">+</span> Catat Transaksi
+              className="w-full py-6 rounded-3xl bg-[#458B73] hover:bg-[#3d7a65] text-white font-bold text-lg shadow-lg hover:shadow-[#458B73]/30 transition-all flex items-center justify-center gap-3 group h-[120px]">
+              <span className="text-3xl bg-white/20 w-10 h-10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">+</span>
+              <span className="text-xl">Catat Transaksi</span>
             </button>
 
-            {/* Date Filter Card */}
-            <div className="flex-1 p-5 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col gap-3">
-              <div className="flex bg-black/40 p-1 rounded-xl">
-                <button onClick={() => { setDateFilterMode("MONTHLY"); if (searchParams.has('start')) { updateMonthYear(new Date().getMonth() + 1, new Date().getFullYear()); } }}
-                  className={`flex-1 py-2 text-xs rounded-lg font-bold transition-all ${dateFilterMode === "MONTHLY" ? "bg-[#333] text-white shadow" : "text-neutral-500 hover:text-white"}`}>Bulanan</button>
-                <button onClick={() => setDateFilterMode("CUSTOM")}
-                  className={`flex-1 py-2 text-xs rounded-lg font-bold transition-all ${dateFilterMode === "CUSTOM" ? "bg-[#333] text-white shadow" : "text-neutral-500 hover:text-white"}`}>Kustom</button>
+            <div className="flex-1 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col justify-center gap-4 h-[256px]">
+              {/* Date Filter Logic */}
+              <div>
+                <h4 className="text-lg font-bold text-white mb-2 ml-1">Filter Waktu</h4>
+                <div className="flex bg-black/40 p-1 rounded-xl">
+                  <button onClick={() => { setDateFilterMode("MONTHLY"); if (searchParams.has('start')) { updateMonthYear(new Date().getMonth() + 1, new Date().getFullYear()); } }}
+                    className={`flex-1 py-3 text-xs rounded-lg font-bold transition-all ${dateFilterMode === "MONTHLY" ? "bg-[#333] text-white shadow" : "text-neutral-500 hover:text-white"}`}>Bulanan</button>
+                  <button onClick={() => setDateFilterMode("CUSTOM")}
+                    className={`flex-1 py-3 text-xs rounded-lg font-bold transition-all ${dateFilterMode === "CUSTOM" ? "bg-[#333] text-white shadow" : "text-neutral-500 hover:text-white"}`}>Kustom</button>
+                </div>
               </div>
+
               {dateFilterMode === "MONTHLY" ? (
-                <div className="flex gap-2">
-                  <select className="flex-1 border border-white/10 rounded-xl px-3 py-2 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={selectedMonth} onChange={(e) => updateMonthYear(Number(e.target.value), selectedYear)}>
+                <div className="flex flex-col gap-3">
+                  <select className="flex-1 border border-white/10 rounded-xl px-4 py-3 text-base bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={selectedMonth} onChange={(e) => updateMonthYear(Number(e.target.value), selectedYear)}>
                     {monthOptions.map((m) => (<option key={m} value={m} className="bg-[#252525]">{monthLabel(m)}</option>))}
                   </select>
-                  <select className="flex-1 border border-white/10 rounded-xl px-3 py-2 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={selectedYear} onChange={(e) => updateMonthYear(selectedMonth, Number(e.target.value))}>
+                  <select className="flex-1 border border-white/10 rounded-xl px-4 py-3 text-base bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={selectedYear} onChange={(e) => updateMonthYear(selectedMonth, Number(e.target.value))}>
                     {yearOptions.map((y) => (<option key={y} value={y} className="bg-[#252525]">{y}</option>))}
                   </select>
                 </div>
@@ -297,254 +363,280 @@ export default function DashboardClient({
             </div>
           </div>
 
-          {/* 3. GOALS / TABUNGAN (Col 4) */}
-          <div className="col-span-1 lg:col-span-1 row-span-2 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-white flex items-center gap-2">
-                <span className="text-xl">🎯</span> Target
-              </h3>
-              <button onClick={() => { setEditingGoal(null); setIsGoalCreateOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors">+</button>
+          {/* 3. WALLET DISTRIBUTION - Row 2 (Col 1-4) */}
+          <div className="col-span-12 lg:col-span-4 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative h-[400px] flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-white text-lg">Wallet Distribution</h3>
+              <button onClick={() => setIsWalletDistOpen(true)} className="text-[#458B73] hover:text-white transition-colors text-xs font-bold uppercase">Atur</button>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
-              {goals.length === 0 ? <p className="text-neutral-500 italic text-xs text-center mt-10">Belum ada target.</p> : goals.map(g => {
-                const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
+
+            <div className="space-y-4 overflow-y-auto custom-scrollbar pr-2 flex-1 flex flex-col justify-center">
+              {wallets && wallets.length > 0 ? wallets.map(w => {
+                const percentage = totals.balance > 0 ? (w.initialBalance / totals.balance) * 100 : 0;
                 return (
-                  <div key={g.id} onClick={() => { setEditingGoal(g); setIsGoalCreateOpen(true); }} className="p-4 rounded-2xl bg-black/20 hover:bg-white/5 border border-transparent hover:border-white/5 transition-all cursor-pointer group">
+                  <div key={w.id} className="group">
                     <div className="flex justify-between mb-2">
-                      <span className="text-sm font-bold text-gray-200">{g.name}</span>
-                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${pct >= 100 ? "bg-[#458B73]/20 text-[#458B73]" : "bg-[#FF9760]/20 text-[#FF9760]"}`}>{pct}%</span>
-                    </div>
-                    <div className="w-full bg-white/5 rounded-full h-1.5 mb-2">
-                      <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 100 ? "#458B73" : "#FF9760" }} />
-                    </div>
-                    <div className="flex justify-between text-[10px] text-neutral-400">
-                      <span>{currency(g.currentAmount)}</span>
-                      <span>{currency(g.targetAmount)}</span>
-                    </div>
-                    {/* Goal Actions */}
-                    <div className="flex gap-2 items-center mt-2 group-hover:opacity-100 opacity-50 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <input type="number" placeholder="Nominal" onClick={(e) => e.stopPropagation()} value={goalInputAmounts[g.id] || ""} onChange={(e) => setGoalInputAmounts(p => ({ ...p, [g.id]: e.target.value }))}
-                        className="w-full border border-white/10 rounded-md px-2 py-1 text-[10px] bg-[#333] text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]" />
-                      <div className="flex gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); handleGoalAddMoney(g); }} className="px-2 py-1 rounded-md text-[10px] bg-[#458B73]/20 text-[#458B73] hover:bg-[#458B73] hover:text-white transition-all">+</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleGoalWithdrawMoney(g); }} className="px-2 py-1 rounded-md text-[10px] bg-[#F26076]/20 text-[#F26076] hover:bg-[#F26076] hover:text-white transition-all">-</button>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${w.type === "CASH" ? "bg-[#458B73]" : w.type === "BANK" ? "bg-blue-500" : "bg-purple-500"}`} />
+                        <span className="text-sm text-neutral-300 font-semibold">{w.name}</span>
                       </div>
+                      <span className="text-sm font-bold text-white">{censor(currency(w.initialBalance))}</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${w.type === "CASH" ? "bg-[#458B73]" : w.type === "BANK" ? "bg-blue-500" : "bg-purple-500"}`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
                     </div>
                   </div>
                 );
-              })}
+              }) : <p className="text-neutral-500 italic text-sm">Belum ada wallet</p>}
             </div>
           </div>
 
-          {/* 4. BUDGET STATUS (Col 3, Row 2) */}
-          <div className="col-span-1 lg:col-span-1 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col">
+          {/* 4. DUAL ANALYSIS (INCOME & EXPENSE) - Row 2 (Col 5-12) */}
+          <div className="col-span-12 lg:col-span-8 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg h-[400px] flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-white flex items-center gap-2">
-                <span className="text-xl">📊</span> Budget
-              </h3>
-              <button onClick={() => { setEditingBudget(null); setIsBudgetModalOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors">+</button>
+              <h3 className="font-bold text-white text-lg">Financial Analysis</h3>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
-              {budgets.length === 0 ? <p className="text-neutral-500 italic text-xs text-center mt-4">Belum ada budget.</p> : budgets.map((b) => (
-                <div key={b.id} onClick={() => { setEditingBudget({ categoryId: b.categoryId, limitAmount: b.limitAmount, id: b.id, period: b.period }); setIsBudgetModalOpen(true); }}
-                  className="cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors">
-                  <BudgetProgress id={b.id} categoryName={b.categoryName} limit={b.limitAmount} spent={spentByCategory[b.categoryName] || 0} period={b.period} onEdit={() => { }} />
+
+            <div className="flex-1 min-h-0">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 h-full items-center">
+                {/* INCOME CHART */}
+                <div className="flex flex-col items-center justify-center relative p-2">
+                  <h4 className="text-[10px] md:text-sm font-bold text-[#458B73] mb-3">Pemasukan</h4>
+                  <div className="relative w-24 h-24 sm:w-32 sm:h-32 xl:w-40 xl:h-40">
+                    <Doughnut
+                      data={{
+                        labels: charts.incomePie.labels,
+                        datasets: [{
+                          data: charts.incomePie.data,
+                          backgroundColor: PIE_COLORS_INCOME,
+                          borderWidth: 0,
+                        }]
+                      }}
+                      plugins={[centerTextPlugin]}
+                      options={{
+                        cutout: "70%",
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: { enabled: true },
+                          centerText: {
+                            text: censor(formatCompactNumber(totals.totalIncome)),
+                            subtext: "Total"
+                          }
+                        } as any,
+                        maintainAspectRatio: true,
+                        responsive: true
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* INCOME LIST */}
+                <div className="flex flex-col justify-center h-full max-h-[140px] sm:max-h-[180px] lg:max-h-full overflow-y-auto custom-scrollbar pr-2 mt-2">
+                  {charts.incomePie.labels.map((label, idx) => (
+                    <div key={idx} className="flex items-center justify-between mb-2 text-[10px] sm:text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS_INCOME[idx % PIE_COLORS_INCOME.length] }}></div>
+                        <span className="text-neutral-300 truncate">{label}</span>
+                      </div>
+                      <span className="font-bold text-white ml-2 whitespace-nowrap">{censor(currency(charts.incomePie.data[idx]))}</span>
+                    </div>
+                  ))}
+                  {charts.incomePie.labels.length === 0 && <p className="text-neutral-500 text-[10px] italic text-center">Data kosong</p>}
+                </div>
+
+                {/* EXPENSE CHART */}
+                <div className="flex flex-col items-center justify-center relative p-2 border-l border-white/5">
+                  <h4 className="text-[10px] md:text-sm font-bold text-[#F26076] mb-3">Pengeluaran</h4>
+                  <div className="relative w-24 h-24 sm:w-32 sm:h-32 xl:w-40 xl:h-40">
+                    <Doughnut
+                      data={{
+                        labels: charts.expensePie.labels,
+                        datasets: [{
+                          data: charts.expensePie.data,
+                          backgroundColor: PIE_COLORS_EXPENSE,
+                          borderWidth: 0,
+                        }]
+                      }}
+                      plugins={[centerTextPlugin]}
+                      options={{
+                        cutout: "70%",
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: { enabled: true },
+                          centerText: {
+                            text: censor(formatCompactNumber(totals.totalExpense)),
+                            subtext: "Total"
+                          }
+                        } as any,
+                        maintainAspectRatio: true,
+                        responsive: true
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* EXPENSE LIST */}
+                <div className="flex flex-col justify-center h-full max-h-[140px] sm:max-h-[180px] lg:max-h-full overflow-y-auto custom-scrollbar pr-2 mt-2">
+                  {charts.expensePie.labels.map((label, idx) => (
+                    <div key={idx} className="flex items-center justify-between mb-2 text-[10px] sm:text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS_EXPENSE[idx % PIE_COLORS_EXPENSE.length] }}></div>
+                        <span className="text-neutral-300 truncate">{label}</span>
+                      </div>
+                      <span className="font-bold text-white ml-2 whitespace-nowrap">{censor(currency(charts.expensePie.data[idx]))}</span>
+                    </div>
+                  ))}
+                  {charts.expensePie.labels.length === 0 && <p className="text-neutral-500 text-[10px] italic text-center">Data kosong</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. BOTTOM SECTION - Row 3 */}
+
+          {/* LEFT: TRANSACTION HISTORY (Full Height) */}
+          <div className="col-span-12 lg:col-span-6 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col h-[600px]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-xl text-white">Riwayat Transaksi</h3>
+              <div className="flex gap-2">
+                <select className="bg-black/20 text-white text-xs border border-white/10 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
+                  <option value="ALL" className="bg-[#252525]">Semua</option><option value="INCOME" className="bg-[#252525]">Masuk</option><option value="EXPENSE" className="bg-[#252525]">Keluar</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2">
+              {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
+                <div key={t.id} className="flex items-center justify-between p-3 rounded-2xl bg-black/20 hover:bg-white/5 border border-transparent hover:border-white/5 group transition-all mb-1">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0 ${t.type === 'INCOME' ? 'bg-[#458B73]/20 text-[#458B73]' : 'bg-[#F26076]/20 text-[#F26076]'}`}>
+                      {t.type === 'INCOME' ? '↓' : '↑'}
+                    </div>
+                    <div className="min-w-0">
+                      {/* Font size increased for Category */}
+                      <p className="font-bold text-sm text-white truncate max-w-[140px]">{t.category}</p>
+                      {/* Font size increased for Date */}
+                      <span className="text-xs text-neutral-400">{t.date}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pl-2">
+                    {/* Font size increased for Amount */}
+                    <span className={`font-bold text-sm whitespace-nowrap ${t.type === 'INCOME' ? 'text-[#458B73]' : 'text-[#F26076]'}`}>
+                      {t.type === 'INCOME' ? "+" : "-"}{currency(t.amount)}
+                    </span>
+                    <button onClick={() => { setEditingTx(t); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-neutral-400 text-[10px]">✏️</button>
+                    <button onClick={() => handleDeleteTransaction(t.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded text-neutral-400 hover:text-red-500 text-[10px]">🗑️</button>
+                  </div>
                 </div>
               ))}
+              {filteredTransactions.length === 0 && <div className="text-center py-10 text-neutral-500 italic">Tidak ada transaksi.</div>}
             </div>
+            {filteredTransactions.length > ITEMS_PER_PAGE && (
+              <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/5 text-xs">
+                <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txPage === 1} className="px-3 py-1.5 rounded bg-[#333] hover:bg-[#444] disabled:opacity-50 transition-colors font-medium">← Prev</button>
+                <span className="text-neutral-500">{txPage} / {Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}</span>
+                <button onClick={() => setTxPage(p => Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), p + 1))} disabled={txPage === Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)} className="px-3 py-1.5 rounded bg-[#333] hover:bg-[#444] disabled:opacity-50 transition-colors font-medium">Next →</button>
+              </div>
+            )}
           </div>
 
-          {/* 5. MAIN CONTENT AREA (Transaction History + Analytics) */}
-          <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* RIGHT: GRID (Goals, Budget, Recurring, Debt) - Stacked Mobile, 2x2 Desktop */}
+          <div className="col-span-12 lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4 h-full md:h-[600px]">
 
-            {/* Transaction History (Takes up 2 cols) */}
-            <div className="col-span-1 lg:col-span-2 p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg min-h-[500px] flex flex-col">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-xl text-white">Riwayat Transaksi</h3>
-                <div className="flex gap-2">
-                  <select className="bg-black/20 text-white text-xs border border-white/10 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
-                    <option value="ALL" className="bg-[#252525]">Semua Tipe</option><option value="INCOME" className="bg-[#252525]">Masuk</option><option value="EXPENSE" className="bg-[#252525]">Keluar</option>
-                  </select>
-                  <select className="bg-black/20 text-white text-xs border border-white/10 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer max-w-[150px] truncate" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                    <option value="ALL" className="bg-[#252525]">Semua Kategori</option>
-                    {categories.map(c => <option key={c} value={c} className="bg-[#252525]">{c}</option>)}
-                  </select>
-                </div>
+            {/* 1. TARGET (Goals) */}
+            <div className="p-4 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col h-[200px] md:h-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-white text-lg flex items-center gap-2">🎯 Target</h3>
+                <button onClick={() => { setEditingGoal(null); setIsGoalCreateOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors">+</button>
               </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                {goals.map(g => {
+                  const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
+                  return (
+                    <div key={g.id} onClick={() => { setEditingGoal(g); setIsGoalCreateOpen(true); }} className="p-3 rounded-xl bg-black/20 hover:bg-white/5 cursor-pointer">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-xs font-bold text-gray-200">{g.name}</span>
+                        <span className="text-[10px] text-[#458B73] font-bold bg-[#458B73]/10 px-2 py-0.5 rounded-full">{pct}%</span>
+                      </div>
+                      <div className="w-full bg-white/5 rounded-full h-2 mb-1">
+                        <div className="h-2 rounded-full bg-[#458B73] transition-all duration-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-neutral-400">
+                        <span>{currency(g.currentAmount)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {goals.length === 0 && <p className="text-neutral-500 text-[10px] text-center mt-4">Kosong</p>}
+              </div>
+            </div>
 
-              <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar max-h-[600px] pr-2">
-                {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-black/20 hover:bg-white/5 border border-transparent hover:border-white/5 group transition-all mb-1">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0 ${t.type === 'INCOME' ? 'bg-[#458B73]/20 text-[#458B73]' : 'bg-[#F26076]/20 text-[#F26076]'}`}>
-                        {t.type === 'INCOME' ? '↓' : '↑'}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-sm text-white truncate">{t.category}</p>
-                        <div className="flex items-center gap-2 text-xs text-neutral-500">
-                          <span className="shrink-0">{t.date}</span>
-                          {t.note && <span className="truncate max-w-[200px] text-neutral-600">• {t.note}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 pl-2">
-                      <span className={`font-bold text-sm whitespace-nowrap ${t.type === 'INCOME' ? 'text-[#458B73]' : 'text-[#F26076]'}`}>
-                        {t.type === 'INCOME' ? "+" : "-"}{currency(t.amount)}
-                      </span>
-                      <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                        <button onClick={() => { setEditingTx(t); setTxModalTab("TRANSACTION"); setIsTxModalOpen(true); }} className="p-1.5 hover:bg-white/10 rounded text-neutral-400 hover:text-white">✏️</button>
-                        <button onClick={() => handleDeleteTransaction(t.id)} className="p-1.5 hover:bg-red-500/20 rounded text-neutral-400 hover:text-red-500">🗑️</button>
-                      </div>
-                    </div>
+            {/* 2. BUDGET */}
+            <div className="p-4 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col h-[200px] md:h-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-white text-lg flex items-center gap-2">📊 Budget</h3>
+                <button onClick={() => { setEditingBudget(null); setIsBudgetModalOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors">+</button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                {budgets.map((b) => (
+                  <div key={b.id} onClick={() => { setEditingBudget({ categoryId: b.categoryId, limitAmount: b.limitAmount, id: b.id, period: b.period }); setIsBudgetModalOpen(true); }}
+                    className="cursor-pointer hover:bg-white/5 p-1 rounded-lg transition-colors">
+                    <BudgetProgress id={b.id} categoryName={b.categoryName} limit={b.limitAmount} spent={spentByCategory[b.categoryName] || 0} period={b.period} onEdit={() => { }} compact={true} />
                   </div>
                 ))}
-                {filteredTransactions.length === 0 && <div className="text-center py-10 text-neutral-500 italic">Tidak ada transaksi.</div>}
+                {budgets.length === 0 && <p className="text-neutral-500 text-[10px] text-center mt-4">Kosong</p>}
               </div>
+            </div>
 
-              {/* Pagination */}
-              {filteredTransactions.length > ITEMS_PER_PAGE && (
-                <div className="flex justify-between items-center pt-4 mt-2 border-t border-white/5 text-xs">
-                  <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txPage === 1} className="px-3 py-1.5 rounded-lg bg-[#333] hover:bg-[#444] disabled:opacity-50 transition-colors">← Prev</button>
-                  <div className="flex items-center gap-2">
-                    <span className="text-neutral-500">Halaman</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max={Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}
-                      value={pageInput}
-                      onChange={(e) => setPageInput(e.target.value)}
-                      onBlur={() => {
-                        const p = Math.max(1, Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), Number(pageInput) || 1));
-                        setTxPage(p);
-                        setPageInput(p.toString());
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const p = Math.max(1, Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), Number(pageInput) || 1));
-                          setTxPage(p);
-                          setPageInput(p.toString());
-                        }
-                      }}
-                      className="w-12 bg-black/20 border border-white/10 rounded-lg px-2 py-1 text-center text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]"
-                    />
-                    <span className="text-neutral-500">/ {Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}</span>
+            {/* 3. RECURRING */}
+            <div className="p-4 rounded-3xl bg-[#252525] border border-white/5 shadow-lg relative overflow-hidden flex flex-col h-[200px] md:h-auto">
+              <div className="flex items-center justify-between mb-4 leading-none">
+                <h3 className="font-bold text-white text-lg flex items-center gap-2">🔄 Rutinitas</h3>
+                <button onClick={() => setIsRecurringModalOpen(true)} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors">+</button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                <RecurringManager categories={categoryObjects} wallets={wallets || []} compact={true} />
+              </div>
+            </div>
+
+            {/* 4. DEBT */}
+            <div className="p-4 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col h-[200px] md:h-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-white text-lg">{loanTab === "PAYABLE" ? "Hutang" : "Piutang"}</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-black/40 rounded p-1">
+                    <button onClick={() => setLoanTab("PAYABLE")} className={`px-2.5 py-1 text-[10px] font-bold rounded flex items-center justify-center min-w-[28px] transition-colors ${loanTab === "PAYABLE" ? "bg-[#F26076] text-white" : "text-neutral-500 hover:text-white"}`}>H</button>
+                    <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2.5 py-1 text-[10px] font-bold rounded flex items-center justify-center min-w-[28px] transition-colors ${loanTab === "RECEIVABLE" ? "bg-[#458B73] text-white" : "text-neutral-500 hover:text-white"}`}>P</button>
                   </div>
-                  <button onClick={() => setTxPage(p => Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), p + 1))} disabled={txPage === Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)} className="px-3 py-1.5 rounded-lg bg-[#333] hover:bg-[#444] disabled:opacity-50 transition-colors">Next →</button>
-                </div>
-              )}
-            </div>
-
-            {/* Analytics Column (Stacked Charts) */}
-            <div className="col-span-1 flex flex-col gap-6">
-              {/* Expense Pie */}
-              <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col items-center h-[420px]">
-                <h3 className="font-bold text-white mb-4 self-start flex items-center gap-2"><span className="w-1.5 h-4 bg-[#F26076] rounded-full" /> Pengeluaran</h3>
-                <div className="w-40 h-40 relative flex-shrink-0">
-                  <div className="absolute inset-0 bg-[#F26076]/10 blur-xl rounded-full scale-75" />
-                  <Pie data={{ labels: charts.expensePie.labels, datasets: [{ data: charts.expensePie.data, backgroundColor: PIE_COLORS_EXPENSE, borderWidth: 0 }] }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: true }} />
-                </div>
-                <div className="w-full mt-6 space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
-                  {charts.expensePie.labels.map((cat, i) => {
-                    const amount = charts.expensePie.data[i];
-                    if (!amount) return null;
-                    const pct = totals.totalExpense > 0 ? Math.round((amount / totals.totalExpense) * 100) : 0;
-                    return (
-                      <div key={cat} className="space-y-1">
-                        <div className="flex justify-between text-xs text-neutral-300">
-                          <span className="truncate pr-2">{cat}</span>
-                          <span className="font-bold whitespace-nowrap">{pct}% ({currency(amount)})</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-black/20 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS_EXPENSE[i % PIE_COLORS_EXPENSE.length] }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <button onClick={() => { setEditingLoan(null); setIsLoanModalOpen(true); }} className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors">+</button>
                 </div>
               </div>
-              {/* Income Pie */}
-              <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col items-center h-[420px]">
-                <h3 className="font-bold text-white mb-4 self-start flex items-center gap-2"><span className="w-1.5 h-4 bg-[#458B73] rounded-full" /> Pemasukan</h3>
-                <div className="w-40 h-40 relative flex-shrink-0">
-                  <div className="absolute inset-0 bg-[#458B73]/10 blur-xl rounded-full scale-75" />
-                  <Pie data={{ labels: charts.incomePie.labels, datasets: [{ data: charts.incomePie.data, backgroundColor: PIE_COLORS_INCOME, borderWidth: 0 }] }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: true }} />
-                </div>
-                <div className="w-full mt-6 space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
-                  {charts.incomePie.labels.map((cat, i) => {
-                    const amount = charts.incomePie.data[i];
-                    if (!amount) return null;
-                    const pct = totals.totalIncome > 0 ? Math.round((amount / totals.totalIncome) * 100) : 0;
-                    return (
-                      <div key={cat} className="space-y-1">
-                        <div className="flex justify-between text-xs text-neutral-300">
-                          <span className="truncate pr-2">{cat}</span>
-                          <span className="font-bold whitespace-nowrap">{pct}% ({currency(amount)})</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-black/20 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS_INCOME[i % PIE_COLORS_INCOME.length] }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* 6. SIDEBAR / EXTRA (Recurring & Debts) (Col 4, Row 3+) */}
-          <div className="col-span-1 lg:col-span-1 flex flex-col gap-6">
-
-            {/* Recurring Transactions (Moved to Sidebar/Col 4) */}
-            <div className="h-[420px]"> {/* Wrapper to fit RecurringManager */}
-              <RecurringManager categories={categoryObjects} wallets={wallets || []} />
-            </div>
-
-            {/* Debt Manager */}
-            <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col gap-4 h-[420px]">
-              <div className="flex justify-between items-center flex-shrink-0">
-                <h3 className="font-bold text-white">Hutang/Piutang</h3>
-                <div className="flex bg-black/40 rounded-lg p-0.5">
-                  <button onClick={() => setLoanTab("PAYABLE")} className={`px-2 py-1 text-[10px] rounded-md ${loanTab === "PAYABLE" ? "bg-[#F26076] text-white" : "text-neutral-500"}`}>Hutang</button>
-                  <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2 py-1 text-[10px] rounded-md ${loanTab === "RECEIVABLE" ? "bg-[#458B73] text-white" : "text-neutral-500"}`}>Piutang</button>
-                </div>
-              </div>
-
-              <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1">
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                 {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).map(l => (
-                  <div key={l.id} className="p-3 rounded-xl bg-black/20 border border-white/5">
-                    <div className="flex justify-between mb-1">
-                      <span className="font-bold text-xs text-white">{l.name}</span>
-                      <span className={`text-xs font-bold ${loanTab === "PAYABLE" ? "text-[#F26076]" : "text-[#458B73]"}`}>{currency(l.remaining)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-neutral-500">{l.status === 'PAID' ? 'Lunas' : 'Belum Lunas'}</span>
-                      <button onClick={() => { setEditingLoan(l); setIsLoanModalOpen(true); }} className="text-[10px] px-2 py-0.5 bg-white/5 rounded hover:bg-white/10 text-neutral-300">Edit</button>
+                  <div key={l.id} className="p-2.5 rounded-xl bg-black/20 border border-white/5 hover:bg-white/5 transition-all group relative">
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="font-bold text-xs text-white truncate">{l.name}</p>
+                        {l.dueDate && (
+                          <p className="text-[10px] text-neutral-400 font-medium">Jatuh Tempo: {new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold text-xs ${loanTab === "PAYABLE" ? "text-[#F26076]" : "text-[#458B73]"}`}>
+                          {currency(l.remaining)}
+                        </p>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-1 mt-1">
+                          <button onClick={() => { setEditingLoan(l); setIsLoanModalOpen(true); }} className="p-1 hover:bg-white/10 rounded text-[#FF9760] text-[10px]">✏️</button>
+                          <button onClick={() => handleDeleteLoan(l.id)} className="p-1 hover:bg-white/10 rounded text-[#F26076] text-[10px]">🗑️</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
-                {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).length === 0 && <p className="text-center text-[10px] text-neutral-500 py-4">Kosong.</p>}
+                {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).length === 0 && <p className="text-neutral-500 text-[10px] text-center mt-4">Kosong</p>}
               </div>
-
-              <button onClick={() => { setEditingLoan(null); setIsLoanModalOpen(true); }} className="w-full py-2 rounded-xl border border-dashed border-white/10 text-xs text-neutral-500 hover:text-white hover:border-white/30 transition-all flex-shrink-0">+ Tambah {loanTab === "PAYABLE" ? "Hutang" : "Piutang"}</button>
             </div>
-          </div>
 
-          {/* 7. WIDE BOTTOM (Cashflow Line Chart) */}
-          <div className="col-span-1 md:col-span-2 lg:col-span-4 p-8 rounded-3xl bg-[#252525] border border-white/5 shadow-lg">
-            <h3 className="font-bold text-xl text-white mb-6">Analisis Cashflow Tahunan</h3>
-            <div className="h-[300px] w-full">
-              <Line
-                data={{
-                  labels: charts.labels,
-                  datasets: [
-                    { label: "Pemasukan", data: charts.incomeLine, borderColor: "#458B73", backgroundColor: "rgba(69,139,115,0.1)", tension: 0.4, borderWidth: 3, pointRadius: 0, fill: true },
-                    { label: "Pengeluaran", data: charts.expenseLine, borderColor: "#F26076", backgroundColor: "rgba(242,96,118,0.1)", tension: 0.4, borderWidth: 3, pointRadius: 0, fill: true },
-                  ],
-                }}
-                options={{ maintainAspectRatio: false, plugins: { legend: { position: "top", align: "end", labels: { color: "#9ca3af", usePointStyle: true } } }, scales: { y: { grid: { color: "#374151" }, ticks: { color: "#6b7280" }, border: { display: false } }, x: { grid: { display: false }, ticks: { color: "#6b7280" }, border: { display: false } } } }}
-              />
-            </div>
           </div>
 
         </div>
@@ -576,6 +668,10 @@ export default function DashboardClient({
       </Modal>
       <Modal isOpen={isWalletDistOpen} onClose={() => setIsWalletDistOpen(false)} title="Atur Pembagian Saldo">
         <WalletDistributor wallets={wallets || []} totalBalance={totals.balance} onClose={() => setIsWalletDistOpen(false)} />
+      </Modal>
+
+      <Modal isOpen={isRecurringModalOpen} onClose={() => setIsRecurringModalOpen(false)} title="Kelola Rutinitas">
+        <RecurringManager categories={categoryObjects} wallets={wallets || []} />
       </Modal>
 
       <ImportModal

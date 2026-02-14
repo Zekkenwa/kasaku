@@ -33,7 +33,12 @@ export async function POST() {
             } else if (recurring.frequency === "WEEKLY") {
                 nextRun.setDate(nextRun.getDate() + (interval * 7));
             } else if (recurring.frequency === "MONTHLY") {
+                const targetMonthDay = nextRun.getDate();
                 nextRun.setMonth(nextRun.getMonth() + interval);
+                // If the day changed, it means we rolled over (e.g. Jan 31 -> Mar 3)
+                if (nextRun.getDate() !== targetMonthDay) {
+                    nextRun.setDate(0); // Go back to the last day of the intended month
+                }
             }
 
             // 2. Queue Transaction Creation

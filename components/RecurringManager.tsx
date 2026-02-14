@@ -6,9 +6,10 @@ import RecurringForm from "./RecurringForm";
 type Props = {
     categories: { id: string; name: string; type: string }[];
     wallets: { id: string; name: string }[];
+    compact?: boolean;
 };
 
-export default function RecurringManager({ categories, wallets }: Props) {
+export default function RecurringManager({ categories, wallets, compact }: Props) {
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function RecurringManager({ categories, wallets }: Props) {
 
     if (isFormOpen) {
         return (
-            <div className="bg-[#252525] p-6 rounded-3xl border border-white/5 shadow-lg">
+            <div className={`${compact ? "" : "bg-[#252525] p-6 rounded-3xl border border-white/5 shadow-lg"}`}>
                 <button onClick={() => setIsFormOpen(false)} className="mb-4 text-sm text-neutral-400 hover:text-white transition-colors">← Kembali</button>
                 <h3 className="font-bold mb-4 text-white">{editingItem ? "Edit Rutinitas" : "Buat Rutinitas Baru"}</h3>
                 <RecurringForm onClose={handleFormClose} categories={categories} wallets={wallets} initialData={editingItem} />
@@ -69,39 +70,43 @@ export default function RecurringManager({ categories, wallets }: Props) {
     }
 
     return (
-        <div className="p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col h-full relative overflow-hidden group">
-            <div className="flex justify-between items-center mb-4 relative z-10">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                    <span className="text-xl">🔄</span> Rutinitas
-                </h3>
-                <button
-                    onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
-                    className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors"
-                >
-                    + Baru
-                </button>
-            </div>
+        <div className={`${compact ? "h-full flex flex-col" : "p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col h-full relative overflow-hidden group"}`}>
+            {!compact && (
+                <div className="flex justify-between items-center mb-4 relative z-10">
+                    <h3 className="font-bold text-white flex items-center gap-2">
+                        <span className="text-xl">🔄 Rutinitas</span>
+                    </h3>
+                    <button
+                        onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                        className="text-xs p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors"
+                    >
+                        + Baru
+                    </button>
+                </div>
+            )}
 
             {loading ? (
                 <div className="text-center py-4 text-sm text-neutral-500">Loading...</div>
             ) : (
-                <div className="space-y-3 overflow-y-auto custom-scrollbar relative z-10 pr-1 flex-1">
+                <div className="space-y-2 overflow-y-auto custom-scrollbar relative z-10 pr-1 flex-1">
                     {items.length === 0 && <p className="text-center text-xs text-neutral-500 py-4">Belum ada rutinitas.</p>}
                     {items.map(item => (
-                        <div key={item.id} className="border border-white/5 rounded-xl p-3 hover:bg-white/5 transition-all bg-black/20 relative group">
+                        <div key={item.id} className="border border-white/5 rounded-xl p-2.5 hover:bg-white/5 transition-all bg-black/20 relative group">
                             <div className="flex justify-between mb-1">
-                                <p className="font-bold text-sm text-white truncate">{item.name}</p>
-                                <p className="font-bold text-sm" style={{ color: item.type === 'INCOME' ? '#458B73' : '#F26076' }}>
+                                <p className="font-bold text-xs text-white truncate">{item.name}</p>
+                                <p className="font-bold text-xs" style={{ color: item.type === 'INCOME' ? '#458B73' : '#F26076' }}>
                                     {formatCurrency(item.amount)}
                                 </p>
                             </div>
-                            <div className="text-[10px] text-neutral-400 font-mono flex flex-col gap-1">
-                                <div className="flex justify-between">
-                                    <span>{item.category?.name} • {item.wallet?.name}</span>
-                                    <span>{getFrequencyText(item)}</span>
-                                </div>
+                            <div className="text-xs text-neutral-400 font-medium flex flex-col gap-1">
+                                {!compact && (
+                                    <div className="flex justify-between">
+                                        <span>{item.category?.name} • {item.wallet?.name}</span>
+                                        <span>{getFrequencyText(item)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-end mt-1">
-                                    <span className="text-white/50">Next: {new Date(item.nextRun).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</span>
+                                    <span className="text-white/40">Next: {new Date(item.nextRun).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</span>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                         <button onClick={() => { setEditingItem(item); setIsFormOpen(true); }} className="p-1 hover:bg-white/10 rounded text-[#FF9760]">✏️</button>
                                         <button onClick={() => handleDelete(item.id)} className="p-1 hover:bg-white/10 rounded text-[#F26076]">🗑️</button>
