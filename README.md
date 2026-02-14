@@ -50,16 +50,27 @@ Built with modern web technologies, Kasaku ensures your data is secure, synchron
 
 ## 📸 Screenshots
 
+### 🖥️ Web Dashboard
+
 <div align="center">
-  <img src="public/assets/dashboard.png" alt="Dashboard UI" width="800" />
-  <p><em>Interactive Web Dashboard</em></p>
+  <img src="public/assets/web-1.png" alt="Dashboard Top" width="100%" />
+  <img src="public/assets/web-2.png" alt="Dashboard Routine" width="100%" />
+  <img src="public/assets/web-3.png" alt="Dashboard Budget" width="100%" />
+  <p><em>Comprehensive Financial Overview</em></p>
 </div>
 
 <br />
 
-<div align="center" style="display: flex; justify-content: center; gap: 20px;">
-  <img src="public/assets/mobile.png" alt="Mobile View" width="300" />
-  <p><em>Responsive Mobile Design</em></p>
+### 📱 Mobile Interface
+
+<div align="center" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">
+  <img src="public/assets/mobile-1.png" alt="Target Tabungan" width="220" />
+  <img src="public/assets/mobile-2.png" alt="Analisis Kategori" width="220" />
+  <img src="public/assets/mobile-3.png" alt="Analisis Cashflow" width="220" />
+  <img src="public/assets/mobile-4.png" alt="Hutang Piutang" width="220" />
+</div>
+<div align="center">
+  <p><em>Responsive Design for On-the-Go Tracking</em></p>
 </div>
 
 ## 🛠️ Tech Stack
