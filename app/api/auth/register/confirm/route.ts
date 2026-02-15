@@ -27,11 +27,16 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Kode OTP Kadaluarsa" }, { status: 400 });
         }
 
-        // Update User: Move tempPhone -> phone
+        // Update User: Move tempPhone -> phone and generate phoneHash
+        const { generateBlindIndex } = require("@/lib/encryption");
+        const phone = user.tempPhone || "";
+        const phoneHash = generateBlindIndex(phone);
+
         await prisma.user.update({
             where: { id: user.id },
             data: {
-                phone: user.tempPhone, // Verified!
+                phone: phone, // Verified!
+                phoneHash: phoneHash, // For quick lookup
                 tempPhone: null,
                 otpCode: null,
                 otpExpiresAt: null,

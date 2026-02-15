@@ -10,10 +10,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
         }
 
+        const { generateBlindIndex } = require("@/lib/encryption");
         const cleanPhone = phone.replace(/\D/g, "");
+        const phoneHash = generateBlindIndex(cleanPhone);
 
-        const user = await prisma.user.findFirst({
-            where: { phone: cleanPhone },
+        const user = await prisma.user.findUnique({
+            where: { phoneHash },
         });
 
         if (!user) {

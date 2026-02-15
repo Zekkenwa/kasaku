@@ -12,8 +12,21 @@ export async function POST(req: Request) {
     const cleanPhone = phone.replace(/\D/g, "");
     const phoneHash = generateBlindIndex(cleanPhone);
 
-    // 1. Find User by PhoneHash
-    const user = await prisma.user.findFirst({ where: { phoneHash } });
+    // 1. Find User by PhoneHash with fallback
+    let user = await prisma.user.findFirst({ where: { phoneHash } });
+
+    if (!user) {
+        // Fallback: Check if user exists with plain phone (Self-healing for legacy/broken records)
+        user = await prisma.user.findFirst({ where: { phone: cleanPhone } });
+        if (user) {
+            console.log(`[AUTH] Healing user ${user.id}: creating missing phoneHash`);
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { phoneHash }
+            });
+        }
+    }
+
     if (!user) {
         return NextResponse.json({ error: "Nomor ini belum terdaftar." }, { status: 404 });
     }

@@ -11,16 +11,16 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Nomor WhatsApp wajib diisi" }, { status: 400 });
         }
 
-        // Clean phone
+        // Clean phone and generate hash
+        const { generateBlindIndex } = require("@/lib/encryption");
         const cleanPhone = phone.replace(/\D/g, "");
+        const phoneHash = generateBlindIndex(cleanPhone);
 
-        const user = await prisma.user.findFirst({
-            where: { phone: cleanPhone },
+        const user = await prisma.user.findUnique({
+            where: { phoneHash },
         });
 
         if (!user) {
-            // Security: Don't reveal if user exists or not, but for UX we might want to say "Not found"
-            // User asked for specific flow. I'll return error for now to be helpful.
             return NextResponse.json({ error: "Nomor belum terdaftar" }, { status: 404 });
         }
 
