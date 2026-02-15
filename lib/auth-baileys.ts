@@ -6,7 +6,7 @@ import { encrypt, decrypt } from './encryption';
  * Stores Baileys authentication state in a Prisma database.
  * Compatible with Supabase/PostgreSQL.
  */
-export const usePrismaAuthState = async (prisma: PrismaClient) => {
+export const usePrismaAuthState = async (prisma: any) => {
     const writeData = async (data: any, key: string) => {
         try {
             const jsonString = JSON.stringify(data, BufferJSON.replacer);

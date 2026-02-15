@@ -106,7 +106,16 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (req.url === '/logout' && req.method === 'POST') {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const secret = url.searchParams.get('secret');
+    const adminSecret = process.env.WHATSAPP_ADMIN_SECRET || 'changeme';
+
+    if (req.url?.startsWith('/logout') && req.method === 'POST') {
+        if (secret !== adminSecret) {
+            res.writeHead(403, headers);
+            res.end(JSON.stringify({ error: 'Forbidden: Invalid secret' }));
+            return;
+        }
         try {
             if (sock) {
                 sock.end(undefined);
@@ -158,7 +167,19 @@ const server = http.createServer(async (req, res) => {
                 res.end(JSON.stringify({ error: 'Failed to send message: ' + (err.message || 'Unknown error') }));
             }
         });
-    } else if (req.url === '/qr' && req.method === 'GET') {
+    } else if (req.url?.startsWith('/qr') && req.method === 'GET') {
+        if (secret !== adminSecret) {
+            res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8', ...headers });
+            res.end(`
+                <body style="background:#0f172a; color:#f8fafc; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif">
+                    <div style="text-align:center; padding:2rem; background:#1e293b; border-radius:1rem; border:1px solid #334155">
+                        <h1 style="color:#e11d48">🚫 Access Denied</h1>
+                        <p style="color:#94a3b8">Halaman ini dilindungi. Silakan gunakan kunci rahasia.</p>
+                    </div>
+                </body>
+            `);
+            return;
+        }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headers });
 
         const htmlContent = (content: string) => `
@@ -239,7 +260,7 @@ const server = http.createServer(async (req, res) => {
                             btn.disabled = true;
                             btn.innerText = 'Resetting...';
                             try {
-                                const res = await fetch('/logout', { method: 'POST' });
+                                const res = await fetch('/logout?secret=${secret}', { method: 'POST' });
                                 const data = await res.json();
                                 if(data.success) {
                                     alert('Sesi direset. Halaman akan dimuat ulang.');
@@ -281,7 +302,8 @@ const server = http.createServer(async (req, res) => {
                 <button onclick="logout()">Reset Connection / Logout</button>
             `));
         }
-    } else if (req.url === '/' && req.method === 'GET') {
+    }
+    else if (req.url === '/' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json', ...headers });
         res.end(JSON.stringify({ status: 'ok', connected: !!sock, qrAvailable: !!latestQR }));
     } else {

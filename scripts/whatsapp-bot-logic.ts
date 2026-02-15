@@ -11,7 +11,7 @@ const parseAmount = (input: string): number | null => {
     if (!input) return null;
     let str = input.toLowerCase().trim();
 
-    // 1. Natural Language (Indonesian)
+    // 1. Natural Language (Indonesian) - Check if it contains words first
     const numberWords: Record<string, number> = {
         'satu': 1, 'se': 1, 'dua': 2, 'tiga': 3, 'empat': 4, 'lima': 5,
         'enam': 6, 'tujuh': 7, 'delapan': 8, 'sembilan': 9, 'sepuluh': 10,
@@ -19,16 +19,10 @@ const parseAmount = (input: string): number | null => {
         'setengah': 0.5, 'nol': 0
     };
     const magnitudes: Record<string, number> = {
-        'belas': 10,
-        'puluh': 10,
-        'ratus': 100,
-        'ribu': 1000,
-        'juta': 1000000,
-        'miliar': 1000000000,
-        'triliun': 1000000000000
+        'belas': 10, 'puluh': 10, 'ratus': 100, 'ribu': 1000,
+        'juta': 1000000, 'miliar': 1000000000, 'triliun': 1000000000000
     };
 
-    // Check if it contains words
     const words = str.split(/[\s-]+/);
     const hasWord = words.some(w => numberWords[w] !== undefined || magnitudes[w] !== undefined);
 
@@ -40,13 +34,7 @@ const parseAmount = (input: string): number | null => {
             const val = numberWords[w];
             if (val !== undefined) {
                 if (w === 'se' && words[i + 1] && magnitudes[words[i + 1]]) {
-                    // "se" prefix before magnitude (se-ribu, se-ratus) → treat as 1
                     current += 1;
-                } else if (w === 'sepuluh' || w === 'sebelas' || w === 'seratus' || w === 'seribu') {
-                    current += val;
-                } else if (w === 'setengah') {
-                    // "setengah juta" = 500k, "setengah ribu" = 500
-                    current += 0.5;
                 } else {
                     current += val;
                 }
@@ -54,12 +42,10 @@ const parseAmount = (input: string): number | null => {
                 if (current === 0 && (w === 'ribu' || w === 'juta' || w === 'miliar')) current = 1;
 
                 if (w === 'belas') {
-                    // "dua belas" → current=2, belas makes it 12
                     current += 10;
                 } else if (w === 'puluh' || w === 'ratus') {
                     current = (current === 0 ? 1 : current) * magnitudes[w];
                 } else {
-                    // Ribu, Juta, Miliar → multiply current group and add to total
                     total += (current === 0 ? 1 : current) * magnitudes[w];
                     current = 0;
                 }
@@ -68,29 +54,31 @@ const parseAmount = (input: string): number | null => {
         return total + current;
     }
 
-    // 2. Numeric with specific formatting (ID: 15.000 = 15k; US: 15,000 = 15k)
-    // Clean currency symbol
-    str = str.replace(/rp\.?|idr/g, '').trim();
+    // 2. Numeric with Suffixes (improved regex)
+    // Clean currency and dots
+    str = str.replace(/rp\.?|idr/g, '').replace(/\./g, '').replace(/,/g, '.').trim();
 
-    // Check suffixes (anchored to end)
-    let multiplier = 1;
-    if (/(?:k|rb|ribu)$/.test(str)) {
-        multiplier = 1000;
-        str = str.replace(/(?:ribu|rb|k)$/, '');
-    } else if (/(?:jt|juta)$/.test(str)) {
-        multiplier = 1000000;
-        str = str.replace(/(?:juta|jt)$/, '');
-    } else if (/(?:m|miliar)$/.test(str)) {
-        multiplier = 1000000000;
-        str = str.replace(/(?:miliar|m)$/, '');
+    // Match number and optional suffix: 250k, 250 k, 3rb, 3 rb, 1jt
+    const regex = /^([\d.]+)\s*(k|rb|ribu|jt|juta|m|miliar)?$/i;
+    const match = str.match(regex);
+
+    if (match) {
+        const num = parseFloat(match[1]);
+        const suffix = match[2]?.toLowerCase();
+        let multiplier = 1;
+
+        if (suffix === 'k' || suffix === 'rb' || suffix === 'ribu') {
+            multiplier = 1000;
+        } else if (suffix === 'jt' || suffix === 'juta') {
+            multiplier = 1000000;
+        } else if (suffix === 'm' || suffix === 'miliar') {
+            multiplier = 1000000000;
+        }
+
+        return isNaN(num) ? null : num * multiplier;
     }
 
-    // Handle dots (thousands) and commas (decimals)
-    str = str.replace(/\./g, '');
-    str = str.replace(/,/g, '.');
-
-    const num = parseFloat(str);
-    return isNaN(num) ? null : num * multiplier;
+    return null;
 };
 
 // Start logic
@@ -147,15 +135,35 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
     }
 
     // Process commands
-    const results = [];
+    const results: any[] = [];
     for (const line of lines) {
         const result = await processCommand(user, line);
         if (result) results.push(result);
     }
 
     if (results.length > 0) {
-        reply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` + results.join('\n');
-        await sock.sendMessage(remoteJid, { text: reply });
+        let finalReply = "";
+
+        if (results.length === 1 && typeof results[0] === 'object') {
+            const res = results[0] as any;
+            const timeStr = res.date.toLocaleString('id-ID', {
+                day: 'numeric', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+
+            finalReply = `📝 *${res.title}*\n` +
+                `---------------------------\n` +
+                (res.amount !== undefined ? `💰 *Jumlah*: ${formatCurrency(res.amount)}\n` : '') +
+                (res.category ? `🏷️ *Kategori*: ${res.category}\n` : '') +
+                `📄 *Keterangan*:\n${res.note}\n` +
+                `📅 *Waktu*: ${timeStr}\n\n` +
+                `_Terima kasih sudah menggunakan Kasaku!_`;
+        } else {
+            finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
+                results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n');
+        }
+
+        await sock.sendMessage(remoteJid, { text: finalReply });
     } else {
         // If NO command recognized in single line, send hint
         if (lines.length === 1) {
@@ -213,7 +221,7 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
     await sock.sendMessage(jid, { text });
 }
 
-async function processCommand(user: any, text: string): Promise<string | null> {
+async function processCommand(user: any, text: string): Promise<string | any | null> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
     const cmd = parts[0];
@@ -365,7 +373,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             // Balance is calculated dynamically. So no update needed on Wallet table.
         }
 
-        return `✅ ${type === 'INCOME' ? 'Masuk' : 'Keluar'} ${formatCurrency(amount)} (${description || category.name})`;
+        return {
+            title: type === 'INCOME' ? 'Pemasukan Baru' : 'Pengeluaran Baru',
+            amount: amount,
+            category: category.name,
+            note: description || (type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
+            date: new Date()
+        };
     }
 
     // --- DEBT (hutang/piutang) ---
@@ -395,7 +409,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             }
         });
 
-        return `✅ ${type === 'PAYABLE' ? 'Hutang ke' : 'Piutang dari'} ${personName} ${formatCurrency(amount)}`;
+        return {
+            title: `Pencatatan ${type === 'PAYABLE' ? 'Hutang' : 'Piutang'}`,
+            amount: amount,
+            category: type === 'PAYABLE' ? 'Hutang (Kita Pinjam)' : 'Piutang (Kita Pinjamkan)',
+            note: `Ke/Dari ${personName} ${note ? `- ${note}` : ''}`,
+            date: new Date()
+        };
     }
 
     // --- LUNAS (Mark as paid) ---
@@ -420,7 +440,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             data: { status: 'PAID' }
         });
 
-        return `✅ Hutang/Piutang dengan ${personName} telah ditandai LUNAS! 🎉`;
+        return {
+            title: 'Hutang/Piutang Lunas',
+            amount: loan.amount,
+            category: 'Hutang/Piutang',
+            note: `Lunas dengan ${personName}`,
+            date: new Date()
+        };
     }
 
     if (cmd === 'cek' && parts[1] === 'hutang') {
@@ -428,12 +454,11 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             where: { userId: user.id, status: 'ONGOING' }
         });
         if (loans.length === 0) return "✅ Tidak ada hutang/piutang aktif.";
-        return "📋 *Daftar Hutang & Piutang:*\n" + loans.map((l: any) => `- ${l.type === 'PAYABLE' ? '🔴 Hutang ke' : '🟢 Piutang'} ${l.name}: ${formatCurrency(l.amount)}`).join('\n');
+        return "📋 *Daftar Hutang & Piutang:*\n" + loans.map((l: any) => `- ${l.type === 'PAYABLE' ? '🔴 Hutang' : '🟢 Piutang'} ${l.name}: ${formatCurrency(l.amount)}`).join('\n');
     }
 
     // --- QUERY (cek saldo) ---
     if (cmd === 'cek' && parts[1] === 'saldo') {
-        // Calculate balance
         const transactions = await prisma.transaction.findMany({ where: { userId: user.id } });
         const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
 
@@ -441,17 +466,20 @@ async function processCommand(user: any, text: string): Promise<string | null> {
         let income = transactions.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
         let expense = transactions.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
 
-        return `💰 *Saldo Saat Ini: ${formatCurrency(initial + income - expense)}*`;
+        return {
+            title: 'Info Saldo',
+            amount: initial + income - expense,
+            category: 'Total Saldo',
+            note: 'Ringkasan saldo semua wallet',
+            date: new Date()
+        };
     }
 
     // --- UNDO (Smart) ---
     if (cmd === 'undo' || cmd === 'batal') {
-        // Check latest of everything
         const lastTx = await prisma.transaction.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
         const lastLoan = await prisma.loan.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
         const lastGoal = await prisma.goal.findFirst({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } });
-        // Also check PaymentHistory?
-        // For simplicity, let's check created items.
 
         const items = [
             { type: 'TX', date: lastTx?.createdAt, data: lastTx },
@@ -461,7 +489,6 @@ async function processCommand(user: any, text: string): Promise<string | null> {
 
         if (items.length === 0) return "❌ Tidak ada aktivitas baru-baru ini.";
 
-        // Sort desc
         items.sort((a, b) => b.date!.getTime() - a.date!.getTime());
         const latest = items[0];
 
@@ -523,7 +550,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             }
         });
 
-        return `✅ Diterima ${formatCurrency(amount)} dari/untuk ${personName}.\nSisa: ${formatCurrency(newAmount)}`;
+        return {
+            title: 'Cicilan Hutang/Piutang',
+            amount: amount,
+            category: 'Pembayaran',
+            note: `Diterima dari/untuk ${personName}. Sisa: ${formatCurrency(newAmount)}`,
+            date: new Date()
+        };
     }
 
 
@@ -564,7 +597,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             });
         }
 
-        return `✅ Budget untuk ${category.name} diatur: ${formatCurrency(amount)}`;
+        return {
+            title: 'Budget Diatur',
+            amount: amount,
+            category: category.name,
+            note: `Batas pengeluaran bulanan diatur`,
+            date: new Date()
+        };
     }
 
     if (cmd === 'cek' && parts[1] === 'budget') {
@@ -588,7 +627,7 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             }
         });
 
-        let msg = "📊 *Status Budget Bulan Ini:*\n";
+        let msg = "";
         for (const b of budgets) {
             const spent = transactions
                 .filter((t: any) => t.categoryId === b.categoryId)
@@ -599,7 +638,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
 
             msg += `${statusIcon} ${b.category.name}: ${Math.min(pct, 100)}% (${formatCurrency(spent)} / ${formatCurrency(b.limitAmount)})\n`;
         }
-        return msg;
+
+        return {
+            title: 'Status Budget',
+            category: 'Budget Bulanan',
+            note: msg.trim(),
+            date: new Date()
+        };
     }
 
     // --- LAPORAN ---
@@ -633,12 +678,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
         const income = txs.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
         const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
 
-        return `📈 *Laporan ${period.charAt(0).toUpperCase() + period.slice(1)} Ini*\n` +
-            `---------------------------\n` +
-            `Masuk : ${formatCurrency(income)}\n` +
-            `Keluar: ${formatCurrency(expense)}\n` +
-            `---------------------------\n` +
-            `Net   : ${formatCurrency(income - expense)}`;
+        return {
+            title: `Laporan ${period.charAt(0).toUpperCase() + period.slice(1)}`,
+            amount: income - expense,
+            category: 'Financial Report',
+            note: `📈 Masuk: ${formatCurrency(income)}\n📉 Keluar: ${formatCurrency(expense)}`,
+            date: new Date()
+        };
     }
 
     // --- GOALS ---
@@ -661,7 +707,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
                 currentAmount: 0
             }
         });
-        return `✅ Goal '${name}' dibuat! Target: ${formatCurrency(target)}`;
+        return {
+            title: 'Goal Baru Dibuat',
+            amount: target,
+            category: 'Tabungan',
+            note: `Target baru: ${name}`,
+            date: new Date()
+        };
     }
 
     if (cmd === 'isi' && parts[1] === 'goal') {
@@ -681,13 +733,31 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             where: { id: goal.id },
             data: { currentAmount: { increment: amount } }
         });
-        return `✅ Berhasil nabung ${formatCurrency(amount)} ke celengan '${goal.name}'.\nTerkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`;
+        return {
+            title: 'Tabungan Goal',
+            amount: amount,
+            category: 'Tabungan',
+            note: `Berhasil nabung ke '${goal.name}'. Terkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`,
+            date: new Date()
+        };
     }
 
     if (cmd === 'cek' && parts[1] === 'goal') {
         const goals = await prisma.goal.findMany({ where: { userId: user.id } });
         if (goals.length === 0) return "⚠️ Belum ada goal.";
-        return "🎯 *Daftar Goal:*\n" + goals.map((g: any) => `- ${g.name}: ${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)} (${Math.round(g.currentAmount / g.targetAmount * 100)}%)`).join('\n');
+
+        let msg = "";
+        for (const g of goals) {
+            const pct = Math.round(g.currentAmount / g.targetAmount * 100);
+            msg += `• ${g.name}: ${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)} (${pct}%)\n`;
+        }
+
+        return {
+            title: 'Daftar Goal',
+            category: 'Tabungan',
+            note: msg.trim(),
+            date: new Date()
+        };
     }
 
     // --- WALLETS ---
@@ -765,7 +835,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             }
         });
 
-        return `✅ Berhasil transfer ${formatCurrency(amount)} dari ${w1.name} ke ${w2.name}.`;
+        return {
+            title: 'Transfer Saldo',
+            amount: amount,
+            category: 'Transfer',
+            note: `Dari ${w1.name} ke ${w2.name}`,
+            date: new Date()
+        };
     }
 
     // --- RECURRING (Rutinitas) ---
@@ -810,7 +886,13 @@ async function processCommand(user: any, text: string): Promise<string | null> {
             }
         });
 
-        return `✅ Rutinitas '${name}' (${intervalStr}) berhasil dibuat!`;
+        return {
+            title: 'Rutinitas Baru',
+            amount: amount,
+            category: 'Rutin',
+            note: `${name || 'Rutin'} (${intervalStr})`,
+            date: new Date()
+        };
     }
 
     return null;
