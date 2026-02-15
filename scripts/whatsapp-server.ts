@@ -157,6 +157,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.url === '/send-otp' && req.method === 'POST') {
+        console.log(`[SERVER] Incoming /send-otp request | Origin: ${req.headers.origin || 'N/A'} | UA: ${req.headers['user-agent']}`);
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();

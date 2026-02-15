@@ -96,17 +96,16 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
 
     console.log(`Received message from ${remoteJid}: ${text}`);
 
-    const phone = remoteJid.split('@')[0];
-    const phoneHash = generateBlindIndex(phone);
+    let phone = remoteJid.split('@')[0];
 
-    if (remoteJid.endsWith('@lid')) {
-        console.log(`[BOT] Received message from LID: ${remoteJid}`);
-        // Attempt to resolve phone from LID if possible
-        // Baileys sometimes provides 'pushName' or other handles
-        console.log(`[BOT] Message object detail:`, JSON.stringify(message, null, 2));
+    // LID Resolution: If sender is @lid, try to use remoteJidAlt (which contains the real PN)
+    if (remoteJid.endsWith('@lid') && message.key.remoteJidAlt) {
+        const altPhone = message.key.remoteJidAlt.split('@')[0];
+        console.log(`[BOT] LID ${phone} resolved using remoteJidAlt to: ${altPhone}`);
+        phone = altPhone;
     }
 
-    console.log(`[BOT] Checking user for phone: ${phone} (hash: ${phoneHash.substring(0, 10)}...)`);
+    const phoneHash = generateBlindIndex(phone);
 
     let user = await prisma.user.findUnique({
         where: { phoneHash: phoneHash },
