@@ -65,7 +65,34 @@ export default function TermsConditionsPage() {
                         </p>
                     </section>
 
-                    {/* 4. Privasi & Keamanan (Special Card) */}
+                    {/* 4. Keamanan & Enkripsi Data */}
+                    <section className="animate-fade-in-up delay-[400ms]">
+                        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                            <span className="w-8 h-8 rounded-lg bg-brand-green/20 text-brand-green flex items-center justify-center text-sm font-bold">4</span>
+                            Keamanan & Enkripsi Data
+                        </h2>
+                        <p className="mb-4">
+                            Kami menganggap serius keamanan data Anda. Kasaku menerapkan standar enkripsi terbaru untuk melindungi informasi sensitif Anda:
+                        </p>
+                        <ul className="grid gap-3 mb-4">
+                            <li className="bg-[#252525] p-4 rounded-xl border border-white/5 flex gap-3">
+                                <span className="text-lg">🔐</span>
+                                <div>
+                                    <strong className="text-white block text-sm mb-1">AES-256-GCM Encryption</strong>
+                                    <span className="text-xs text-neutral-400">Data nomor telepon dan token otentikasi (Google/WhatsApp) dienkripsi di server kami. Hanya sistem yang dapat membacanya saat dibutuhkan.</span>
+                                </div>
+                            </li>
+                            <li className="bg-[#252525] p-4 rounded-xl border border-white/5 flex gap-3">
+                                <span className="text-lg">🕵️</span>
+                                <div>
+                                    <strong className="text-white block text-sm mb-1">Blind Indexing (HMAC)</strong>
+                                    <span className="text-xs text-neutral-400">Kami menggunakan teknologi <em>blind index</em> sehingga sistem tetap bisa memproses login Anda tanpa pernah menyimpan nomor HP Anda dalam bentuk teks biasa (plain text).</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    {/* 5. Privasi & Komitmen Kami (Special Card) */}
                     <section className="animate-fade-in-up delay-500 my-10 relative group">
                         <div className="absolute inset-0 bg-brand-green/20 rounded-3xl blur-xl group-hover:bg-brand-green/30 transition-colors" />
                         <div className="relative bg-[#0F291E] p-8 rounded-3xl border border-brand-green/30 overflow-hidden">
@@ -98,16 +125,16 @@ export default function TermsConditionsPage() {
                                     <div className="w-5 h-5 rounded-full bg-brand-green flex items-center justify-center mt-0.5 shrink-0">
                                         <svg className="w-3 h-3 text-[#0F291E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                     </div>
-                                    <span className="text-sm text-brand-green/90">Keamanan data Anda dilindungi dengan standar enkripsi industri.</span>
+                                    <span className="text-sm text-brand-green/90">Data Anda dilindungi enkripsi AES-256 untuk menjamin kerahasiaan maksimal.</span>
                                 </li>
                             </ul>
                         </div>
                     </section>
 
-                    {/* 5. Hak Pengguna */}
+                    {/* 6. Hak Pengguna */}
                     <section className="animate-fade-in-up delay-700">
                         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                            <span className="w-8 h-8 rounded-lg bg-brand-red/20 text-brand-red flex items-center justify-center text-sm font-bold">5</span>
+                            <span className="w-8 h-8 rounded-lg bg-brand-red/20 text-brand-red flex items-center justify-center text-sm font-bold">6</span>
                             Hak Anda (Kontrol Penuh)
                         </h2>
                         <ul className="list-disc pl-5 space-y-2 text-neutral-400 marker:text-brand-red">

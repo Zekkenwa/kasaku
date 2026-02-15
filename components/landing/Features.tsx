@@ -36,11 +36,11 @@ export default function Features() {
             bg: "bg-purple-400/10",
         },
         {
-            title: "Mode Gelap",
-            desc: "Tampilan nyaman di mata dengan Dark Mode yang elegan, cocok untuk rekap malam hari.",
-            icon: "🌙",
-            color: "text-neutral-200",
-            bg: "bg-neutral-700/30",
+            title: "Keamanan Berlapis",
+            desc: "Data sensitif (Nomor HP & Token) dilindungi enkripsi AES-256-GCM tingkat bank.",
+            icon: "🛡️",
+            color: "text-brand-green",
+            bg: "bg-brand-green/10",
         },
     ];
 
