@@ -1,5 +1,6 @@
 import { WASocket } from '@whiskeysockets/baileys';
 import { prisma } from '../lib/prisma';
+import { generateBlindIndex } from '../lib/encryption';
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
@@ -96,9 +97,10 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
     console.log(`Received message from ${remoteJid}: ${text}`);
 
     // 1. Identify User
-    const { generateBlindIndex } = require('../lib/encryption');
     const phone = remoteJid.split('@')[0];
     const phoneHash = generateBlindIndex(phone);
+
+    console.log(`[BOT] Checking user for phone: ${phone} (hash: ${phoneHash.substring(0, 10)}...)`);
 
     let user = await prisma.user.findUnique({
         where: { phoneHash: phoneHash },
@@ -148,7 +150,8 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
             const res = results[0] as any;
             const timeStr = res.date.toLocaleString('id-ID', {
                 day: 'numeric', month: 'short', year: 'numeric',
-                hour: '2-digit', minute: '2-digit'
+                hour: '2-digit', minute: '2-digit',
+                timeZone: 'Asia/Jakarta'
             });
 
             finalReply = `📝 *${res.title}*\n` +

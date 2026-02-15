@@ -31,10 +31,13 @@ async function connectToWhatsApp() {
     socket.ev.on('creds.update', saveCreds);
 
     socket.ev.on('messages.upsert', async (m) => {
+        if (m.type !== 'notify') return; // Only handle notifications
+
+        console.log(`[BOT] New message received: ${m.messages.length} messages`);
         try {
             await handleIncomingMessage(socket, m);
-        } catch (error) {
-            console.error('Error handling message:', error);
+        } catch (error: any) {
+            console.error('[BOT ERROR] Error handling message:', error.message || error);
         }
     });
 
