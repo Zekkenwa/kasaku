@@ -1,11 +1,19 @@
 
 export async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
-    let baseUrl = process.env.WHATSAPP_API_URL || "http://localhost:3001";
+    let baseUrl = (process.env.WHATSAPP_API_URL || "").trim();
+
+    if (!baseUrl) {
+        console.error("WHATSAPP_API_URL is not set in environment variables");
+        return false;
+    }
 
     // Ensure protocol is present
     if (!baseUrl.startsWith('http')) {
         baseUrl = `https://${baseUrl}`;
     }
+
+    // Remove trailing slashes
+    baseUrl = baseUrl.replace(/\/+$/, "");
 
     try {
         const res = await fetch(`${baseUrl}/send-otp`, {

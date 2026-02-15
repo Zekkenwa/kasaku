@@ -68,7 +68,7 @@ async function connectToWhatsApp() {
 
         if (qr) {
             latestQR = qr;
-            console.log('\nQR Code updated! Scan via browser: http://localhost:' + PORT + '/qr');
+            console.log(`\n[SERVER] QR Code updated! View it at: /qr (Admin Secret required)`);
             qrcode.generate(qr, { small: true });
         }
 
@@ -341,5 +341,5 @@ const server = http.createServer(async (req, res) => {
 
 
 server.listen(PORT, () => {
-    console.log(`WhatsApp Server running on http://localhost:${PORT}`);
+    console.log(`[SERVER] Bot Server listening on port ${PORT}`);
 });
