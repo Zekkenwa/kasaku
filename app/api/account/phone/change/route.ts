@@ -90,9 +90,12 @@ export async function POST(request: Request) {
 
         const cleanPhone = newPhone.replace(/\D/g, "");
 
+        const { generateBlindIndex } = require("@/lib/encryption");
+        const phoneHash = generateBlindIndex(cleanPhone);
+
         // Check uniqueness
         const existing = await prisma.user.findFirst({
-            where: { phone: cleanPhone, NOT: { id: user.id } }
+            where: { phoneHash, NOT: { id: user.id } }
         });
         if (existing) return NextResponse.json({ error: "Nomor sudah digunakan akun lain" }, { status: 400 });
 

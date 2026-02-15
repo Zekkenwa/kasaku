@@ -22,9 +22,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Email sudah terdaftar" }, { status: 400 });
         }
 
-        // Check if phone number is already in use
+        // Check if phone number is already in use (via blind index)
+        const { generateBlindIndex } = require("@/lib/encryption");
+        const phoneHash = generateBlindIndex(phone);
         const existingPhone = await prisma.user.findFirst({
-            where: { phone: phone },
+            where: { phoneHash },
         });
 
         if (existingPhone) {

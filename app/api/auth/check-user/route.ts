@@ -20,10 +20,11 @@ export async function POST(req: Request) {
             });
         } else {
             isPhone = true;
-            // Sanitize phone (remove non-digits)
+            const { generateBlindIndex } = require("@/lib/encryption");
             const cleanPhone = identifier.replace(/\D/g, "");
+            const phoneHash = generateBlindIndex(cleanPhone);
             user = await prisma.user.findFirst({
-                where: { phone: cleanPhone },
+                where: { phoneHash },
             });
         }
 

@@ -5,9 +5,11 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { compare } from "bcryptjs";
 import { encode } from "next-auth/jwt";
+import { generateBlindIndex } from "./encryption";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // Use any to bypass Prisma extension type mismatch with next-auth adapter
+  adapter: PrismaAdapter(prisma as any),
   session: { strategy: "jwt" },
   providers: [
     GoogleProvider({
@@ -27,9 +29,10 @@ export const authOptions: NextAuthOptions = {
         // 1. Phone + OTP Login
         if (credentials?.phone && credentials?.otp) {
           const phone = credentials.phone.replace(/\D/g, "");
-          const user = await prisma.user.findFirst({ where: { phone } });
+          const phoneHash = generateBlindIndex(phone);
+          const user = await prisma.user.findFirst({ where: { phoneHash } });
 
-          // Allow basic match (ignoring expiration for strictness is better, but let's check basic first)
+          // Allow basic match
           if (!user || user.otpCode !== credentials.otp) return null;
 
           // Check Expiry
@@ -101,7 +104,6 @@ export const authOptions: NextAuthOptions = {
 
         // 2. Metadata Update (Only on matching email)
         if (!profile?.email || profile.email === user.email) {
-          // Type assertion to access custom fields from Prisma User
           const dbUser = user as any;
           const profileName = profile?.name;
           const profileImage = (profile as any)?.picture;

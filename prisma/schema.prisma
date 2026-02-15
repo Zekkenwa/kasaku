@@ -14,7 +14,8 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
-  phone         String?  @unique
+  phone         String?
+  phoneHash     String?  @unique
   monthlyReportOptIn Boolean @default(false)
   tempPhone     String?
   otpCode       String?

@@ -44,3 +44,7 @@ next-env.d.ts
 
 # local screenshots
 screenshot/
+
+# accidental logs & sessions
+/vercel log/
+/auth_info_baileys/

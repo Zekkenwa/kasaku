@@ -8,10 +8,12 @@ export async function POST(req: Request) {
     const { phone } = await req.json();
     if (!phone) return NextResponse.json({ error: "Nomor WA diperlukan" }, { status: 400 });
 
+    const { generateBlindIndex } = require("@/lib/encryption");
     const cleanPhone = phone.replace(/\D/g, "");
+    const phoneHash = generateBlindIndex(cleanPhone);
 
-    // 1. Find User by Phone
-    const user = await prisma.user.findFirst({ where: { phone: cleanPhone } });
+    // 1. Find User by PhoneHash
+    const user = await prisma.user.findFirst({ where: { phoneHash } });
     if (!user) {
         return NextResponse.json({ error: "Nomor ini belum terdaftar." }, { status: 404 });
     }

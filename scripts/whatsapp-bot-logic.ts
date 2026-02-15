@@ -108,21 +108,12 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
     console.log(`Received message from ${remoteJid}: ${text}`);
 
     // 1. Identify User
-    // Normalize phone: remove @s.whatsapp.net
+    const { generateBlindIndex } = require('../lib/encryption');
     const phone = remoteJid.split('@')[0];
+    const phoneHash = generateBlindIndex(phone);
 
-    // Try multiple formats to find user
-    // DB might store '08123', '628123', '+628123'
-    // Incoming 'phone' is usually '628123...'
-
-    const possiblePhones = [
-        phone, // 628...
-        phone.startsWith('62') ? '0' + phone.slice(2) : null, // 08...
-        phone.startsWith('62') ? '+' + phone : null, // +628...
-    ].filter(Boolean) as string[];
-
-    let user = await prisma.user.findFirst({
-        where: { phone: { in: possiblePhones } },
+    let user = await prisma.user.findUnique({
+        where: { phoneHash: phoneHash },
         include: { wallets: true, categories: true }
     });
 

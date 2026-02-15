@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { AuthenticationCreds, AuthenticationState, BufferJSON, initAuthCreds, SignalDataTypeMap } from '@whiskeysockets/baileys';
+import { encrypt, decrypt } from './encryption';
 
 /**
  * Stores Baileys authentication state in a Prisma database.
@@ -8,10 +9,12 @@ import { AuthenticationCreds, AuthenticationState, BufferJSON, initAuthCreds, Si
 export const usePrismaAuthState = async (prisma: PrismaClient) => {
     const writeData = async (data: any, key: string) => {
         try {
+            const jsonString = JSON.stringify(data, BufferJSON.replacer);
+            const encryptedValue = encrypt(jsonString);
             await prisma.whatsAppAuth.upsert({
                 where: { key },
-                update: { value: JSON.stringify(data, BufferJSON.replacer) },
-                create: { key, value: JSON.stringify(data, BufferJSON.replacer) }
+                update: { value: encryptedValue },
+                create: { key, value: encryptedValue }
             });
         } catch (error) {
             console.error('Error writing auth data', error);
@@ -22,7 +25,14 @@ export const usePrismaAuthState = async (prisma: PrismaClient) => {
         try {
             const data = await prisma.whatsAppAuth.findUnique({ where: { key } });
             if (data) {
-                return JSON.parse(data.value, BufferJSON.reviver);
+                try {
+                    // Try to decrypt
+                    const decryptedValue = decrypt(data.value);
+                    return JSON.parse(decryptedValue, BufferJSON.reviver);
+                } catch (e) {
+                    // Fallback to raw value for legacy data
+                    return JSON.parse(data.value, BufferJSON.reviver);
+                }
             }
         } catch (error) {
             console.error('Error reading auth data', error);

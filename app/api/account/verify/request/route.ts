@@ -16,10 +16,13 @@ export async function POST(req: Request) {
 
     const cleanPhone = phone.replace(/\D/g, "");
 
+    const { generateBlindIndex } = require("@/lib/encryption");
+    const phoneHash = generateBlindIndex(cleanPhone);
+
     // Check if phone already used by OTHER user
     const existing = await prisma.user.findFirst({
         where: {
-            phone: cleanPhone,
+            phoneHash: phoneHash,
             NOT: { email: session.user.email }
         }
     });
