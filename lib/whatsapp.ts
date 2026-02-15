@@ -1,9 +1,14 @@
 
 export async function sendWhatsAppOTP(phone: string, otp: string): Promise<boolean> {
-    const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || "http://localhost:3001";
+    let baseUrl = process.env.WHATSAPP_API_URL || "http://localhost:3001";
+
+    // Ensure protocol is present
+    if (!baseUrl.startsWith('http')) {
+        baseUrl = `https://${baseUrl}`;
+    }
 
     try {
-        const res = await fetch(`${WHATSAPP_API_URL}/send-otp`, {
+        const res = await fetch(`${baseUrl}/send-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone, otp }),
