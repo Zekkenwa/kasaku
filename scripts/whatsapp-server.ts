@@ -17,6 +17,10 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 let sock: any = undefined;
 let latestQR: string | null = null;
 
+// Reconnection management
+let retryCount = 0;
+const MAX_RETRY_DELAY = 60 * 1000; // 1 minute
+
 // Track manual chat to silence bot (JID -> timestamp)
 const lastManualChat = new Map<string, number>();
 const SILENCE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -27,7 +31,6 @@ async function connectToWhatsApp() {
     // Create socket
     const socket = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
         logger: pino({ level: 'silent' }) as any,
     });
 
@@ -76,26 +79,30 @@ async function connectToWhatsApp() {
             const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-            console.error('Connection closed due to:', lastDisconnect?.error);
+            console.error(`[SERVER] Connection closed (code: ${statusCode}). Error:`, lastDisconnect?.error);
 
             if (statusCode === DisconnectReason.loggedOut) {
-                console.log('Device logged out. Clearing session and restarting...');
+                console.log('[SERVER] Device logged out. Clearing session and restarting...');
                 await clearSession();
+                retryCount = 0;
                 connectToWhatsApp();
             } else if (shouldReconnect) {
-                console.log('Reconnecting...');
-                // Do NOT clear latestQR here, so user can still see it if it was just a blip?
-                // Actually, if we are reconnecting, the old QR might be invalid if the conn closed.
-                // But usually connection close doesn't invalidate QR immediately unless timed out.
-                // Safest to leave it or clear it if we want to force wait.
-                // If we clear it, the user sees "Connected" which is wrong.
-                // Let's NOT clear it here.
-                setTimeout(connectToWhatsApp, 3000);
+                retryCount++;
+                const delay = Math.min(retryCount * 5000, MAX_RETRY_DELAY);
+                console.log(`[SERVER] Reconnecting in ${delay / 1000}s (Retry #${retryCount})...`);
+
+                // If it's code 515, it might be a stream error that needs a fresh start
+                if (statusCode === 515) {
+                    console.log('[SERVER] Stream Errored (515) detected. Ensuring clean state.');
+                }
+
+                setTimeout(connectToWhatsApp, delay);
             }
         }
         else if (connection === 'open') {
             latestQR = null;
-            console.log('WhatsApp connection opened!');
+            retryCount = 0;
+            console.log('[SERVER] WhatsApp connection opened!');
         }
     });
 }
