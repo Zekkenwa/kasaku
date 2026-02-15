@@ -96,9 +96,13 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
 
     console.log(`Received message from ${remoteJid}: ${text}`);
 
-    // 1. Identify User
     const phone = remoteJid.split('@')[0];
     const phoneHash = generateBlindIndex(phone);
+
+    if (remoteJid.endsWith('@lid')) {
+        console.log(`[BOT] Received message from LID: ${remoteJid}`);
+        console.log(`[BOT] Message object detail:`, JSON.stringify(message, null, 2));
+    }
 
     console.log(`[BOT] Checking user for phone: ${phone} (hash: ${phoneHash.substring(0, 10)}...)`);
 
@@ -106,6 +110,28 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
         where: { phoneHash: phoneHash },
         include: { wallets: true, categories: true }
     });
+
+    // Fallback: Self-healing for bot (if not found by hash, try plain phone)
+    if (!user) {
+        console.log(`[BOT] User not found by hash, trying plain phone fallback for: ${phone}`);
+        // Since 'phone' is encrypted, we need to encrypt for search
+        const { encrypt } = require('../lib/encryption');
+        const encryptedPhone = encrypt(phone);
+
+        user = await prisma.user.findFirst({
+            where: { phone: encryptedPhone },
+            include: { wallets: true, categories: true }
+        });
+
+        if (user) {
+            console.log(`[BOT] Found user by plain phone. Healing phoneHash...`);
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { phoneHash: phoneHash },
+                include: { wallets: true, categories: true }
+            });
+        }
+    }
 
     // 2. Auth Check
     if (!user) {
