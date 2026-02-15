@@ -5,6 +5,7 @@ import * as qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { prisma } from '../lib/prisma';
 import { usePrismaAuthState } from '../lib/auth-baileys';
+import { normalizePhone } from '../lib/encryption';
 
 import { handleIncomingMessage } from './whatsapp-bot-logic';
 
@@ -15,6 +16,10 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 // Global socket variable
 let sock: any = undefined;
 let latestQR: string | null = null;
+
+// Track manual chat to silence bot (JID -> timestamp)
+const lastManualChat = new Map<string, number>();
+const SILENCE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await usePrismaAuthState(prisma);
@@ -33,11 +38,28 @@ async function connectToWhatsApp() {
     socket.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return; // Only handle notifications
 
-        console.log(`[BOT] New message received: ${m.messages.length} messages`);
-        try {
-            await handleIncomingMessage(socket, m);
-        } catch (error: any) {
-            console.error('[BOT ERROR] Error handling message:', error.message || error);
+        for (const msg of m.messages) {
+            // If message is from ME (the owner manually chatting), update silence timer
+            if (msg.key.fromMe) {
+                const jid = msg.key.remoteJid;
+                if (jid) {
+                    lastManualChat.set(jid, Date.now());
+                    console.log(`[BOT] Manual chat detected for ${jid}. Silencing auto-replies for 5m.`);
+                }
+                continue;
+            }
+
+            // Check if silence is active for this sender
+            const lastManual = lastManualChat.get(msg.key.remoteJid!);
+            const isSilenceActive = lastManual ? (Date.now() - lastManual < SILENCE_DURATION) : false;
+
+            console.log(`[BOT] New message received from ${msg.key.remoteJid}${isSilenceActive ? ' (SILENCE ACTIVE)' : ''}`);
+
+            try {
+                await handleIncomingMessage(socket, { messages: [msg], type: m.type }, isSilenceActive);
+            } catch (error: any) {
+                console.error('[BOT ERROR] Error handling message:', error.message || error);
+            }
         }
     });
 
@@ -153,8 +175,9 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
 
-                // Format phone (ensure it ends with @s.whatsapp.net)
-                const jid = phone + '@s.whatsapp.net';
+                // Format phone: normalize first, then ensure it ends with @s.whatsapp.net
+                const cleanPhone = normalizePhone(phone);
+                const jid = cleanPhone + '@s.whatsapp.net';
 
                 await sock.sendMessage(jid, {
                     text: `*KASAKU OTP*\n\nKode verifikasi Anda adalah: *${otp}*\n\nJangan berikan kode ini kepada siapapun.`

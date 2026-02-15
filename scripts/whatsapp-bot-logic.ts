@@ -83,7 +83,7 @@ const parseAmount = (input: string): number | null => {
 };
 
 // Start logic
-export async function handleIncomingMessage(sock: WASocket, msg: any) {
+export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceActive: boolean = false) {
     if (!msg.messages || msg.messages.length === 0) return;
 
     const message = msg.messages[0];
@@ -101,6 +101,8 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
 
     if (remoteJid.endsWith('@lid')) {
         console.log(`[BOT] Received message from LID: ${remoteJid}`);
+        // Attempt to resolve phone from LID if possible
+        // Baileys sometimes provides 'pushName' or other handles
         console.log(`[BOT] Message object detail:`, JSON.stringify(message, null, 2));
     }
 
@@ -135,6 +137,15 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
 
     // 2. Auth Check
     if (!user) {
+        // If silence active or not a command, we might want to be quiet for LIDs too?
+        // But for unrecognized numbers, we usually want to show the "not registered" message ONCE.
+        // However, if the user requested specifically to fix the LID issue, 
+        // they said: "whatsapp malah merespon begini: 👋 Halo! Nomor WhatsApp ini (*125099596353624*) belum terdaftar..."
+        // This is exactly what happens when user is not found.
+
+        // If it's a manual chat silence, we should definitely skip this.
+        if (isSilenceActive) return;
+
         await sock.sendMessage(remoteJid, {
             text: `👋 Halo! Nomor WhatsApp ini (*${phone}*) belum terdaftar di sistem kami.\n\nMohon pastikan nomor ini sudah sesuai dengan yang Anda masukkan di menu *Pengaturan Akun* di dashboard Kasaku.\n\n🌐 Dashboard: https://kasaku.vercel.app`
         });
@@ -158,6 +169,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
     // If greetings
     const greetings = ['hi', 'halo', 'hello', 'pagi', 'siang', 'sore', 'malam', 'tes', 'ping'];
     if (lines.length === 1 && greetings.includes(lines[0].toLowerCase())) {
+        if (isSilenceActive) return; // Skip greeting if silence active
         await sock.sendMessage(remoteJid, { text: `Halo ${user.name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\nKetik *help* untuk melihat cara penggunaan.` });
         return;
     }
@@ -196,6 +208,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any) {
     } else {
         // If NO command recognized in single line, send hint
         if (lines.length === 1) {
+            if (isSilenceActive) return; // SKIP HINT IF SILENCE ACTIVE
             await sock.sendMessage(remoteJid, { text: "Maaf, saya tidak mengerti perintah tersebut. Ketik *help* untuk bantuan." });
         }
     }
