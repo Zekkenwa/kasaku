@@ -248,6 +248,21 @@ export default function DashboardClient({
                   <h3 className="text-5xl lg:text-6xl xl:text-7xl font-black text-white tracking-tighter leading-tight mb-2 drop-shadow-2xl">
                     {censor(currency(totals.balance))}
                   </h3>
+
+                  {/* Wallet Distribution Ribbon */}
+                  {wallets && wallets.length > 0 && (
+                    <div className="flex items-center gap-2 mt-4 overflow-x-auto custom-scrollbar pb-2 pt-1 pr-4">
+                      {wallets.map(w => (
+                        <div key={w.id} className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/20 border border-white/5 backdrop-blur-md">
+                          <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400">{w.name}</span>
+                          <span className="text-xs font-bold text-white">{censor(currency(w.initialBalance))}</span>
+                        </div>
+                      ))}
+                      <button onClick={() => setIsWalletDistOpen(true)} className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 text-xs transition-all" title="Atur Saldo dompet">
+                        ⚙️
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {/* Background Chart */}
                 <div className="absolute bottom-0 left-0 w-full h-[180px] opacity-60 mix-blend-screen pointer-events-none">
