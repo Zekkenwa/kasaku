@@ -251,14 +251,14 @@ export default function DashboardClient({
 
                   {/* Wallet Distribution Ribbon */}
                   {wallets && wallets.length > 0 && (
-                    <div className="flex items-center gap-2 mt-4 overflow-x-auto custom-scrollbar pb-2 pt-1 pr-4">
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pb-2 pt-1 relative z-20 opacity-90">
                       {wallets.map(w => (
-                        <div key={w.id} className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/20 border border-white/5 backdrop-blur-md">
+                        <div key={w.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/10 border border-white/5 backdrop-blur-sm">
                           <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400">{w.name}</span>
                           <span className="text-xs font-bold text-white">{censor(currency(w.initialBalance))}</span>
                         </div>
                       ))}
-                      <button onClick={() => setIsWalletDistOpen(true)} className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 text-xs transition-all" title="Atur Saldo dompet">
+                      <button onClick={() => setIsWalletDistOpen(true)} className="flex items-center justify-center w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 backdrop-blur-sm border border-white/5 text-xs transition-all" title="Atur Saldo dompet">
                         ⚙️
                       </button>
                     </div>
@@ -319,7 +319,7 @@ export default function DashboardClient({
             </div>
 
             {/* 3. TRANSACTION HISTORY */}
-            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden max-h-[600px] lg:max-h-[450px]">
+            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden max-h-[500px] lg:max-h-none lg:h-[600px]">
               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
