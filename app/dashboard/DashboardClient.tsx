@@ -116,7 +116,7 @@ export default function DashboardClient({
   const [isWalletDistOpen, setIsWalletDistOpen] = useState(false);
 
   const [txPage, setTxPage] = useState(1);
-  const ITEMS_PER_PAGE = 25;
+  const ITEMS_PER_PAGE = 20;
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeLoanForPayment, setActiveLoanForPayment] = useState<Loan | null>(null);
@@ -304,7 +304,7 @@ export default function DashboardClient({
             </div>
 
             {/* 3. TRANSACTION HISTORY */}
-            <div className="p-8 lg:p-10 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden min-h-[500px]">
+            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden h-[400px] lg:h-[380px]">
               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
@@ -339,12 +339,43 @@ export default function DashboardClient({
                   </div>
                 ))}
                 {filteredTransactions.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-20 text-neutral-500">
+                  <div className="flex flex-col items-center justify-center py-10 text-neutral-500">
                     <span className="text-4xl mb-4 opacity-50">📂</span>
-                    <p className="font-bold">Belum ada transaksi</p>
+                    <p className="font-bold text-sm">Belum ada transaksi</p>
                   </div>
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {filteredTransactions.length > ITEMS_PER_PAGE && (
+                <div className="relative z-10 flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+                  <button
+                    onClick={() => setTxPage(p => Math.max(1, p - 1))}
+                    disabled={txPage === 1}
+                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold disabled:opacity-30 transition-all border border-white/5 flex items-center gap-1"
+                  >
+                    ← <span className="hidden sm:inline">Prev</span>
+                  </button>
+                  <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar max-w-[150px] md:max-w-[300px] px-2 py-1">
+                    {Array.from({ length: Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE) }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setTxPage(i + 1)}
+                        className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all border ${txPage === i + 1 ? 'bg-[#458B73]/20 text-[#458B73] border-[#458B73]/30' : 'bg-transparent text-neutral-500 hover:text-white border-transparent hover:border-white/10'}`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setTxPage(p => Math.min(Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE), p + 1))}
+                    disabled={txPage === Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)}
+                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold disabled:opacity-30 transition-all border border-white/5 flex items-center gap-1"
+                  >
+                    <span className="hidden sm:inline">Next</span> →
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>
