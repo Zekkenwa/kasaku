@@ -15,17 +15,15 @@ export async function POST(request: Request) {
         return new NextResponse("Missing required fields", { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
+    const userId = (session.user as any).id;
 
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
+    if (!userId) {
+        return new NextResponse("User not found in session", { status: 401 });
     }
 
     const transaction = await prisma.transaction.create({
         data: {
-            userId: user.id,
+            userId: userId,
             amount: Number(amount),
             type,
             categoryId,

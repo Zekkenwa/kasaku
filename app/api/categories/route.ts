@@ -15,17 +15,15 @@ export async function POST(request: Request) {
         return new NextResponse("Missing required fields", { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
+    const userId = (session.user as any).id;
 
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
+    if (!userId) {
+        return new NextResponse("User not found in session", { status: 401 });
     }
 
     const category = await prisma.category.create({
         data: {
-            userId: user.id,
+            userId: userId,
             name,
             type,
         },
@@ -47,17 +45,15 @@ export async function DELETE(request: Request) {
         return new NextResponse("Missing id", { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
+    const userId = (session.user as any).id;
 
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
+    if (!userId) {
+        return new NextResponse("User not found in session", { status: 401 });
     }
 
     // Ensure category belongs to user
     const category = await prisma.category.findFirst({
-        where: { id, userId: user.id },
+        where: { id, userId: userId },
     });
 
     if (!category) {
@@ -68,11 +64,11 @@ export async function DELETE(request: Request) {
         const result = await prisma.$transaction(async (tx) => {
             // Check dependencies: Transactions, RecurringTransactions, Budgets within transaction
             const txCount = await tx.transaction.count({
-                where: { userId: user.id, categoryId: category.id }
+                where: { userId: userId, categoryId: category.id }
             });
 
             const recurringCount = await tx.recurringTransaction.count({
-                where: { userId: user.id, categoryId: category.id }
+                where: { userId: userId, categoryId: category.id }
             });
 
             // Loop constraints
@@ -83,7 +79,7 @@ export async function DELETE(request: Request) {
             if (txCount > 0 || recurringCount > 0) {
                 let otherCategory = await tx.category.findFirst({
                     where: {
-                        userId: user.id,
+                        userId: userId,
                         name: "Lainnya",
                         type: category.type
                     }
@@ -92,7 +88,7 @@ export async function DELETE(request: Request) {
                 if (!otherCategory) {
                     otherCategory = await tx.category.create({
                         data: {
-                            userId: user.id,
+                            userId: userId,
                             name: "Lainnya",
                             type: category.type
                         }
@@ -102,7 +98,7 @@ export async function DELETE(request: Request) {
                 // Move Transactions
                 if (txCount > 0) {
                     await tx.transaction.updateMany({
-                        where: { userId: user.id, categoryId: category.id },
+                        where: { userId: userId, categoryId: category.id },
                         data: { categoryId: otherCategory.id }
                     });
                 }
@@ -110,7 +106,7 @@ export async function DELETE(request: Request) {
                 // Move Recurring Transactions
                 if (recurringCount > 0) {
                     await tx.recurringTransaction.updateMany({
-                        where: { userId: user.id, categoryId: category.id },
+                        where: { userId: userId, categoryId: category.id },
                         data: { categoryId: otherCategory.id }
                     });
                 }
@@ -118,7 +114,7 @@ export async function DELETE(request: Request) {
 
             // Delete Budgets associated with this category
             await tx.budget.deleteMany({
-                where: { userId: user.id, categoryId: category.id }
+                where: { userId: userId, categoryId: category.id }
             });
 
             // Finally delete the category

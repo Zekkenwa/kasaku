@@ -5,13 +5,13 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session || !session.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const userId = (session.user as any).id;
+    if (!userId) return NextResponse.json({ error: "User not found in session" }, { status: 401 });
 
     const items = await prisma.recurringTransaction.findMany({
-        where: { userId: user.id },
+        where: { userId: userId },
         include: { category: true, wallet: true },
         orderBy: { nextRun: "asc" },
     });
@@ -21,10 +21,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session || !session.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const userId = (session.user as any).id;
+    if (!userId) return NextResponse.json({ error: "User not found in session" }, { status: 401 });
 
     try {
         const body = await req.json();
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
         const item = await prisma.recurringTransaction.create({
             data: {
-                userId: user.id,
+                userId: userId,
                 name,
                 amount: Number(amount),
                 type, // INCOME/EXPENSE

@@ -149,6 +149,11 @@ export default function RegisterPage() {
         const p = val.replace(/\D/g, "");
         setPhone(p);
 
+        // Clear error immediately if it was about phone already registered
+        if (error?.includes("Nomor ini sudah terdaftar!")) {
+            setError(null);
+        }
+
         if (p.length > 9) {
             // Check duplicate (debounce ideally, but simple for now)
             const res = await fetch("/api/auth/check-phone", {
@@ -195,7 +200,7 @@ export default function RegisterPage() {
                                 <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Email</label>
                                 <div className="relative">
                                     <span className="absolute left-4 top-3.5 text-neutral-500">📧</span>
-                                    <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green/50 transition-all" placeholder="email@contoh.com" />
+                                    <input required type="email" value={email} onChange={e => { setEmail(e.target.value); if (error?.includes("Email")) setError(null); }} className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green/50 transition-all" placeholder="email@contoh.com" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -253,28 +258,43 @@ export default function RegisterPage() {
                                 <p className="text-[10px] text-neutral-500 mt-2 ml-1">Kode OTP akan dikirim ke nomor ini.</p>
                             </div>
 
-                            {error && <div className="text-xs text-brand-red bg-brand-red/10 p-3 rounded-lg border border-brand-red/20 flex items-center gap-2">⚠️ {error}</div>}
+                            <div className="flex items-center gap-3 px-1">
+                                <input required type="checkbox" id="terms" className="w-4 h-4 rounded bg-[#1a1a1a] border-white/10 text-brand-green focus:ring-brand-green/50 cursor-pointer" />
+                                <label htmlFor="terms" className="text-[10px] text-neutral-500 font-black uppercase tracking-widest cursor-pointer">
+                                    Saya setuju dengan <Link href="/terms" className="text-brand-green hover:underline">Ketentuan</Link> & <Link href="/privacy" className="text-brand-green hover:underline">Privasi</Link>
+                                </label>
+                            </div>
+
+                            {error && (
+                                <div className="text-xs text-brand-red bg-brand-red/10 p-4 rounded-xl border border-brand-red/20 flex items-center gap-3 animate-shake">
+                                    <span className="text-lg">⚠️</span>
+                                    <span className="font-black uppercase tracking-tight">{error}</span>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"
                                 disabled={loading || !!(error && error.includes("terdaftar"))}
-                                className="w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg shadow-brand-green/20 hover:shadow-brand-green/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-gradient-to-r from-brand-green to-teal-500 mt-2"
+                                className="w-full py-4 rounded-2xl text-white font-black text-lg shadow-2xl shadow-brand-green/20 hover:shadow-brand-green/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 bg-gradient-to-br from-brand-green to-emerald-600 border border-white/10"
                             >
                                 {loading ? (
                                     <>
-                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        <span>Memproses...</span>
+                                        <span>Memproses Akun...</span>
                                     </>
                                 ) : (
-                                    "Kirim OTP WhatsApp →"
+                                    <>
+                                        <span>Daftar Sekarang</span>
+                                        <span className="bg-white/20 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">GRATIS</span>
+                                    </>
                                 )}
                             </button>
 
-                            <p className="text-center text-xs text-neutral-500 mt-6">
-                                Sudah punya akun? <Link href="/login" className="font-bold hover:underline text-brand-green hover:text-white transition-colors">Masuk disini</Link>
+                            <p className="text-center text-[10px] font-black uppercase tracking-widest text-neutral-500 mt-6">
+                                Sudah punya akun? <Link href="/login" className="text-brand-green hover:underline hover:text-white transition-colors">Masuk disini</Link>
                             </p>
                         </form>
                     ) : (

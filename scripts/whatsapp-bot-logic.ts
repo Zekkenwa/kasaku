@@ -108,8 +108,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
     const phoneHash = generateBlindIndex(phone);
 
     let user = await prisma.user.findUnique({
-        where: { phoneHash: phoneHash },
-        include: { wallets: true, categories: true }
+        where: { phoneHash: phoneHash }
     });
 
     // Fallback: Self-healing for bot (if not found by hash, try plain phone)
@@ -120,16 +119,14 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
         const encryptedPhone = encrypt(phone);
 
         user = await prisma.user.findFirst({
-            where: { phone: encryptedPhone },
-            include: { wallets: true, categories: true }
+            where: { phone: encryptedPhone }
         });
 
         if (user) {
             console.log(`[BOT] Found user by plain phone. Healing phoneHash...`);
             user = await prisma.user.update({
                 where: { id: user.id },
-                data: { phoneHash: phoneHash },
-                include: { wallets: true, categories: true }
+                data: { phoneHash: phoneHash }
             });
         }
     }
@@ -166,10 +163,10 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
     }
 
     // If greetings
-    const greetings = ['hi', 'halo', 'hello', 'pagi', 'siang', 'sore', 'malam', 'tes', 'ping'];
+    const greetings = ['hi', 'halo', 'hallo', 'hello', 'pagi', 'siang', 'sore', 'malam', 'tes', 'ping'];
     if (lines.length === 1 && greetings.includes(lines[0].toLowerCase())) {
         if (isSilenceActive) return; // Skip greeting if silence active
-        await sock.sendMessage(remoteJid, { text: `Halo ${user.name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\nKetik *help* untuk melihat cara penggunaan.` });
+        await sock.sendMessage(remoteJid, { text: `Hallo ${user.name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\nKetik *help* untuk melihat cara penggunaan.` });
         return;
     }
 
@@ -368,9 +365,15 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
 
         // Handle Category (Find or Create)
-        let category = user.categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === type);
+        let category = await prisma.category.findFirst({
+            where: {
+                userId: user.id,
+                name: { equals: categoryName, mode: 'insensitive' },
+                type: type
+            }
+        });
+
         if (!category) {
-            // Create new category if not exists
             try {
                 // Ensure unique name per user+type
                 // If name exists but different type, we might want to distinguish.
@@ -389,7 +392,12 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         }
 
         // Wallet (Default to first)
-        const wallet = user.wallets.length > 0 ? user.wallets[0] : null; // Should handle 'no wallet' case if needed
+        const wallet = await prisma.wallet.findFirst({
+            where: { userId: user.id },
+            select: { id: true }
+        });
+
+        if (!category) return "❌ Gagal: Kategori tidak ditemukan atau tidak dapat dibuat.";
 
         // Execute Transaction
         const tx = await prisma.transaction.create({
@@ -414,13 +422,17 @@ async function processCommand(user: any, text: string): Promise<string | any | n
             // Balance is calculated dynamically. So no update needed on Wallet table.
         }
 
-        return {
-            title: type === 'INCOME' ? 'Pemasukan Baru' : 'Pengeluaran Baru',
-            amount: amount,
-            category: category.name,
-            note: description || (type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
-            date: new Date()
-        };
+        if (category) {
+            return {
+                title: type === 'INCOME' ? 'Pemasukan Baru' : 'Pengeluaran Baru',
+                amount: amount,
+                category: category.name,
+                note: description || (type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
+                date: new Date()
+            };
+        } else {
+            return "❌ Gagal: Kategori tidak dapat diproses.";
+        }
     }
 
     // --- DEBT (hutang/piutang) ---
@@ -612,7 +624,9 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         const categoryName = categoryPart.substring(1).replace(/_/g, ' ');
 
         // Find Category
-        const category = user.categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase());
+        const category = await prisma.category.findFirst({
+            where: { userId: user.id, name: { equals: categoryName, mode: 'insensitive' } }
+        });
         if (!category) return `❌ Gagal: Kategori '${categoryName}' tidak ditemukan.`;
 
         // Upsert Budget

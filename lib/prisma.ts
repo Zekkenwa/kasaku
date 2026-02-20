@@ -5,13 +5,24 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Use pooling dynamically for the server vs. serverless environment if needed, but remove hardcoded 5 limit.
+// Supabase recommended options can be set directly in the .env DATABASE_URL string by the user.
+let url = process.env.DATABASE_URL;
+
+// We optionally append limits ONLY IF they are NOT already set in the env var, leaving control to deployment.
+if (url && !url.includes('connection_limit')) {
+  // A more generous limit for the long-running process, but Vercel can manage its own endpoints.
+  const defaultLimit = process.env.PRISMA_CONNECTION_LIMIT || '10';
+  url += (url.includes('?') ? '&' : '?') + `connection_limit=${defaultLimit}&pool_timeout=30`;
+}
+
 const basePrisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: ["error"],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL + (process.env.DATABASE_URL?.includes('?') ? '&' : '?') + 'connection_limit=5&pool_timeout=20'
+        url: url
       }
     }
   });
