@@ -212,7 +212,7 @@ export default function DashboardClient({
             </div>
           </div>
 
-          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/5">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/5 relative z-50">
             <div className="flex gap-2">
               <Link href="/homepage" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-sm font-bold text-neutral-300 hover:text-white border border-white/5" title="Halaman Depan">
                 <span>🏠</span> <span className="hidden sm:inline">Beranda</span>
@@ -319,7 +319,7 @@ export default function DashboardClient({
             </div>
 
             {/* 3. TRANSACTION HISTORY */}
-            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden h-[400px] lg:h-[380px]">
+            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden max-h-[600px] lg:max-h-[450px]">
               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
@@ -332,7 +332,7 @@ export default function DashboardClient({
                   </select>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 relative z-10">
+              <div className="overflow-y-auto custom-scrollbar space-y-3 pr-2 relative z-10">
                 {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
                   <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 group transition-all backdrop-blur-md">
                     <div className="flex items-center gap-4">
