@@ -245,7 +245,7 @@ export default function DashboardClient({
                       {hideSaldo ? "Lihat" : "Sembunyi"}
                     </button>
                   </div>
-                  <h3 className="text-5xl lg:text-6xl xl:text-7xl font-black text-white tracking-tighter leading-tight mb-2 drop-shadow-2xl">
+                  <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tighter leading-tight mb-2 drop-shadow-2xl break-words whitespace-pre-wrap">
                     {censor(currency(totals.balance))}
                   </h3>
 
@@ -332,7 +332,7 @@ export default function DashboardClient({
                   </select>
                 </div>
               </div>
-              <div className="overflow-y-auto custom-scrollbar space-y-3 pr-2 relative z-10">
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-3 pr-2 relative z-10">
                 {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
                   <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 group transition-all backdrop-blur-md">
                     <div className="flex items-center gap-4">
