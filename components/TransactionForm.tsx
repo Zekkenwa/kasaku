@@ -103,12 +103,12 @@ export default function TransactionForm({
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
             {/* Tipe */}
             <div>
-                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Tipe Transaksi</label>
-                <div className="grid grid-cols-2 gap-3">
-                    <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "EXPENSE" ? "bg-[#F26076]/20 border-[#F26076] text-[#F26076]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
+                <label className="block text-[10px] font-black text-neutral-400 mb-3 uppercase tracking-widest">Tipe Transaksi</label>
+                <div className="grid grid-cols-2 gap-4">
+                    <label className={`flex items-center justify-center gap-2 p-4 rounded-2xl border cursor-pointer transition-all shadow-sm ${type === "EXPENSE" ? "bg-gradient-to-br from-[#F26076]/20 to-[#F26076]/5 border-[#F26076]/50 text-[#F26076] shadow-[#F26076]/10" : "bg-black/40 border-white/5 text-neutral-400 hover:bg-white/5 hover:border-white/10"}`}>
                         <input
                             type="radio"
                             value="EXPENSE"
@@ -116,9 +116,9 @@ export default function TransactionForm({
                             onChange={(e) => setType(e.target.value)}
                             className="hidden"
                         />
-                        <span className="text-sm font-bold">Pengeluaran</span>
+                        <span className="text-sm font-black tracking-wide">Pengeluaran</span>
                     </label>
-                    <label className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${type === "INCOME" ? "bg-[#458B73]/20 border-[#458B73] text-[#458B73]" : "bg-black/20 border-white/5 text-neutral-400 hover:bg-white/5"}`}>
+                    <label className={`flex items-center justify-center gap-2 p-4 rounded-2xl border cursor-pointer transition-all shadow-sm ${type === "INCOME" ? "bg-gradient-to-br from-[#458B73]/20 to-[#458B73]/5 border-[#458B73]/50 text-[#458B73] shadow-[#458B73]/10" : "bg-black/40 border-white/5 text-neutral-400 hover:bg-white/5 hover:border-white/10"}`}>
                         <input
                             type="radio"
                             value="INCOME"
@@ -126,19 +126,19 @@ export default function TransactionForm({
                             onChange={(e) => setType(e.target.value)}
                             className="hidden"
                         />
-                        <span className="text-sm font-bold">Pemasukan</span>
+                        <span className="text-sm font-black tracking-wide">Pemasukan</span>
                     </label>
                 </div>
             </div>
 
             {/* Wallet Selection */}
             <div>
-                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Sumber Dana</label>
+                <label className="block text-[10px] font-black text-neutral-400 mb-2 uppercase tracking-widest">Sumber Dana</label>
                 <select
                     required
                     value={walletId}
                     onChange={(e) => setWalletId(e.target.value)}
-                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer"
+                    className="w-full border border-white/10 rounded-2xl px-5 py-4 text-sm bg-black/40 text-white focus:outline-none focus:ring-2 focus:ring-[#458B73]/50 appearance-none cursor-pointer backdrop-blur-md shadow-inner transition-all hover:bg-black/60"
                 >
                     {wallets.length === 0 && <option value="" className="bg-[#252525]">Belum ada wallet</option>}
                     {wallets.map((w) => (
@@ -151,14 +151,14 @@ export default function TransactionForm({
 
             {/* Kategori */}
             <div>
-                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">
+                <label className="block text-[10px] font-black text-neutral-400 mb-2 uppercase tracking-widest">
                     Kategori
                 </label>
                 <select
                     required
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
-                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] appearance-none cursor-pointer"
+                    className="w-full border border-white/10 rounded-2xl px-5 py-4 text-sm bg-black/40 text-white focus:outline-none focus:ring-2 focus:ring-[#458B73]/50 appearance-none cursor-pointer backdrop-blur-md shadow-inner transition-all hover:bg-black/60"
                 >
                     {filteredCategories.length === 0 && <option value="" className="bg-[#252525]">Tidak ada kategori</option>}
                     {filteredCategories.map((c) => (
@@ -171,16 +171,16 @@ export default function TransactionForm({
 
             {/* Amount */}
             <div>
-                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">Jumlah</label>
-                <div className="relative">
-                    <span className="absolute left-4 top-3 text-neutral-500 text-sm">Rp</span>
+                <label className="block text-[10px] font-black text-neutral-400 mb-2 uppercase tracking-widest">Jumlah Saldo</label>
+                <div className="relative flex items-center">
+                    <span className="absolute left-5 text-neutral-400 font-bold text-lg select-none">Rp</span>
                     <input
                         type="number"
                         required
                         min="1"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        className="w-full border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600"
+                        className="w-full border border-white/10 rounded-2xl pl-14 pr-5 py-4 text-lg font-black bg-black/40 text-white focus:outline-none focus:ring-2 focus:ring-[#458B73]/50 placeholder-neutral-600 backdrop-blur-md shadow-inner transition-all hover:bg-black/60"
                         placeholder="0"
                     />
                 </div>
@@ -188,48 +188,47 @@ export default function TransactionForm({
 
             {/* Date */}
             <div>
-                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">
-                    Tanggal
+                <label className="block text-[10px] font-black text-neutral-400 mb-2 uppercase tracking-widest">
+                    Tanggal Transaksi
                 </label>
                 <input
                     type="date"
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73]"
+                    className="w-full border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold bg-black/40 text-white focus:outline-none focus:ring-2 focus:ring-[#458B73]/50 backdrop-blur-md shadow-inner transition-all hover:bg-black/60"
                     style={{ colorScheme: "dark" }}
                 />
             </div>
 
             {/* Note */}
             <div>
-                <label className="block text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wide">
-                    Catatan <span className="text-neutral-600 font-normal normal-case">(Opsional)</span>
+                <label className="block text-[10px] font-black text-neutral-400 mb-2 uppercase tracking-widest">
+                    Catatan Khusus <span className="text-neutral-600 font-bold normal-case ml-1">(Opsional)</span>
                 </label>
                 <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={3}
-                    className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-[#458B73] placeholder-neutral-600 resize-none"
-                    placeholder="Contoh: Makan siang di warteg..."
+                    className="w-full border border-white/10 rounded-2xl px-5 py-4 text-sm bg-black/40 text-white focus:outline-none focus:ring-2 focus:ring-[#458B73]/50 placeholder-neutral-600 resize-none backdrop-blur-md shadow-inner transition-all hover:bg-black/60"
+                    placeholder="Contoh: Makan siang bareng teman kantor..."
                 />
             </div>
 
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+            <div className="flex justify-end gap-3 pt-6 border-t border-white/10">
                 <button
                     type="button"
                     onClick={onClose}
-                    className="px-6 py-2.5 text-neutral-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors text-sm font-medium"
+                    className="px-6 py-3 text-neutral-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all text-sm font-bold"
                 >
                     Batal
                 </button>
                 <button
                     type="submit"
                     disabled={loading}
-                    className="px-8 py-2.5 bg-[#458B73] text-white rounded-xl hover:bg-[#3aa381] disabled:opacity-50 transition-all shadow-lg hover:shadow-[#458B73]/20 text-sm font-bold"
+                    className="px-10 py-3 bg-gradient-to-r from-[#458B73] to-emerald-600 text-white rounded-2xl hover:scale-105 active:scale-95 disabled:scale-100 disabled:opacity-50 transition-all shadow-xl shadow-emerald-900/40 text-sm font-black flex items-center gap-2"
                 >
-                    {loading ? "Menyimpan..." : "Simpan"}
+                    {loading ? <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : (initialData ? "Simpan Perubahan" : "Catat Transaksi")}
                 </button>
             </div>
         </form>

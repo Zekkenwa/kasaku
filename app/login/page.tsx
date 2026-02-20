@@ -89,7 +89,7 @@ export default function LoginPage() {
 
           {/* Logo / App Name */}
           <div className="text-center mb-8">
-            <Link href="/" className="inline-block mb-4 transition-transform hover:scale-105">
+            <Link href="/homepage" className="inline-block mb-4 transition-transform hover:scale-105">
               <img src="/logo.png" alt="Kasaku Logo" className="w-16 h-16 rounded-xl shadow-lg mx-auto mb-2" />
             </Link>
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">

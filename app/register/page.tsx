@@ -274,7 +274,7 @@ export default function RegisterPage() {
 
                             <button
                                 type="submit"
-                                disabled={loading || !!(error && error.includes("terdaftar"))}
+                                disabled={loading || !!(error && error.includes("Nomor ini sudah terdaftar"))}
                                 className="w-full py-4 rounded-2xl text-white font-black text-lg shadow-2xl shadow-brand-green/20 hover:shadow-brand-green/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 bg-gradient-to-br from-brand-green to-emerald-600 border border-white/10"
                             >
                                 {loading ? (

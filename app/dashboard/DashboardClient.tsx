@@ -214,7 +214,9 @@ export default function DashboardClient({
 
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/5">
             <div className="flex gap-2">
-              <Link href="/" className="p-3 rounded-xl hover:bg-white/5 transition-all text-xl grayscale hover:grayscale-0" title="Landing Page">🏠</Link>
+              <Link href="/homepage" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-sm font-bold text-neutral-300 hover:text-white border border-white/5" title="Halaman Depan">
+                <span>🏠</span> <span className="hidden sm:inline">Beranda</span>
+              </Link>
               <button onClick={() => setIsCategoryModalOpen(true)} className="p-3 rounded-xl hover:bg-white/5 transition-all text-xl grayscale hover:grayscale-0" title="Kategori">📁</button>
               <button onClick={() => setIsImportModalOpen(true)} className="p-3 rounded-xl hover:bg-white/5 transition-all text-xl grayscale hover:grayscale-0" title="Import">📥</button>
               <Link href='/donasi' className="p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 transition-all text-xl" title="Donasi">🎁</Link>
@@ -224,225 +226,230 @@ export default function DashboardClient({
           </div>
         </header>
 
-        <div className="grid grid-cols-12 gap-8">
-          {/* 1. FINANCIAL OVERVIEW */}
-          <div className="col-span-12 lg:col-span-8 p-8 lg:p-10 rounded-[2.5rem] bg-gradient-to-br from-[#252525] to-[#1a1a1a] border border-white/10 shadow-2xl relative overflow-hidden group flex flex-col justify-between h-[450px]">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[#458B73]/20 rounded-full blur-[100px] -mr-32 -mt-32 pointer-events-none animate-pulse" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center text-brand-green">💰</div>
-                <p className="text-sm text-neutral-400 font-bold uppercase tracking-widest">Saldo Saat Ini</p>
-                <button onClick={toggleHideSaldo} className="ml-2 px-2 py-0.5 rounded-md bg-white/5 text-neutral-500 hover:text-white transition-colors text-[10px] uppercase font-bold tracking-tighter">{hideSaldo ? "Lihat" : "Sembunyi"}</button>
-              </div>
-              <h3 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-none mb-6">
-                {censor(currency(totals.balance))}
-              </h3>
-              <div className="flex gap-4 text-sm font-bold pt-3 p-1 rounded-2xl bg-black/20 w-fit">
-                <span className="text-[#458B73] flex items-center gap-2 bg-[#458B73]/5 px-4 py-2 rounded-xl">
-                  <span className="text-xs">↓</span> {censor(currency(totals.totalIncome))}
-                </span>
-                <span className="text-[#F26076] flex items-center gap-2 bg-[#F26076]/5 px-4 py-2 rounded-xl">
-                  <span className="text-xs">↑</span> {censor(currency(totals.totalExpense))}
-                </span>
-              </div>
-            </div>
-            <div className="flex-1 w-full relative min-h-[160px]">
-              <Line
-                data={{
-                  labels: charts.labels,
-                  datasets: [
-                    {
-                      label: "Pemasukan",
-                      data: charts.incomeLine,
-                      borderColor: "#458B73",
-                      backgroundColor: "rgba(69,139,115,0.1)",
-                      tension: 0.4,
-                      borderWidth: 3,
-                      pointRadius: 0,
-                      fill: true
-                    },
-                    {
-                      label: "Pengeluaran",
-                      data: charts.expenseLine,
-                      borderColor: "#F26076",
-                      backgroundColor: "rgba(242,96,118,0.1)",
-                      tension: 0.4,
-                      borderWidth: 3,
-                      pointRadius: 0,
-                      fill: true
-                    },
-                  ],
-                }}
-                options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } } }}
-              />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* LEFT COLUMN: MAIN CONTENT (Primary Focus) */}
+          <div className="lg:col-span-8 flex flex-col gap-8">
 
-          {/* 2. ACTIONS & DATE FILTER */}
-          <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
-            <button onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
-              className="w-full py-6 rounded-[2.5rem] bg-gradient-to-br from-[#458B73] to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 text-white font-black text-xl shadow-2xl shadow-emerald-900/40 transition-all flex items-center justify-center gap-4 group h-[140px] relative overflow-hidden">
-              <span className="text-3xl bg-white/20 w-12 h-12 rounded-full flex items-center justify-center group-hover:rotate-90 transition-transform duration-500 shadow-inner">+</span>
-              <span className="tracking-tight">Catat Transaksi</span>
-            </button>
-
-            <div className="flex-1 p-8 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-xl flex flex-col justify-center gap-6 h-[250px] backdrop-blur-xl relative">
-              <div>
-                <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3 ml-1">Rentang Waktu</h4>
-                <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5">
-                  <button onClick={() => setDateFilterMode("MONTHLY")} className={`flex-1 py-3 text-[10px] uppercase tracking-widest rounded-xl font-black transition-all ${dateFilterMode === "MONTHLY" ? "bg-white/10 text-white shadow-lg" : "text-neutral-500 hover:text-white"}`}>Bulanan</button>
-                  <button onClick={() => setDateFilterMode("CUSTOM")} className={`flex-1 py-3 text-[10px] uppercase tracking-widest rounded-xl font-black transition-all ${dateFilterMode === "CUSTOM" ? "bg-white/10 text-white shadow-lg" : "text-neutral-500 hover:text-white"}`}>Kustom</button>
+            {/* 1. HERO SECTION (Balance & Quick Action) */}
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Balance Card */}
+              <div className="flex-1 p-8 lg:p-10 rounded-[2.5rem] bg-gradient-to-br from-[#252525] to-[#1a1a1a] border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden group flex flex-col justify-between min-h-[300px]">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#458B73]/20 rounded-full blur-[100px] -mr-32 -mt-32 pointer-events-none animate-pulse" />
+                <div className="relative z-10 w-full">
+                  <div className="flex items-center justify-between mb-4 w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-brand-green/20 border border-brand-green/30 flex items-center justify-center text-brand-green text-lg shadow-lg">💰</div>
+                      <p className="text-sm text-neutral-400 font-bold uppercase tracking-widest">Saldo Saat Ini</p>
+                    </div>
+                    <button onClick={toggleHideSaldo} className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-neutral-400 hover:text-white transition-all text-[10px] uppercase font-bold tracking-tighter backdrop-blur-md">
+                      {hideSaldo ? "Lihat" : "Sembunyi"}
+                    </button>
+                  </div>
+                  <h3 className="text-5xl lg:text-6xl xl:text-7xl font-black text-white tracking-tighter leading-tight mb-2 drop-shadow-2xl">
+                    {censor(currency(totals.balance))}
+                  </h3>
+                </div>
+                {/* Background Chart */}
+                <div className="absolute bottom-0 left-0 w-full h-[180px] opacity-60 mix-blend-screen pointer-events-none">
+                  <Line
+                    data={{
+                      labels: charts.labels,
+                      datasets: [
+                        { data: charts.incomeLine, borderColor: "#458B73", backgroundColor: "rgba(69,139,115,0.1)", tension: 0.4, borderWidth: 2, pointRadius: 0, fill: true },
+                        { data: charts.expenseLine, borderColor: "#F26076", backgroundColor: "rgba(242,96,118,0.1)", tension: 0.4, borderWidth: 2, pointRadius: 0, fill: true },
+                      ],
+                    }}
+                    options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } } }}
+                  />
                 </div>
               </div>
-              {dateFilterMode === "MONTHLY" ? (
-                <div className="flex gap-3">
-                  <select className="flex-1 border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-brand-green appearance-none cursor-pointer" value={selectedMonth} onChange={(e) => updateMonthYear(Number(e.target.value), selectedYear)}>
-                    {monthOptions.map((m) => (<option key={m} value={m} className="bg-[#252525]">{monthLabel(m)}</option>))}
+
+              {/* Outstanding Primary Action */}
+              <button onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
+                className="w-full md:w-[220px] p-8 rounded-[2.5rem] bg-gradient-to-br from-[#458B73] to-emerald-700 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-[0_20px_40px_-10px_rgba(69,139,115,0.5)] hover:shadow-[0_20px_50px_-10px_rgba(69,139,115,0.7)] hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-4 group relative overflow-hidden border border-white/20">
+                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay"></div>
+                <div className="relative z-10 w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center group-hover:rotate-90 transition-transform duration-500 shadow-xl border border-white/30 text-3xl font-light">+</div>
+                <span className="relative z-10 font-black text-lg tracking-tight text-center leading-tight">Catat<br />Transaksi</span>
+              </button>
+            </div>
+
+            {/* 2. DUAL ANALYSIS (INCOME & EXPENSE SUMMARY) */}
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Income Summary */}
+              <div className="flex-1 p-8 rounded-[2.5rem] bg-[#1f1f1f]/80 backdrop-blur-xl border border-white/10 shadow-2xl flex items-center gap-6 group hover:border-[#458B73]/40 transition-all relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#458B73]/10 rounded-full blur-[50px] pointer-events-none" />
+                <div className="relative w-24 h-24 shrink-0">
+                  <Doughnut data={{ labels: charts.incomePie.labels, datasets: [{ data: charts.incomePie.data, backgroundColor: PIE_COLORS_INCOME, borderWidth: 0 }] }} options={{ cutout: "75%", plugins: { legend: { display: false } } as any, maintainAspectRatio: true }} />
+                </div>
+                <div className="flex-1 z-10">
+                  <h4 className="flex items-center gap-2 text-[10px] font-black text-[#458B73] uppercase tracking-widest mb-1">
+                    <span className="w-5 h-5 flex items-center justify-center bg-[#458B73]/20 rounded-full text-xs">↓</span> Pemasukan
+                  </h4>
+                  <span className="text-2xl font-black text-white tracking-tight">{censor(currency(totals.totalIncome))}</span>
+                </div>
+              </div>
+              {/* Expense Summary */}
+              <div className="flex-1 p-8 rounded-[2.5rem] bg-[#1f1f1f]/80 backdrop-blur-xl border border-white/10 shadow-2xl flex items-center gap-6 group hover:border-[#F26076]/40 transition-all relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#F26076]/10 rounded-full blur-[50px] pointer-events-none" />
+                <div className="relative w-24 h-24 shrink-0">
+                  <Doughnut data={{ labels: charts.expensePie.labels, datasets: [{ data: charts.expensePie.data, backgroundColor: PIE_COLORS_EXPENSE, borderWidth: 0 }] }} options={{ cutout: "75%", plugins: { legend: { display: false } } as any, maintainAspectRatio: true }} />
+                </div>
+                <div className="flex-1 z-10">
+                  <h4 className="flex items-center gap-2 text-[10px] font-black text-[#F26076] uppercase tracking-widest mb-1">
+                    <span className="w-5 h-5 flex items-center justify-center bg-[#F26076]/20 rounded-full text-xs">↑</span> Pengeluaran
+                  </h4>
+                  <span className="text-2xl font-black text-white tracking-tight">{censor(currency(totals.totalExpense))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. TRANSACTION HISTORY */}
+            <div className="p-8 lg:p-10 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden min-h-[500px]">
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div>
+                  <h4 className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-1">Log Keuangan</h4>
+                  <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">Riwayat Transaksi</h3>
+                </div>
+                <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-2xl border border-white/5">
+                  <select className="bg-transparent text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 appearance-none cursor-pointer focus:outline-none" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
+                    <option value="ALL" className="bg-[#252525]">Semua</option><option value="INCOME" className="bg-[#252525]">Masuk</option><option value="EXPENSE" className="bg-[#252525]">Keluar</option>
                   </select>
-                  <select className="flex-1 border border-white/10 rounded-xl px-4 py-3 text-sm bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-brand-green appearance-none cursor-pointer" value={selectedYear} onChange={(e) => updateMonthYear(selectedMonth, Number(e.target.value))}>
-                    {yearOptions.map((y) => (<option key={y} value={y} className="bg-[#252525]">{y}</option>))}
-                  </select>
-                </div>
-              ) : <DateRangePicker startDate={dateRange.start} endDate={dateRange.end} firstTxDate={firstTxDate} onApply={updateCustomRange} />}
-            </div>
-          </div>
-
-          {/* 3. DUAL ANALYSIS (INCOME & EXPENSE) */}
-          <div className="col-span-12 p-10 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-2xl min-h-[450px] flex flex-col relative overflow-hidden backdrop-blur-md">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h4 className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-2">Pantauan Saldo</h4>
-                <h3 className="text-3xl font-black text-white tracking-tight">Analisis Keuangan</h3>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 flex-1">
-              {/* Income Chart */}
-              <div className="flex flex-col items-center justify-center p-6 bg-black/20 rounded-3xl border border-white/5 hover:border-[#458B73]/30 transition-all">
-                <h4 className="text-[10px] font-black text-[#458B73] uppercase tracking-widest mb-6">Pemasukan</h4>
-                <div className="relative w-36 h-36">
-                  <Doughnut data={{ labels: charts.incomePie.labels, datasets: [{ data: charts.incomePie.data, backgroundColor: PIE_COLORS_INCOME, borderWidth: 0 }] }} plugins={[centerTextPlugin]} options={{ cutout: "75%", plugins: { legend: { display: false }, centerText: { text: censor(formatCompactNumber(totals.totalIncome)), subtext: "Total" } } as any, maintainAspectRatio: true }} />
                 </div>
               </div>
-              {/* Income List */}
-              <div className="flex flex-col justify-center h-full max-h-[300px] overflow-y-auto custom-scrollbar pr-3">
-                {charts.incomePie.labels.map((label, idx) => (
-                  <div key={idx} className="flex items-center justify-between mb-3 group/item">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-lg" style={{ backgroundColor: PIE_COLORS_INCOME[idx % PIE_COLORS_INCOME.length] }}></div>
-                      <span className="text-xs text-neutral-400 font-bold truncate group-hover/item:text-white transition-colors">{label}</span>
-                    </div>
-                    <span className="text-xs font-black text-white ml-2">{censor(currency(charts.incomePie.data[idx]))}</span>
-                  </div>
-                ))}
-              </div>
-              {/* Expense Chart */}
-              <div className="flex flex-col items-center justify-center p-6 bg-black/20 rounded-3xl border border-white/5 hover:border-[#F26076]/30 transition-all">
-                <h4 className="text-[10px] font-black text-[#F26076] uppercase tracking-widest mb-6">Pengeluaran</h4>
-                <div className="relative w-36 h-36">
-                  <Doughnut data={{ labels: charts.expensePie.labels, datasets: [{ data: charts.expensePie.data, backgroundColor: PIE_COLORS_EXPENSE, borderWidth: 0 }] }} plugins={[centerTextPlugin]} options={{ cutout: "75%", plugins: { legend: { display: false }, centerText: { text: censor(formatCompactNumber(totals.totalExpense)), subtext: "Total" } } as any, maintainAspectRatio: true }} />
-                </div>
-              </div>
-              {/* Expense List */}
-              <div className="flex flex-col justify-center h-full max-h-[300px] overflow-y-auto custom-scrollbar pr-3">
-                {charts.expensePie.labels.map((label, idx) => (
-                  <div key={idx} className="flex items-center justify-between mb-3 group/item">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-lg" style={{ backgroundColor: PIE_COLORS_EXPENSE[idx % PIE_COLORS_EXPENSE.length] }}></div>
-                      <span className="text-xs text-neutral-400 font-bold truncate group-hover/item:text-white transition-colors">{label}</span>
-                    </div>
-                    <span className="text-xs font-black text-white ml-2">{censor(currency(charts.expensePie.data[idx]))}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 4. TRANSACTION HISTORY & SMART TOOLS */}
-          <div className="col-span-12 lg:col-span-6 p-10 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-2xl h-[700px] flex flex-col relative overflow-hidden backdrop-blur-md">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h4 className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-2">Log Keuangan</h4>
-                <h3 className="text-3xl font-black text-white tracking-tight">Riwayat</h3>
-              </div>
-              <select className="bg-black/40 text-white text-[10px] font-black uppercase tracking-widest border border-white/10 rounded-xl px-4 py-2 appearance-none cursor-pointer" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
-                <option value="ALL" className="bg-[#252525]">Semua</option><option value="INCOME" className="bg-[#252525]">Masuk</option><option value="EXPENSE" className="bg-[#252525]">Keluar</option>
-              </select>
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
-              {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-5 rounded-[2rem] bg-black/20 hover:bg-white/5 border border-transparent hover:border-white/10 group transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm ${t.type === 'INCOME' ? 'bg-[#458B73]/20 text-[#458B73]' : 'bg-[#F26076]/20 text-[#F26076]'}`}>{t.type === 'INCOME' ? '↓' : '↑'}</div>
-                    <div>
-                      <p className="font-black text-sm text-white truncate max-w-[150px]">{t.category}</p>
-                      <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest">{t.date}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`font-black text-sm ${t.type === 'INCOME' ? 'text-brand-green' : 'text-brand-red'}`}>{t.type === 'INCOME' ? '+' : '-'}{currency(t.amount)}</span>
-                    <button onClick={() => { setEditingTx(t); setIsTxModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">✏️</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="col-span-12 lg:col-span-6 flex flex-col gap-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
-              {/* Target (Goals) */}
-              <div className="p-8 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-xl flex flex-col group hover:border-[#458B73]/30 transition-all h-[335px]">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-black text-white text-lg">🎯 Target</h3>
-                  <button onClick={() => { setEditingGoal(null); setIsGoalCreateOpen(true); }} className="w-8 h-8 rounded-xl bg-white/5 hover:bg-brand-green text-white font-black transition-all">+</button>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
-                  {goals.map(g => {
-                    const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
-                    return (
-                      <div key={g.id} onClick={() => { setEditingGoal(g); setIsGoalCreateOpen(true); }} className="p-4 rounded-2xl bg-black/20 hover:bg-white/5 cursor-pointer border border-transparent hover:border-white/5 transition-all">
-                        <div className="flex justify-between mb-2"> <span className="text-xs font-black text-white uppercase tracking-tight">{g.name}</span> <span className="text-[10px] text-brand-green font-black">{pct}%</span> </div>
-                        <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden"> <div className="h-full rounded-full bg-brand-green transition-all duration-700" style={{ width: `${pct}%` }} /> </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 relative z-10">
+                {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
+                  <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 group transition-all backdrop-blur-md">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl shadow-inner flex items-center justify-center text-lg ${t.type === 'INCOME' ? 'bg-gradient-to-br from-[#458B73]/30 to-[#458B73]/10 text-[#458B73] border border-[#458B73]/20' : 'bg-gradient-to-br from-[#F26076]/30 to-[#F26076]/10 text-[#F26076] border border-[#F26076]/20'}`}>
+                        {t.type === 'INCOME' ? '↓' : '↑'}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* Anggaran (Budget) */}
-              <div className="p-8 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-xl flex flex-col group hover:border-amber-500/30 transition-all h-[335px]">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-black text-white text-lg">📊 Anggaran</h3>
-                  <button onClick={() => { setEditingBudget(null); setIsBudgetModalOpen(true); }} className="w-8 h-8 rounded-xl bg-white/5 hover:bg-amber-500 text-white font-black transition-all">+</button>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
-                  {budgets.map((b) => (<div key={b.id} onClick={() => { setEditingBudget({ categoryId: b.categoryId, limitAmount: b.limitAmount, id: b.id, period: b.period }); setIsBudgetModalOpen(true); }} className="cursor-pointer hover:bg-white/5 p-3 rounded-2xl border border-transparent hover:border-white/5 transition-all"><BudgetProgress id={b.id} categoryName={b.categoryName} limit={b.limitAmount} spent={spentByCategory[b.categoryName] || 0} period={b.period} onEdit={() => { }} compact={true} /></div>))}
-                </div>
-              </div>
-              {/* Rutinitas (Recurring) */}
-              <div className="p-8 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-xl flex flex-col group hover:border-[#F26076]/30 transition-all h-[335px]">
-                <div className="flex items-center justify-between mb-6"> <h3 className="font-black text-white text-lg">🔄 Rutinitas</h3> <button onClick={() => setIsRecurringModalOpen(true)} className="w-8 h-8 rounded-xl bg-white/5 hover:bg-brand-red text-white font-black transition-all">+</button> </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar"> <RecurringManager categories={categoryObjects} wallets={wallets || []} compact={true} /> </div>
-              </div>
-              {/* Pinjaman (Debt) */}
-              <div className="p-8 rounded-[2.5rem] bg-[#252525] border border-white/10 shadow-xl flex flex-col group hover:border-indigo-500/30 transition-all h-[335px]">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-black text-white text-lg">{loanTab === "PAYABLE" ? "Hutang" : "Piutang"}</h3>
-                  <div className="flex bg-black/40 rounded-xl p-1">
-                    <button onClick={() => setLoanTab("PAYABLE")} className={`px-3 py-1 text-[10px] font-black rounded-lg ${loanTab === "PAYABLE" ? "bg-brand-red text-white shadow-lg" : "text-neutral-500"}`}>H</button>
-                    <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-3 py-1 text-[10px] font-black rounded-lg ${loanTab === "RECEIVABLE" ? "bg-brand-green text-white shadow-lg" : "text-neutral-500"}`}>P</button>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
-                  {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).map(l => (
-                    <div key={l.id} className="p-4 rounded-2xl bg-black/20 border border-white/5 hover:border-white/10 transition-all">
-                      <div className="flex justify-between items-start">
-                        <div className="min-w-0 flex-1"> <p className="font-black text-xs text-white truncate mb-1">{l.name}</p> {l.dueDate && <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">{new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</p>} </div>
-                        <span className={`font-black text-xs ${loanTab === "PAYABLE" ? "text-brand-red" : "text-brand-green"}`}>{currency(l.remaining)}</span>
+                      <div>
+                        <p className="font-black text-sm md:text-base text-white truncate max-w-[120px] md:max-w-[200px]">{t.category}</p>
+                        <span className="text-[10px] text-neutral-500 uppercase font-black tracking-widest">{t.date}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <span className={`block font-black text-sm md:text-base ${t.type === 'INCOME' ? 'text-brand-green' : 'text-brand-red'}`}>{t.type === 'INCOME' ? '+' : '-'}{currency(t.amount)}</span>
+                        {t.note && <span className="text-[10px] text-neutral-500 font-medium truncate max-w-[100px] hidden sm:block">{t.note}</span>}
+                      </div>
+                      <button onClick={() => { setEditingTx(t); setIsTxModalOpen(true); }} className="w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-white/10 text-xs">✏️</button>
+                    </div>
+                  </div>
+                ))}
+                {filteredTransactions.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-20 text-neutral-500">
+                    <span className="text-4xl mb-4 opacity-50">📂</span>
+                    <p className="font-bold">Belum ada transaksi</p>
+                  </div>
+                )}
               </div>
             </div>
+
+          </div>
+
+          {/* RIGHT COLUMN: SMART TOOLS (Secondary Focus) */}
+          <div className="lg:col-span-4 flex flex-col gap-6">
+
+            {/* Filter Waktu */}
+            <div className="p-6 rounded-[2rem] bg-[#252525]/80 backdrop-blur-xl border border-white/10 shadow-xl flex flex-col gap-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-[40px] pointer-events-none" />
+              <div className="relative z-10">
+                <h4 className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <span className="text-base">📅</span> Waktu
+                </h4>
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 mb-4">
+                  <button onClick={() => setDateFilterMode("MONTHLY")} className={`flex-1 py-2 text-[10px] uppercase tracking-widest rounded-lg font-black transition-all ${dateFilterMode === "MONTHLY" ? "bg-white/10 text-white shadow-md" : "text-neutral-500 hover:text-white"}`}>Bulanan</button>
+                  <button onClick={() => setDateFilterMode("CUSTOM")} className={`flex-1 py-2 text-[10px] uppercase tracking-widest rounded-lg font-black transition-all ${dateFilterMode === "CUSTOM" ? "bg-white/10 text-white shadow-md" : "text-neutral-500 hover:text-white"}`}>Kustom</button>
+                </div>
+                {dateFilterMode === "MONTHLY" ? (
+                  <div className="flex gap-2">
+                    <select className="flex-1 border border-white/10 rounded-xl px-3 py-2 text-xs bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-brand-green appearance-none cursor-pointer" value={selectedMonth} onChange={(e) => updateMonthYear(Number(e.target.value), selectedYear)}>
+                      {monthOptions.map((m) => (<option key={m} value={m} className="bg-[#252525]">{monthLabel(m)}</option>))}
+                    </select>
+                    <select className="flex-1 border border-white/10 rounded-xl px-3 py-2 text-xs bg-black/20 text-white focus:outline-none focus:ring-1 focus:ring-brand-green appearance-none cursor-pointer" value={selectedYear} onChange={(e) => updateMonthYear(selectedMonth, Number(e.target.value))}>
+                      {yearOptions.map((y) => (<option key={y} value={y} className="bg-[#252525]">{y}</option>))}
+                    </select>
+                  </div>
+                ) : <DateRangePicker startDate={dateRange.start} endDate={dateRange.end} firstTxDate={firstTxDate} onApply={updateCustomRange} />}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-2 mb-1 px-2">
+              <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Smart Tools</span>
+              <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            </div>
+
+            {/* Target (Goals) */}
+            <div className="p-6 rounded-[2rem] bg-[#252525]/60 backdrop-blur-md border border-white/5 shadow-lg flex flex-col group hover:bg-[#252525]/80 hover:border-[#458B73]/30 transition-all max-h-[250px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-black text-white text-sm flex items-center gap-2"><span className="text-[#458B73]">🎯</span> Target</h3>
+                <button onClick={() => { setEditingGoal(null); setIsGoalCreateOpen(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-brand-green text-white font-black transition-all text-xs">+</button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
+                {goals.map(g => {
+                  const pct = g.targetAmount > 0 ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100)) : 0;
+                  return (
+                    <div key={g.id} onClick={() => { setEditingGoal(g); setIsGoalCreateOpen(true); }} className="p-3 rounded-xl bg-black/20 hover:bg-white/10 cursor-pointer border border-transparent hover:border-white/5 transition-all">
+                      <div className="flex justify-between mb-2"> <span className="text-[10px] font-black text-white uppercase tracking-tight">{g.name}</span> <span className="text-[10px] text-brand-green font-black">{pct}%</span> </div>
+                      <div className="w-full bg-white/5 rounded-full h-1 overflow-hidden"> <div className="h-full rounded-full bg-brand-green" style={{ width: `${pct}%` }} /> </div>
+                    </div>
+                  );
+                })}
+                {goals.length === 0 && <p className="text-[10px] text-center text-neutral-500 py-4 font-bold">Belum ada target</p>}
+              </div>
+            </div>
+
+            {/* Anggaran (Budget) */}
+            <div className="p-6 rounded-[2rem] bg-[#252525]/60 backdrop-blur-md border border-white/5 shadow-lg flex flex-col group hover:bg-[#252525]/80 hover:border-amber-500/30 transition-all max-h-[250px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-black text-white text-sm flex items-center gap-2"><span className="text-amber-500">📊</span> Anggaran</h3>
+                <button onClick={() => { setEditingBudget(null); setIsBudgetModalOpen(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-amber-500 text-white font-black transition-all text-xs">+</button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
+                {budgets.map((b) => (<div key={b.id} onClick={() => { setEditingBudget({ categoryId: b.categoryId, limitAmount: b.limitAmount, id: b.id, period: b.period }); setIsBudgetModalOpen(true); }} className="cursor-pointer hover:bg-white/10 p-2 rounded-xl transition-all"><BudgetProgress id={b.id} categoryName={b.categoryName} limit={b.limitAmount} spent={spentByCategory[b.categoryName] || 0} period={b.period} onEdit={() => { }} compact={true} /></div>))}
+                {budgets.length === 0 && <p className="text-[10px] text-center text-neutral-500 py-4 font-bold">Belum ada anggaran</p>}
+              </div>
+            </div>
+
+            {/* Rutinitas (Recurring) */}
+            <div className="p-6 rounded-[2rem] bg-[#252525]/60 backdrop-blur-md border border-white/5 shadow-lg flex flex-col group hover:bg-[#252525]/80 hover:border-[#F26076]/30 transition-all max-h-[250px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-black text-white text-sm flex items-center gap-2"><span className="text-[#F26076]">🔄</span> Rutinitas</h3>
+                <button onClick={() => setIsRecurringModalOpen(true)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-brand-red text-white font-black transition-all text-xs">+</button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <RecurringManager categories={categoryObjects} wallets={wallets || []} compact={true} />
+              </div>
+            </div>
+
+            {/* Pinjaman (Debt) */}
+            <div className="p-6 rounded-[2rem] bg-[#252525]/60 backdrop-blur-md border border-white/5 shadow-lg flex flex-col group hover:bg-[#252525]/80 hover:border-indigo-500/30 transition-all max-h-[300px]">
+              <div className="flex justify-between items-center mb-4 gap-2">
+                <h3 className="font-black text-white text-sm flex items-center gap-2 whitespace-nowrap"><span className="text-indigo-400">🤝</span> {loanTab === "PAYABLE" ? "Hutang" : "Piutang"}</h3>
+                <div className="flex bg-black/40 rounded-lg p-1 shrink-0">
+                  <button onClick={() => setLoanTab("PAYABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "PAYABLE" ? "bg-brand-red text-white shadow" : "text-neutral-500 hover:text-white"}`}>Hutang</button>
+                  <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "RECEIVABLE" ? "bg-brand-green text-white shadow" : "text-neutral-500 hover:text-white"}`}>Piutang</button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).map(l => (
+                  <div key={l.id} className="p-3 rounded-xl bg-black/20 hover:bg-white/10 border border-transparent hover:border-white/5 transition-all text-left">
+                    <div className="flex flex-col">
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="font-black text-[11px] text-white truncate pr-2">{l.name}</p>
+                        <span className={`font-black text-[11px] shrink-0 ${loanTab === "PAYABLE" ? "text-brand-red" : "text-brand-green"}`}>{currency(l.remaining)}</span>
+                      </div>
+                      {l.dueDate && <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest">{new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</p>}
+                    </div>
+                  </div>
+                ))}
+                {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).length === 0 && <p className="text-[10px] text-center text-neutral-500 py-4 font-bold">Bersih! Tidak ada penagihan.</p>}
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

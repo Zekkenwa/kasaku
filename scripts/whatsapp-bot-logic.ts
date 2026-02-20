@@ -143,7 +143,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
         if (isSilenceActive) return;
 
         await sock.sendMessage(remoteJid, {
-            text: `👋 Halo! Nomor WhatsApp ini (*${phone}*) belum terdaftar di sistem kami.\n\nMohon pastikan nomor ini sudah sesuai dengan yang Anda masukkan di menu *Pengaturan Akun* di dashboard Kasaku.\n\n🌐 Dashboard: https://kasaku.vercel.app`
+            text: `👋 Hallo! Nomor WhatsApp ini (*${phone}*) belum terdaftar di sistem kami.\n\nMohon pastikan nomor ini sudah sesuai dengan yang Anda masukkan di menu *Pengaturan Akun* di dashboard Kasaku.\n\n🌐 Dashboard: https://kasaku.vercel.app`
         });
         return;
     }
@@ -211,7 +211,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
 }
 
 async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean) {
-    let text = `🤖 *KASAKU BOT HELP*\n\nHalo ${name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\n`;
+    let text = `🤖 *KASAKU BOT HELP*\n\nHallo ${name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\n`;
 
     if (!full) {
         text += `📝 *Perintah Cepat:*\n`;
