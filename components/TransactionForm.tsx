@@ -2,11 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-
-type Wallet = {
-    id: string;
-    name: string;
-};
+import type { Wallet } from "@/types/models";
 
 type Props = {
     categories: string[];
@@ -14,7 +10,7 @@ type Props = {
     onClose: () => void;
     onSuccess?: (gamificationData?: any) => void;
     categoryObjects: { id: string; name: string; type: string }[];
-    wallets: Wallet[];
+    wallets: Pick<Wallet, "id" | "name">[];
 };
 
 export default function TransactionForm({

@@ -22,6 +22,7 @@ import RecurringManager from "@/components/RecurringManager";
 import DateRangePicker from "@/components/DateRangePicker";
 import PaymentForm from "@/components/PaymentForm";
 import Link from "next/link";
+import type { Badge, Budget, Engagement, Goal, Loan, Transaction, TransactionType, Wallet } from "@/types/models";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
 
@@ -53,15 +54,6 @@ const centerTextPlugin = {
     ctx.restore();
   }
 };
-
-type TransactionType = "INCOME" | "EXPENSE";
-type Transaction = { id: string; type: TransactionType; category: string; amount: number; note?: string; date: string; walletId?: string; walletName?: string };
-type Loan = { id: string; name: string; amount: number; remaining: number; createdAt: string; dueDate?: string; status: "ONGOING" | "PAID"; type: "PAYABLE" | "RECEIVABLE"; payments: { id: string; amount: number; date: string; note?: string }[] };
-type Budget = { id: string; categoryId: string; categoryName: string; limitAmount: number; period?: string };
-type Wallet = { id: string; name: string; type: "CASH" | "BANK" | "EWALLET"; initialBalance: number };
-type Goal = { id: string; name: string; targetAmount: number; currentAmount: number; deadline?: string; notes?: string };
-type Engagement = { id: string; currentStreak: number; highestStreak: number; freezeDays: number; healthScore: number; lastLogDate: string | null };
-type Badge = { id: string; code: string; name: string; description: string; progress: number; maxProgress: number; isUnlocked: boolean; level: number; earnedAt: string };
 
 type Props = {
   userName: string;

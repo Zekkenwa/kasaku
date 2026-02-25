@@ -1,24 +1,12 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function POST(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
+export const POST = withAuth(async (request: Request, userId: string) => {
     const { name, type } = await request.json();
 
     if (!name || !type) {
         return new NextResponse("Missing required fields", { status: 400 });
-    }
-
-    const userId = (session.user as any).id;
-
-    if (!userId) {
-        return new NextResponse("User not found in session", { status: 401 });
     }
 
     const category = await prisma.category.create({
@@ -30,25 +18,14 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(category);
-}
+});
 
-export async function DELETE(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
+export const DELETE = withAuth(async (request: Request, userId: string) => {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
         return new NextResponse("Missing id", { status: 400 });
-    }
-
-    const userId = (session.user as any).id;
-
-    if (!userId) {
-        return new NextResponse("User not found in session", { status: 401 });
     }
 
     // Ensure category belongs to user
@@ -130,4 +107,4 @@ export async function DELETE(request: Request) {
         console.error("Delete category error:", error);
         return new NextResponse(error.message || "Internal Error", { status: 500 });
     }
-}
+});

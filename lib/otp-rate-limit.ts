@@ -1,9 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-// The extended prisma client doesn't expose OtpRateLimit types directly,
-// so we use a typed reference through the base client accessor.
-const db = prisma as any;
-
 /**
  * Check OTP rate limit for a specific user + category.
  * Each category (LOGIN, PASSWORD, EMAIL, PHONE, VERIFY, REGISTER) has its own independent cooldown.
@@ -11,7 +7,7 @@ const db = prisma as any;
 export async function checkOtpRateLimit(userId: string, category: string) {
     const now = new Date();
 
-    const record = await db.otpRateLimit.findUnique({
+    const record = await prisma.otpRateLimit.findUnique({
         where: { userId_category: { userId, category } },
     });
 
@@ -47,7 +43,7 @@ export async function checkOtpRateLimit(userId: string, category: string) {
 export async function updateOtpRateLimit(userId: string, category: string) {
     const now = new Date();
 
-    const record = await db.otpRateLimit.findUnique({
+    const record = await prisma.otpRateLimit.findUnique({
         where: { userId_category: { userId, category } },
     });
 
@@ -65,7 +61,7 @@ export async function updateOtpRateLimit(userId: string, category: string) {
         attempts = 0;
     }
 
-    await db.otpRateLimit.upsert({
+    await prisma.otpRateLimit.upsert({
         where: { userId_category: { userId, category } },
         create: {
             userId,

@@ -3,86 +3,13 @@ import { prisma } from '../lib/prisma';
 import { generateBlindIndex } from '../lib/encryption';
 import { parseTransactionText } from '../lib/ai';
 import { processGamificationTick } from '../lib/gamification';
+import { parseAmount } from '../lib/amount-parser';
+import type { BotCommandResult, BotUser, ProcessCommandResult } from '../types/bot';
 import Fuse from 'fuse.js';
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
-};
-
-// Helper: Parse amount string (e.g. "10k", "1.5jt", "500", "seratus ribu") to number
-const parseAmount = (input: string): number | null => {
-    if (!input) return null;
-    let str = input.toLowerCase().trim();
-
-    // 1. Natural Language (Indonesian) - Check if it contains words first
-    const numberWords: Record<string, number> = {
-        'satu': 1, 'se': 1, 'dua': 2, 'tiga': 3, 'empat': 4, 'lima': 5,
-        'enam': 6, 'tujuh': 7, 'delapan': 8, 'sembilan': 9, 'sepuluh': 10,
-        'sebelas': 11, 'seratus': 100, 'seribu': 1000,
-        'setengah': 0.5, 'nol': 0
-    };
-    const magnitudes: Record<string, number> = {
-        'belas': 10, 'puluh': 10, 'ratus': 100, 'ribu': 1000,
-        'juta': 1000000, 'miliar': 1000000000, 'triliun': 1000000000000
-    };
-
-    const words = str.split(/[\s-]+/);
-    const hasWord = words.some(w => numberWords[w] !== undefined || magnitudes[w] !== undefined);
-
-    if (hasWord) {
-        let total = 0;
-        let current = 0;
-        for (let i = 0; i < words.length; i++) {
-            const w = words[i];
-            const val = numberWords[w];
-            if (val !== undefined) {
-                if (w === 'se' && words[i + 1] && magnitudes[words[i + 1]]) {
-                    current += 1;
-                } else {
-                    current += val;
-                }
-            } else if (magnitudes[w]) {
-                if (current === 0 && (w === 'ribu' || w === 'juta' || w === 'miliar')) current = 1;
-
-                if (w === 'belas') {
-                    current += 10;
-                } else if (w === 'puluh' || w === 'ratus') {
-                    current = (current === 0 ? 1 : current) * magnitudes[w];
-                } else {
-                    total += (current === 0 ? 1 : current) * magnitudes[w];
-                    current = 0;
-                }
-            }
-        }
-        return total + current;
-    }
-
-    // 2. Numeric with Suffixes (improved regex)
-    // Clean currency and dots
-    str = str.replace(/rp\.?|idr/g, '').replace(/\./g, '').replace(/,/g, '.').trim();
-
-    // Match number and optional suffix: 250k, 250 k, 3rb, 3 rb, 1jt
-    const regex = /^([\d.]+)\s*(k|rb|ribu|jt|juta|m|miliar)?$/i;
-    const match = str.match(regex);
-
-    if (match) {
-        const num = parseFloat(match[1]);
-        const suffix = match[2]?.toLowerCase();
-        let multiplier = 1;
-
-        if (suffix === 'k' || suffix === 'rb' || suffix === 'ribu') {
-            multiplier = 1000;
-        } else if (suffix === 'jt' || suffix === 'juta') {
-            multiplier = 1000000;
-        } else if (suffix === 'm' || suffix === 'miliar') {
-            multiplier = 1000000000;
-        }
-
-        return isNaN(num) ? null : num * multiplier;
-    }
-
-    return null;
 };
 
 // Start logic
@@ -156,7 +83,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
     }
 
     // Process commands
-    const results: any[] = [];
+    const results: ProcessCommandResult[] = [];
     for (const line of lines) {
         const result = await processCommand(user, line);
         if (result) results.push(result);
@@ -165,8 +92,8 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
     if (results.length > 0) {
         let finalReply = "";
 
-        if (results.length === 1 && typeof results[0] === 'object') {
-            const res = results[0] as any;
+        if (results.length === 1 && results[0] && typeof results[0] === 'object') {
+            const res = results[0] as BotCommandResult;
             const timeStr = res.date.toLocaleString('id-ID', {
                 day: 'numeric', month: 'short', year: 'numeric',
                 hour: '2-digit', minute: '2-digit',
@@ -186,11 +113,16 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
                 finalReply = results.join('\n\n') + `\n\n`;
             } else {
                 finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
-                    results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
+                    results.map((r) => {
+                        if (typeof r === 'string' || r === null) return r || '';
+                        const amountLabel = r.amount !== undefined ? formatCurrency(r.amount) : '-';
+                        const categoryLabel = r.category || '-';
+                        return `• ${r.title}: ${amountLabel} (${categoryLabel})`;
+                    }).join('\n') + `\n\n`;
             }
         }
 
-        const hasTransaction = results.some(r => typeof r === 'object' && r.transactionId);
+        const hasTransaction = results.some((r) => r && typeof r === 'object' && r.transactionId);
         if (hasTransaction) {
             finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
         }
@@ -385,10 +317,164 @@ async function executeUndo(userId: string): Promise<string> {
     }
 }
 
-async function processCommand(user: any, text: string): Promise<string | any | null> {
+type CommandHandler = (user: BotUser, parts: string[], text: string) => Promise<ProcessCommandResult>;
+
+async function handleCheckHutang(user: BotUser): Promise<ProcessCommandResult> {
+    const loans = await prisma.loan.findMany({
+        where: { userId: user.id, status: 'ONGOING' }
+    });
+    if (loans.length === 0) return "✅ Tidak ada hutang/piutang aktif.";
+    return "📋 *Daftar Hutang & Piutang:*\n" + loans.map((l) => `- ${l.type === 'PAYABLE' ? '🔴 Hutang' : '🟢 Piutang'} ${l.name}: ${formatCurrency(l.amount)}`).join('\n');
+}
+
+async function handleCheckSaldo(user: BotUser): Promise<ProcessCommandResult> {
+    const [walletAggregate, txAggregate] = await Promise.all([
+        prisma.wallet.aggregate({
+            where: { userId: user.id },
+            _sum: { initialBalance: true }
+        }),
+        prisma.transaction.groupBy({
+            by: ['type'],
+            where: { userId: user.id },
+            _sum: { amount: true }
+        })
+    ]);
+
+    const initial = walletAggregate._sum.initialBalance || 0;
+    const income = txAggregate.find((t) => t.type === 'INCOME')?._sum.amount || 0;
+    const expense = txAggregate.find((t) => t.type === 'EXPENSE')?._sum.amount || 0;
+
+    return {
+        title: 'Info Saldo',
+        amount: initial + income - expense,
+        category: 'Total Saldo',
+        note: 'Ringkasan saldo semua wallet',
+        date: new Date()
+    };
+}
+
+async function handleCheckBudget(user: BotUser): Promise<ProcessCommandResult> {
+    const budgets = await prisma.budget.findMany({
+        where: { userId: user.id },
+        include: { category: true }
+    });
+
+    if (budgets.length === 0) return "⚠️ Belum ada budget yang diatur.";
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const transactions = await prisma.transaction.findMany({
+        where: {
+            userId: user.id,
+            type: 'EXPENSE',
+            createdAt: { gte: startOfMonth, lte: endOfMonth }
+        }
+    });
+
+    let msg = "";
+    for (const b of budgets) {
+        const spent = transactions
+            .filter((t) => t.categoryId === b.categoryId)
+            .reduce((acc: number, t) => acc + t.amount, 0);
+
+        const pct = Math.round((spent / b.limitAmount) * 100);
+        const statusIcon = pct >= 100 ? "🔴" : pct >= 80 ? "⚠️" : "🟢";
+
+        msg += `${statusIcon} ${b.category.name}: ${Math.min(pct, 100)}% (${formatCurrency(spent)} / ${formatCurrency(b.limitAmount)})\n`;
+    }
+
+    return {
+        title: 'Status Budget',
+        category: 'Budget Bulanan',
+        note: msg.trim(),
+        date: new Date()
+    };
+}
+
+async function handleCheckGoal(user: BotUser): Promise<ProcessCommandResult> {
+    const goals = await prisma.goal.findMany({ where: { userId: user.id } });
+    if (goals.length === 0) return "⚠️ Belum ada goal.";
+
+    let msg = "";
+    for (const g of goals) {
+        const pct = Math.round(g.currentAmount / g.targetAmount * 100);
+        msg += `• ${g.name}: ${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)} (${pct}%)\n`;
+    }
+
+    return {
+        title: 'Daftar Goal',
+        category: 'Tabungan',
+        note: msg.trim(),
+        date: new Date()
+    };
+}
+
+async function handleCheckWallet(user: BotUser): Promise<ProcessCommandResult> {
+    const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
+    if (wallets.length === 0) return "⚠️ Belum ada wallet.";
+
+    const walletIds = wallets.map((wallet) => wallet.id);
+    const txSummary = await prisma.transaction.groupBy({
+        by: ['walletId', 'type'],
+        where: {
+            userId: user.id,
+            walletId: { in: walletIds }
+        },
+        _sum: { amount: true }
+    });
+
+    const summaryMap = new Map<string, { income: number; expense: number }>();
+    for (const summary of txSummary) {
+        if (!summary.walletId) continue;
+
+        const existing = summaryMap.get(summary.walletId) || { income: 0, expense: 0 };
+        const amount = summary._sum.amount || 0;
+
+        if (summary.type === 'INCOME') {
+            existing.income = amount;
+        } else {
+            existing.expense = amount;
+        }
+
+        summaryMap.set(summary.walletId, existing);
+    }
+
+    let msg = "💳 *Saldo Wallet:*\n";
+    for (const w of wallets) {
+        const totals = summaryMap.get(w.id) || { income: 0, expense: 0 };
+        const income = totals.income;
+        const expense = totals.expense;
+        const balance = w.initialBalance + income - expense;
+        msg += `- ${w.name}: ${formatCurrency(balance)}\n`;
+    }
+    return msg;
+}
+
+const checkCommandHandlers: Record<string, CommandHandler> = {
+    hutang: async (user) => handleCheckHutang(user),
+    saldo: async (user) => handleCheckSaldo(user),
+    budget: async (user) => handleCheckBudget(user),
+    goal: async (user) => handleCheckGoal(user),
+    wallet: async (user) => handleCheckWallet(user),
+};
+
+async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
     const cmd = parts[0];
+    const commandAliases: Record<string, string> = {
+        out: 'keluar',
+        expense: 'keluar',
+        in: 'masuk',
+        income: 'masuk',
+        debt: 'hutang',
+        loan: 'piutang',
+        report: 'laporan',
+        cancel: 'batal',
+    };
+    const normalizedCmd = commandAliases[cmd] || cmd;
 
     // --- PENDING TRANSACTION INTERCEPTOR (MULTI-WALLET SELECTION) ---
     const isJustNumber = /^\d+$/.test(lower);
@@ -436,13 +522,20 @@ async function processCommand(user: any, text: string): Promise<string | any | n
     }
 
     // --- BATAL PENDING TRANSACTION ---
-    if (cmd === 'batal' || cmd === 'cancel') {
+    if (normalizedCmd === 'batal') {
         const pendingTx = await prisma.pendingBotTransaction.findFirst({
             where: { userId: user.id }
         });
         if (pendingTx) {
             await prisma.pendingBotTransaction.delete({ where: { id: pendingTx.id } });
             return "✅ Transaksi dibatalkan.";
+        }
+    }
+
+    if (cmd === 'cek' && parts[1]) {
+        const checkHandler = checkCommandHandlers[parts[1]];
+        if (checkHandler) {
+            return checkHandler(user, parts, text);
         }
     }
 
@@ -483,8 +576,8 @@ async function processCommand(user: any, text: string): Promise<string | any | n
     }
 
     // --- TRANSACTION (keluar/masuk) ---
-    if (['keluar', 'out', 'expense', 'masuk', 'in', 'income'].includes(cmd)) {
-        const type = ['masuk', 'in', 'income'].includes(cmd) ? 'INCOME' : 'EXPENSE';
+    if (['keluar', 'masuk'].includes(normalizedCmd)) {
+        const type = normalizedCmd === 'masuk' ? 'INCOME' : 'EXPENSE';
 
         // Find amount (first string that looks like number)
         let amount = 0;
@@ -537,7 +630,7 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         });
 
         let explicitWalletId: string | undefined = undefined;
-        let matchedWallet: any = undefined;
+        let matchedWallet: (typeof wallets)[number] | undefined;
 
         if (explicitWalletName) {
             // Find an exact match or a partial match
@@ -617,8 +710,8 @@ async function processCommand(user: any, text: string): Promise<string | any | n
     }
 
     // --- DEBT (hutang/piutang) ---
-    if (['hutang', 'debt', 'piutang', 'loan'].includes(cmd)) {
-        const type = ['piutang', 'loan'].includes(cmd) ? 'RECEIVABLE' : 'PAYABLE'; // Piutang = Orang hutang ke kita (Receivable)
+    if (['hutang', 'piutang'].includes(normalizedCmd)) {
+        const type = normalizedCmd === 'piutang' ? 'RECEIVABLE' : 'PAYABLE'; // Piutang = Orang hutang ke kita (Receivable)
         // Hutang = Kita hutang ke orang (Payable)
 
         const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
@@ -687,34 +780,9 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         };
     }
 
-    if (cmd === 'cek' && parts[1] === 'hutang') {
-        const loans = await prisma.loan.findMany({
-            where: { userId: user.id, status: 'ONGOING' }
-        });
-        if (loans.length === 0) return "✅ Tidak ada hutang/piutang aktif.";
-        return "📋 *Daftar Hutang & Piutang:*\n" + loans.map((l: any) => `- ${l.type === 'PAYABLE' ? '🔴 Hutang' : '🟢 Piutang'} ${l.name}: ${formatCurrency(l.amount)}`).join('\n');
-    }
-
-    // --- QUERY (cek saldo) ---
-    if (cmd === 'cek' && parts[1] === 'saldo') {
-        const transactions = await prisma.transaction.findMany({ where: { userId: user.id } });
-        const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
-
-        let initial = wallets.reduce((acc: number, w: any) => acc + w.initialBalance, 0);
-        let income = transactions.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
-        let expense = transactions.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
-
-        return {
-            title: 'Info Saldo',
-            amount: initial + income - expense,
-            category: 'Total Saldo',
-            note: 'Ringkasan saldo semua wallet',
-            date: new Date()
-        };
-    }
 
     // --- UNDO (Universal Multi-step) ---
-    if (cmd === 'undo' || cmd === 'batal') {
+    if (cmd === 'undo' || normalizedCmd === 'batal') {
         return await executeUndo(user.id);
     }
 
@@ -824,49 +892,9 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         };
     }
 
-    if (cmd === 'cek' && parts[1] === 'budget') {
-        const budgets = await prisma.budget.findMany({
-            where: { userId: user.id },
-            include: { category: true }
-        });
-
-        if (budgets.length === 0) return "⚠️ Belum ada budget yang diatur.";
-
-        // Calculate usage for this month
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-        const transactions = await prisma.transaction.findMany({
-            where: {
-                userId: user.id,
-                type: 'EXPENSE',
-                createdAt: { gte: startOfMonth, lte: endOfMonth }
-            }
-        });
-
-        let msg = "";
-        for (const b of budgets) {
-            const spent = transactions
-                .filter((t: any) => t.categoryId === b.categoryId)
-                .reduce((acc: number, t: any) => acc + t.amount, 0);
-
-            const pct = Math.round((spent / b.limitAmount) * 100);
-            const statusIcon = pct >= 100 ? "🔴" : pct >= 80 ? "⚠️" : "🟢";
-
-            msg += `${statusIcon} ${b.category.name}: ${Math.min(pct, 100)}% (${formatCurrency(spent)} / ${formatCurrency(b.limitAmount)})\n`;
-        }
-
-        return {
-            title: 'Status Budget',
-            category: 'Budget Bulanan',
-            note: msg.trim(),
-            date: new Date()
-        };
-    }
 
     // --- LAPORAN ---
-    if (cmd === 'laporan' || cmd === 'report') {
+    if (normalizedCmd === 'laporan') {
         const period = parts[1] || 'hari'; // default hari
         const now = new Date();
         let start, end;
@@ -964,44 +992,6 @@ async function processCommand(user: any, text: string): Promise<string | any | n
             note: `Berhasil nabung ke '${goal.name}'. Terkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`,
             date: new Date()
         };
-    }
-
-    if (cmd === 'cek' && parts[1] === 'goal') {
-        const goals = await prisma.goal.findMany({ where: { userId: user.id } });
-        if (goals.length === 0) return "⚠️ Belum ada goal.";
-
-        let msg = "";
-        for (const g of goals) {
-            const pct = Math.round(g.currentAmount / g.targetAmount * 100);
-            msg += `• ${g.name}: ${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)} (${pct}%)\n`;
-        }
-
-        return {
-            title: 'Daftar Goal',
-            category: 'Tabungan',
-            note: msg.trim(),
-            date: new Date()
-        };
-    }
-
-    // --- WALLETS ---
-    if (cmd === 'cek' && parts[1] === 'wallet') {
-        const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
-        if (wallets.length === 0) return "⚠️ Belum ada wallet.";
-
-        // Calculate real balances (Initial + Income - Expense) per wallet
-        // This is expensive if we do it every time. Checking if backend maintains balance...
-        // Schema has 'initialBalance'. Transactions have 'walletId'.
-
-        let msg = "💳 *Saldo Wallet:*\n";
-        for (const w of wallets) {
-            const txs = await prisma.transaction.findMany({ where: { walletId: w.id } });
-            const income = txs.filter((t: any) => t.type === 'INCOME').reduce((acc: any, t: any) => acc + t.amount, 0);
-            const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((acc: any, t: any) => acc + t.amount, 0);
-            const balance = w.initialBalance + income - expense;
-            msg += `- ${w.name}: ${formatCurrency(balance)}\n`;
-        }
-        return msg;
     }
 
     if (cmd === 'transfer') {
@@ -1157,7 +1147,7 @@ async function processCommand(user: any, text: string): Promise<string | any | n
                             });
 
                             let explicitWalletId: string | undefined = undefined;
-                            let matchedWallet: any = undefined;
+                            let matchedWallet: (typeof wallets)[number] | undefined;
 
                             if (item.walletName) {
                                 matchedWallet = wallets.find(w => w.name.toLowerCase() === item.walletName!.toLowerCase() || w.name.toLowerCase().includes(item.walletName!.toLowerCase()));
@@ -1333,15 +1323,29 @@ async function processCommand(user: any, text: string): Promise<string | any | n
             }
         }
 
-        if (results.length === 1 && typeof results[0] === 'object') return results[0];
-        if (results.length > 0) return results;
+        if (results.length === 1) {
+            const first = results[0];
+            if (typeof first === 'object') return first;
+            return first;
+        }
+
+        if (results.length > 1) {
+            return results
+                .map((item) => {
+                    if (typeof item === 'string') return item;
+                    const amountLabel = item.amount !== undefined ? formatCurrency(item.amount) : '-';
+                    const categoryLabel = item.category || '-';
+                    return `• ${item.title}: ${amountLabel} (${categoryLabel})`;
+                })
+                .join('\n');
+        }
     }
 
     return null;
 }
 
 // Helper function to execute transaction logic internally
-async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string, date: Date = new Date(), explicitWalletId?: string) {
+async function executeTransaction(user: BotUser, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string, date: Date = new Date(), explicitWalletId?: string) {
     let category = await prisma.category.findFirst({
         where: {
             userId: user.id,

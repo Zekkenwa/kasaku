@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
+import { generateSecureOTP } from "@/lib/otp";
 
 export async function POST(req: Request) {
     try {
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
         }
 
         // Generate OTP
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpCode = generateSecureOTP();
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
         // Update User

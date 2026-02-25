@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
 import { hash } from "bcryptjs";
+import { generateSecureOTP } from "@/lib/otp";
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
 
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpCode = generateSecureOTP();
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
         await prisma.user.update({

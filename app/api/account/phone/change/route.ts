@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
+import { generateSecureOTP } from "@/lib/otp";
 
 export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
@@ -17,12 +18,10 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // 14-day limit check (optional, but good for consistency with email)
-    const u = user as any;
-    if (u.lastEmailChangeAt) { // Reusing for general "security changes" cooldown or could create lastPhoneChangeAt
+    if (user.lastEmailChangeAt) { // Reusing for general "security changes" cooldown or could create lastPhoneChangeAt
         // For now, let's keep it simple or use a dedicated timestamp if added to schema later
     }
 
-    const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = () => new Date(Date.now() + 5 * 60 * 1000);
 
     // Stage 1: Request OTP for current number
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
 
-        const otpCode = generateOtp();
+        const otpCode = generateSecureOTP();
         const otpExpiresAt = expiry();
 
         await prisma.user.update({
@@ -112,7 +111,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
 
-        const otpCode = generateOtp();
+        const otpCode = generateSecureOTP();
         const otpExpiresAt = expiry();
 
         await prisma.user.update({

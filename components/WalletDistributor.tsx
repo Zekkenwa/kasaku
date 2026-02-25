@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-type Wallet = {
-    id: string;
-    name: string;
-    type: "CASH" | "BANK" | "EWALLET";
-    initialBalance: number;
-};
+import type { Wallet } from "@/types/models";
 
 type Props = {
     wallets: Wallet[];

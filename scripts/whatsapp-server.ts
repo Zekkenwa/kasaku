@@ -24,6 +24,33 @@ const MAX_RETRY_DELAY = 60 * 1000; // 1 minute
 // Track manual chat to silence bot (JID -> timestamp)
 const lastManualChat = new Map<string, number>();
 const SILENCE_DURATION = 5 * 60 * 1000; // 5 minutes
+const SILENCE_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
+
+const ALLOWED_ORIGINS = [
+    'https://kasaku.vercel.app',
+    process.env.NEXT_PUBLIC_APP_URL,
+].filter((origin): origin is string => Boolean(origin));
+
+const createCorsHeaders = (req: http.IncomingMessage) => {
+    const requestOrigin = req.headers.origin || '';
+    const allowOrigin = ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : ALLOWED_ORIGINS[0] || '';
+
+    return {
+        'Access-Control-Allow-Origin': allowOrigin,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Vary': 'Origin',
+    };
+};
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [jid, timestamp] of lastManualChat.entries()) {
+        if (now - timestamp > SILENCE_DURATION) {
+            lastManualChat.delete(jid);
+        }
+    }
+}, SILENCE_CLEANUP_INTERVAL).unref();
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await usePrismaAuthState(prisma);
@@ -130,11 +157,7 @@ connectToWhatsApp();
 
 // Start HTTP Server (Only Once)
 const server = http.createServer(async (req, res) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-    };
+    const headers = createCorsHeaders(req);
 
     if (req.method === 'OPTIONS') {
         res.writeHead(204, headers);

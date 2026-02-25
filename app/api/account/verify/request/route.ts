@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
+import { generateSecureOTP } from "@/lib/otp";
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
     }
 
     // Generate OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = generateSecureOTP();
     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
     await prisma.user.update({

@@ -3,22 +3,28 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-    const email = 'chalsinglalim@gmail.com';
-    const phone = '6285173270427';
+    const email = process.argv[2] || process.env.DELETE_USER_EMAIL;
+    const phone = process.argv[3] || process.env.DELETE_USER_PHONE;
 
-    console.log(`Deleting user with email: ${email} ...`);
+    if (!email && !phone) {
+        console.error('Usage: npx tsx scripts/delete-user.ts <email> [phone]');
+        console.error('Or set DELETE_USER_EMAIL / DELETE_USER_PHONE environment variables.');
+        process.exit(1);
+    }
+
+    console.log(`Deleting user ${email ? `with email: ${email}` : ''}${phone ? ` with phone: ${phone}` : ''}...`);
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { email },
-        });
+        const user = email
+            ? await prisma.user.findUnique({ where: { email } })
+            : null;
 
         if (!user) {
             console.log('User not found by email.');
             // Try finding by phone just in case email was different
-            const userByPhone = await prisma.user.findFirst({
-                where: { phone },
-            });
+            const userByPhone = phone
+                ? await prisma.user.findFirst({ where: { phone } })
+                : null;
 
             if (userByPhone) {
                 console.log(`Found user by phone ${phone}. Deleting...`);

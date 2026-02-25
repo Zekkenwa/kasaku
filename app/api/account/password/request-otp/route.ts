@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
+import { generateSecureOTP } from "@/lib/otp";
 
 export async function POST() {
     const session = await getServerSession(authOptions);
@@ -27,7 +28,7 @@ export async function POST() {
         }
 
         // Generate OTP
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpCode = generateSecureOTP();
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
         // Update User

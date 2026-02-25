@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { sendWhatsAppOTP } from "@/lib/whatsapp";
+import { generateSecureOTP } from "@/lib/otp";
 
 export async function POST(req: Request) {
     try {
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
         const passwordHash = await hash(password, 12);
 
         // 3. Generate OTP
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpCode = generateSecureOTP();
         // console.log("DEV ONLY REGISTER OTP:", otpCode);
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
