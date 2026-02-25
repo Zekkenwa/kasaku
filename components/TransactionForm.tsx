@@ -12,6 +12,7 @@ type Props = {
     categories: string[];
     initialData?: any;
     onClose: () => void;
+    onSuccess?: (gamificationData?: any) => void;
     categoryObjects: { id: string; name: string; type: string }[];
     wallets: Wallet[];
 };
@@ -20,6 +21,7 @@ export default function TransactionForm({
     categories,
     initialData,
     onClose,
+    onSuccess,
     categoryObjects,
     wallets,
 }: Props) {
@@ -91,6 +93,12 @@ export default function TransactionForm({
             });
 
             if (!res.ok) throw new Error("Gagal menyimpan");
+
+            const data = await res.json().catch(() => ({}));
+
+            if (onSuccess) {
+                onSuccess(data.gamification);
+            }
 
             router.refresh();
             onClose();

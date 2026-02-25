@@ -48,7 +48,7 @@ const botActionItemSchema = {
         },
         date: {
             type: Type.STRING,
-            description: "ISO 8601 date, if past time specified.",
+            description: "ISO 8601 date string. If the user specifies a time (e.g. 04:15 pagi/jam 4 lewat 15), include it in the ISO string (Asia/Jakarta timezone). If NO time is specified, default to 07:00:00 local time. Example: 2026-02-25T07:00:00+07:00 or 2026-02-25T04:15:00+07:00.",
         },
         interval: {
             type: Type.STRING,
@@ -124,7 +124,8 @@ export async function parseTransactionText(text: string): Promise<ParsedBotActio
           General Rules:
           1. Extract exact amounts in Indonesian Rupiah (calculate 10k+2k if needed).
           2. Parse context intelligently. "Bikin kategori pengeluaran konser" -> CREATE_CATEGORY, type: EXPENSE, categoryName: Konser.
-          3. Calculate ISO 8601 dates for words like "kemaren", "2 hari lalu". Default to null if today.`,
+          3. Calculate ISO 8601 dates for words like "kemaren", "2 hari lalu", "hari ini jam 04.15 pagi". 
+          4. SUPER IMPORTANT FOR DATE: If the user provides a specific time (like "jam 04.15 pagi"), you MUST include that exact time in the ISO string with a +07:00 timezone offset (e.g., "2026-02-25T04:15:00+07:00"). If NO exact time is provided by the user, you MUST default the time to 07:00:00 local time (e.g., "2026-02-25T07:00:00+07:00").`,
                 responseMimeType: 'application/json',
                 responseSchema: botActionSchema,
                 temperature: 0.1,
