@@ -697,12 +697,15 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
     // --- QUERY (cek saldo) ---
     if (cmd === 'cek' && parts[1] === 'saldo') {
-        const transactions = await prisma.transaction.findMany({ where: { userId: user.id } });
-        const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
+        const [wallets, incomeAgg, expenseAgg] = await Promise.all([
+            prisma.wallet.findMany({ where: { userId: user.id } }),
+            prisma.transaction.aggregate({ where: { userId: user.id, type: 'INCOME' }, _sum: { amount: true } }),
+            prisma.transaction.aggregate({ where: { userId: user.id, type: 'EXPENSE' }, _sum: { amount: true } }),
+        ]);
 
-        let initial = wallets.reduce((acc: number, w: any) => acc + w.initialBalance, 0);
-        let income = transactions.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
-        let expense = transactions.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
+        const initial = wallets.reduce((acc: number, w: any) => acc + w.initialBalance, 0);
+        const income = incomeAgg._sum.amount || 0;
+        const expense = expenseAgg._sum.amount || 0;
 
         return {
             title: 'Info Saldo',
@@ -989,15 +992,16 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         const wallets = await prisma.wallet.findMany({ where: { userId: user.id } });
         if (wallets.length === 0) return "⚠️ Belum ada wallet.";
 
-        // Calculate real balances (Initial + Income - Expense) per wallet
-        // This is expensive if we do it every time. Checking if backend maintains balance...
-        // Schema has 'initialBalance'. Transactions have 'walletId'.
+        const balances = await prisma.transaction.groupBy({
+            by: ['walletId', 'type'],
+            where: { userId: user.id, walletId: { in: wallets.map((w: any) => w.id) } },
+            _sum: { amount: true },
+        });
 
         let msg = "💳 *Saldo Wallet:*\n";
         for (const w of wallets) {
-            const txs = await prisma.transaction.findMany({ where: { walletId: w.id } });
-            const income = txs.filter((t: any) => t.type === 'INCOME').reduce((acc: any, t: any) => acc + t.amount, 0);
-            const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((acc: any, t: any) => acc + t.amount, 0);
+            const income = balances.find((b: any) => b.walletId === w.id && b.type === 'INCOME')?._sum.amount || 0;
+            const expense = balances.find((b: any) => b.walletId === w.id && b.type === 'EXPENSE')?._sum.amount || 0;
             const balance = w.initialBalance + income - expense;
             msg += `- ${w.name}: ${formatCurrency(balance)}\n`;
         }
