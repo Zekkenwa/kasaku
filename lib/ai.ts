@@ -2,64 +2,97 @@ import { GoogleGenAI, Type, Schema } from '@google/genai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const transactionItemSchema = {
+const botActionItemSchema = {
     type: Type.OBJECT,
     properties: {
+        intent: {
+            type: Type.STRING,
+            enum: [
+                "CREATE_TRANSACTION",
+                "CREATE_CATEGORY",
+                "CREATE_DEBT",
+                "PAY_DEBT",
+                "TRANSFER",
+                "CREATE_GOAL",
+                "FUND_GOAL",
+                "CREATE_RECURRING",
+                "SET_BUDGET",
+                "DELETE_CATEGORY"
+            ],
+            description: "The intended action the user wants to take.",
+        },
         type: {
             type: Type.STRING,
             enum: ["INCOME", "EXPENSE"],
-            description: "Whether this is money coming in (INCOME) or money going out (EXPENSE).",
+            description: "Used for Transactions, Categories, or Routines to specify Income or Expense.",
         },
         amount: {
             type: Type.INTEGER,
-            description: "The absolute monetary amount of the transaction. E.g. '50k' -> 50000, 'sepuluh ribu' -> 10000. If math is used like 10k+20k, calculate the sum if they are for the same category, or separate them into multiple items if they are different.",
+            description: "The monetary amount involved, if any.",
         },
         categoryName: {
             type: Type.STRING,
-            description: "A short, 1-2 word category for this transaction. E.g., 'Makan', 'Transport', 'Gaji', 'Jajan', 'Listrik'. Capitalize the first letter.",
+            description: "The category name. Keep it short (1-2 words).",
+        },
+        targetName: {
+            type: Type.STRING,
+            description: "The target name for Debts (person), Goals (goal name), or Transfers (wallet name).",
+        },
+        fromWallet: {
+            type: Type.STRING,
+            description: "The source wallet name for transfers.",
         },
         note: {
             type: Type.STRING,
-            description: "A short description of what the transaction was for. Extract this from the user's sentence. Leave empty if none provided.",
+            description: "Extra context or description.",
         },
         date: {
             type: Type.STRING,
-            description: "ISO 8601 string of the transaction date if the user mentions a specific time in the past (like 'kemaren' or 'tgl 23 feb lalu'). If they don't mention a time, leave this null or omitted.",
-        }
+            description: "ISO 8601 date, if past time specified.",
+        },
+        interval: {
+            type: Type.STRING,
+            enum: ["DAILY", "WEEKLY", "MONTHLY"],
+            description: "The frequency for recurring actions.",
+        },
     },
-    required: ["type", "amount"]
+    required: ["intent"]
 };
 
-const transactionSchema: Schema = {
+const botActionSchema: Schema = {
     type: Type.OBJECT,
     properties: {
-        isTransaction: {
+        isValidCommand: {
             type: Type.BOOLEAN,
-            description: "True if the user is trying to record financial transactions. False if they are just chatting or asking a general question.",
+            description: "True if the user is giving a bot command. False if just chatting.",
         },
-        transactions: {
+        actions: {
             type: Type.ARRAY,
-            items: transactionItemSchema,
-            description: "An array of the identified transactions.",
+            items: botActionItemSchema,
+            description: "An array of identified bot actions.",
         }
     },
-    required: ["isTransaction"]
+    required: ["isValidCommand"]
 };
 
-export type ParsedTransactionItem = {
-    type: 'INCOME' | 'EXPENSE';
-    amount: number;
+export type ParsedBotActionItem = {
+    intent: 'CREATE_TRANSACTION' | 'CREATE_CATEGORY' | 'CREATE_DEBT' | 'PAY_DEBT' | 'TRANSFER' | 'CREATE_GOAL' | 'FUND_GOAL' | 'CREATE_RECURRING' | 'SET_BUDGET' | 'DELETE_CATEGORY';
+    type?: 'INCOME' | 'EXPENSE';
+    amount?: number;
     categoryName?: string;
+    targetName?: string;
+    fromWallet?: string;
     note?: string;
     date?: string;
+    interval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
 };
 
-export type ParsedTransactionResult = {
-    isTransaction: boolean;
-    transactions?: ParsedTransactionItem[];
+export type ParsedBotActionResult = {
+    isValidCommand: boolean;
+    actions?: ParsedBotActionItem[];
 };
 
-export async function parseTransactionText(text: string): Promise<ParsedTransactionResult | null> {
+export async function parseTransactionText(text: string): Promise<ParsedBotActionResult | null> {
     if (!process.env.GEMINI_API_KEY) {
         console.warn("GEMINI_API_KEY not set. Skipping AI parsing.");
         return null;
@@ -72,28 +105,36 @@ export async function parseTransactionText(text: string): Promise<ParsedTransact
             model: 'gemini-2.5-flash',
             contents: text,
             config: {
-                systemInstruction: `You are a helpful personal finance assistant for the Kasaku app. 
-          Your job is to read Indonesian natural language sentences and extract an array of transaction details.
+                systemInstruction: `You are the core AI parser for the Kasaku personal finance WhatsApp bot.
+          Your job is to read Indonesian natural language and extract ALL intents into an array of actions.
           Current local time: ${today}
           
-          Guidelines:
-          1. If the sentence implies spending money (e.g., 'beli', 'bayar', 'keluar', 'jajan', 'abis'), it's an EXPENSE.
-          2. If receiving money (e.g., 'dapet', 'masuk', 'gaji', 'dikasih'), it's an INCOME.
-          3. Extract exact amounts in Indonesian Rupiah. Evaluate simple math like "10k+30k" if they belong to the same category.
-          4. If the user lists multiple distinct items (e.g., "10k es krim, 30k bensin"), extract multiple transaction objects into the array.
-          5. If the user mentions past dates ("kemaren", "tgl 23 feb"), calculate or assign the IS0 8601 string to the date field. Otherwise leave it null.
-          6. Guess short, unified category names (e.g. 'Makan', 'Bensin', 'Belanja', 'Kebutuhan').
-          7. Extract extra context as the note.`,
+          Intents & Rules:
+          - CREATE_TRANSACTION: Spending money (EXPENSE) or getting money (INCOME). Include amount, type, categoryName, note, and date (if past).
+          - CREATE_CATEGORY: User explicitly asks to make a new category. Provide categoryName and type.
+          - CREATE_DEBT: Loaning money to someone (piutang / RECEIVABLE / type: EXPENSE context) or borrowing from someone (hutang / PAYABLE / type: INCOME context). targetName is the person. amount required.
+          - PAY_DEBT: Paying off a debt / someone paying you back. targetName is the person. amount required.
+          - TRANSFER: Moving money between accounts. amount, fromWallet, targetName (to wallet) required.
+          - CREATE_GOAL: Setting a new savings goal. targetName is goal name, amount is the target targetAmount.
+          - FUND_GOAL: Adding money to a goal. targetName is goal name, amount required.
+          - CREATE_RECURRING: Setting up a routine transaction. targetName is routine name, amount, type, and interval (DAILY/WEEKLY/MONTHLY) required.
+          - SET_BUDGET: Setting a budget limit. amount, categoryName required.
+          - DELETE_CATEGORY: Removing a category. categoryName, type required.
+          
+          General Rules:
+          1. Extract exact amounts in Indonesian Rupiah (calculate 10k+2k if needed).
+          2. Parse context intelligently. "Bikin kategori pengeluaran konser" -> CREATE_CATEGORY, type: EXPENSE, categoryName: Konser.
+          3. Calculate ISO 8601 dates for words like "kemaren", "2 hari lalu". Default to null if today.`,
                 responseMimeType: 'application/json',
-                responseSchema: transactionSchema,
-                temperature: 0.1, // Keep it deterministic
+                responseSchema: botActionSchema,
+                temperature: 0.1,
             }
         });
 
         const output = response.text;
         if (!output) return null;
 
-        return JSON.parse(output) as ParsedTransactionResult;
+        return JSON.parse(output) as ParsedBotActionResult;
     } catch (error) {
         console.error("AI Parsing Error:", error);
         return null;
