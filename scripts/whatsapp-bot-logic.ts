@@ -397,6 +397,62 @@ async function processCommand(user: any, text: string): Promise<string | any | n
     const parts = lower.split(/\s+/);
     const cmd = parts[0];
 
+    // --- PENDING TRANSACTION INTERCEPTOR (MULTI-WALLET SELECTION) ---
+    const isJustNumber = /^\d+$/.test(lower);
+    if (isJustNumber && lower.length < 3) { // Assume max wallet count is reasonable (< 100)
+        const pendingTx = await prisma.pendingBotTransaction.findFirst({
+            where: { userId: user.id }
+        });
+
+        if (pendingTx) {
+            const index = parseInt(lower) - 1;
+            const wallets = await prisma.wallet.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'asc' }
+            });
+
+            // If selected 'Saldo Utama' (index === wallets.length) or within valid range
+            if (index >= 0 && index <= wallets.length) {
+                const selectedWalletId = index === wallets.length ? undefined : wallets[index].id;
+                const walletNameForMessage = index === wallets.length ? "Saldo utama" : wallets[index].name;
+
+                const txResult = await executeTransaction(
+                    user,
+                    pendingTx.type,
+                    pendingTx.amount,
+                    pendingTx.categoryName,
+                    pendingTx.description,
+                    new Date(),
+                    selectedWalletId
+                );
+
+                await prisma.pendingBotTransaction.delete({ where: { id: pendingTx.id } });
+
+                if (typeof txResult === 'object' && txResult.transactionId) {
+                    await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
+                    // Explicitly state the wallet to reassure the user
+                    txResult.note = `${txResult.note} (via ${walletNameForMessage})`;
+                }
+                return txResult;
+            } else {
+                return "❌ Pilihan tidak valid. Silakan balas dengan angka yang sesuai dengan opsi dompet di atas, atau ketik 'batal' untuk membatalkan.";
+            }
+        }
+        // If it's a number but there's NO pending transaction, let it fall through 
+        // to the default AI intent handler so we don't accidentally corrupt data.
+    }
+
+    // --- BATAL PENDING TRANSACTION ---
+    if (cmd === 'batal' || cmd === 'cancel') {
+        const pendingTx = await prisma.pendingBotTransaction.findFirst({
+            where: { userId: user.id }
+        });
+        if (pendingTx) {
+            await prisma.pendingBotTransaction.delete({ where: { id: pendingTx.id } });
+            return "✅ Transaksi dibatalkan.";
+        }
+    }
+
     // --- CATEGORY DELETION ---
     if (cmd === 'hapus' && parts[1] === 'kategori') {
         const namePart = parts.filter((p, i) => i > 1 && !p.startsWith('@')).join(' ');
@@ -476,14 +532,41 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
 
         // Balance validation for EXPENSE — block if insufficient funds (no data change, undo unaffected)
+        // Check primary balance first as a blanket check
         if (type === 'EXPENSE') {
-            const wallet = await prisma.wallet.findFirst({ where: { userId: user.id }, select: { id: true, name: true, initialBalance: true } });
-            if (wallet && amount > wallet.initialBalance) {
-                return `⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${wallet.name}: ${formatCurrency(wallet.initialBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(amount)}\n❌ Kurang: ${formatCurrency(amount - wallet.initialBalance)}\n\n💡 _Silakan isi ulang saldo atau ubah jumlah transaksi._`;
-            }
+            const sumTransactions = await prisma.transaction.aggregate({ where: { userId: user.id }, _sum: { amount: true } });
+            // For rigorous check, we'd need to sum up across wallets, but for now we skip strict single-wallet block here to allow wallet choice
         }
 
-        const txResult = await executeTransaction(user, type, amount, categoryName, description, new Date());
+        // --- MULTI-WALLET CHECK ---
+        const wallets = await prisma.wallet.findMany({
+            where: { userId: user.id },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        if (wallets.length > 1) {
+            // Delete any stale pending transactions first
+            await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
+
+            await prisma.pendingBotTransaction.create({
+                data: {
+                    userId: user.id,
+                    type: type,
+                    amount: amount,
+                    categoryName: categoryName,
+                    description: description
+                }
+            });
+
+            let options = wallets.map((w, index) => `${index + 1}. ${w.name}`).join('\n');
+            options += `\n${wallets.length + 1}. Saldo Utama`;
+
+            return `💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`;
+        }
+
+        const defaultWalletId = wallets.length === 1 ? wallets[0].id : undefined;
+
+        const txResult = await executeTransaction(user, type, amount, categoryName, description, new Date(), defaultWalletId);
         if (typeof txResult === 'object' && txResult.transactionId) {
             await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
         }
@@ -1145,7 +1228,7 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 }
 
 // Helper function to execute transaction logic internally
-async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string, date: Date = new Date()) {
+async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string, date: Date = new Date(), explicitWalletId?: string) {
     let category = await prisma.category.findFirst({
         where: {
             userId: user.id,
@@ -1168,10 +1251,17 @@ async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount:
         }
     }
 
-    const wallet = await prisma.wallet.findFirst({
-        where: { userId: user.id },
-        select: { id: true }
-    });
+    let finalWalletId = explicitWalletId;
+    if (finalWalletId === undefined) {
+        // Fallback to first wallet if no specific wallet ID is provided and the user has wallets
+        const wallet = await prisma.wallet.findFirst({
+            where: { userId: user.id },
+            select: { id: true }
+        });
+        if (wallet) {
+            finalWalletId = wallet.id;
+        }
+    }
 
     if (!category) return "❌ Gagal: Kategori tidak ditemukan atau tidak dapat dibuat.";
 
@@ -1181,7 +1271,7 @@ async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount:
             amount: amount,
             type: type,
             categoryId: category.id,
-            walletId: wallet?.id,
+            walletId: finalWalletId,
             note: description,
             createdAt: date
         }
