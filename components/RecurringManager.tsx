@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import RecurringForm from "./RecurringForm";
+import Modal from "./Modal";
 
 type Props = {
     categories: { id: string; name: string; type: string }[];
@@ -59,18 +60,12 @@ export default function RecurringManager({ categories, wallets, compact }: Props
         return interval + freq;
     };
 
-    if (isFormOpen) {
-        return (
-            <div className={`${compact ? "" : "bg-[#252525] p-6 rounded-3xl border border-white/5 shadow-lg"}`}>
-                <button onClick={() => setIsFormOpen(false)} className="mb-4 text-sm text-neutral-400 hover:text-white transition-colors">← Kembali</button>
-                <h3 className="font-bold mb-4 text-white">{editingItem ? "Edit Rutinitas" : "Buat Rutinitas Baru"}</h3>
-                <RecurringForm onClose={handleFormClose} categories={categories} wallets={wallets} initialData={editingItem} />
-            </div>
-        );
-    }
-
     return (
         <div className={`${compact ? "h-full flex flex-col" : "p-6 rounded-3xl bg-[#252525] border border-white/5 shadow-lg flex flex-col h-full relative overflow-hidden group"}`}>
+            <Modal isOpen={isFormOpen} onClose={handleFormClose} title={editingItem ? "Edit Rutinitas" : "Buat Rutinitas Baru"}>
+                {isFormOpen && <RecurringForm onClose={handleFormClose} categories={categories} wallets={wallets} initialData={editingItem} />}
+            </Modal>
+
             {!compact && (
                 <div className="flex justify-between items-center mb-4 relative z-10">
                     <h3 className="font-bold text-white flex items-center gap-2">

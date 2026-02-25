@@ -198,10 +198,21 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
                 `📄 *Keterangan*:\n${res.note}\n` +
                 `📅 *Waktu*: ${timeStr}\n\n`;
         } else {
-            finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
-                results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
+            // Check if ALL string results already have an emoji prefix indicating they are pre-formatted messages
+            const isPreFormatted = results.length === 1 && typeof results[0] === 'string' && /^(✅|❌|💳|⚠️)/.test(results[0]);
+
+            if (isPreFormatted) {
+                finalReply = results[0] + `\n\n`;
+            } else {
+                finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
+                    results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
+            }
         }
-        finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
+
+        const hasTransaction = results.some(r => typeof r === 'object' && r.transactionId);
+        if (hasTransaction) {
+            finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
+        }
 
         // --- GAMIFICATION TICK ---
         try {
@@ -248,7 +259,8 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
         text += `1️⃣ *TRANSAKSI*\n`;
         text += `• \`keluar [jml] [ket] @[kategori]\`\n`;
         text += `• \`masuk [jml] [ket] @[kategori]\`\n`;
-        text += `   _Cth: keluar 20rb kopi @jajan_\n\n`;
+        text += `   _Cth: keluar 20rb kopi @jajan_\n`;
+        text += `   _Cth: keluar 20rb kopi @jajan via gopay_\n\n`;
 
         text += `2️⃣ *HUTANG / PIUTANG*\n`;
         text += `• \`hutang [jml] @[nama] [ket]\` (Kita hutang)\n`;
@@ -515,11 +527,18 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         if (amount === 0) return "❌ Gagal: Jumlah tidak ditemukan (cth: 15k, seratus ribu)";
 
         const categoryIdx = parts.findIndex(p => p.startsWith('@'));
+        const viaIdx = parts.findIndex(p => p === 'via');
+
+        let explicitWalletName: string | undefined = undefined;
+        if (viaIdx !== -1 && viaIdx < parts.length - 1) {
+            explicitWalletName = parts.slice(viaIdx + 1).join(' ').toLowerCase();
+        }
 
         let descParts = [];
         for (let i = 1; i < parts.length; i++) {
             if (i >= amountStartIndex && i < amountEndIndex) continue;
             if (categoryIdx !== -1 && i === categoryIdx) continue;
+            if (viaIdx !== -1 && i >= viaIdx) continue;
             descParts.push(parts[i]);
         }
 
@@ -531,20 +550,60 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
         const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        // Balance validation for EXPENSE — block if insufficient funds (no data change, undo unaffected)
-        // Check primary balance first as a blanket check
-        if (type === 'EXPENSE') {
-            const sumTransactions = await prisma.transaction.aggregate({ where: { userId: user.id }, _sum: { amount: true } });
-            // For rigorous check, we'd need to sum up across wallets, but for now we skip strict single-wallet block here to allow wallet choice
-        }
-
-        // --- MULTI-WALLET CHECK ---
         const wallets = await prisma.wallet.findMany({
             where: { userId: user.id },
             orderBy: { createdAt: 'asc' }
         });
 
-        if (wallets.length > 1) {
+        let explicitWalletId: string | undefined = undefined;
+        let matchedWallet: any = undefined;
+
+        if (explicitWalletName) {
+            // Find an exact match or a partial match
+            matchedWallet = wallets.find(w => w.name.toLowerCase() === explicitWalletName || w.name.toLowerCase().includes(explicitWalletName!));
+            if (!matchedWallet && explicitWalletName !== 'saldo utama') {
+                return `⚠️ Anda tidak memiliki dompet bernama '${explicitWalletName}'.\nMohon buat dulu di web: https://kasaku.vercel.app`;
+            }
+            if (matchedWallet) {
+                explicitWalletId = matchedWallet.id;
+            }
+        }
+
+        // Balance validation for EXPENSE — block if insufficient funds (no data change, undo unaffected)
+        if (type === 'EXPENSE') {
+            let targetWalletToCheck = matchedWallet;
+            // If they didn't explicitly mention 'via', and they only have 1 wallet, we check that 1 wallet.
+            if (!targetWalletToCheck && wallets.length === 1) {
+                targetWalletToCheck = wallets[0];
+            }
+
+            if (targetWalletToCheck) {
+                const sumTransactions = await prisma.transaction.aggregate({
+                    where: { userId: user.id, walletId: targetWalletToCheck.id },
+                    _sum: { amount: true }
+                });
+
+                // Income is positive, Expense is negative in the system? No, in Kasaku type determines the sign during aggregation, but the DB stores absolute values.
+                // Wait, the aggregate sum of amount doesn't account for type! I need to do this properly.
+                const incomeSum = await prisma.transaction.aggregate({
+                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'INCOME' },
+                    _sum: { amount: true }
+                });
+                const expenseSum = await prisma.transaction.aggregate({
+                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'EXPENSE' },
+                    _sum: { amount: true }
+                });
+
+                const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
+
+                if (amount > currentBalance) {
+                    return `⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(amount)}\n❌ Kurang: ${formatCurrency(amount - currentBalance)}\n\n💡 _Silakan isi ulang dompet ini atau ubah jumlah transaksi._`;
+                }
+            }
+        }
+
+        // --- MULTI-WALLET CHECK ---
+        if (!explicitWalletId && explicitWalletName !== 'saldo utama' && wallets.length > 1) {
             // Delete any stale pending transactions first
             await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
 
@@ -564,11 +623,14 @@ async function processCommand(user: any, text: string): Promise<string | any | n
             return `💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`;
         }
 
-        const defaultWalletId = wallets.length === 1 ? wallets[0].id : undefined;
+        const defaultWalletId = (wallets.length === 1 && !explicitWalletName) ? wallets[0].id : explicitWalletId;
 
         const txResult = await executeTransaction(user, type, amount, categoryName, description, new Date(), defaultWalletId);
         if (typeof txResult === 'object' && txResult.transactionId) {
             await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
+            if (matchedWallet) {
+                txResult.note = `${txResult.note} (via ${matchedWallet.name})`;
+            }
         }
         return txResult;
     }

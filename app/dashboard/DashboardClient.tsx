@@ -734,13 +734,22 @@ export default function DashboardClient({
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                 {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).map(l => (
-                  <div key={l.id} className="p-3 rounded-xl bg-black/20 hover:bg-white/10 border border-transparent hover:border-white/5 transition-all text-left">
+                  <div key={l.id} className="p-3 rounded-xl bg-black/20 hover:bg-white/10 border border-transparent hover:border-white/5 transition-all text-left group relative">
                     <div className="flex flex-col">
-                      <div className="flex justify-between items-start mb-1">
+                      <div className="flex justify-between items-start mb-1 relative z-10">
                         <p className="font-black text-[11px] text-white truncate pr-2">{l.name}</p>
                         <span className={`font-black text-[11px] shrink-0 ${loanTab === "PAYABLE" ? "text-brand-red" : "text-brand-green"}`}>{currency(l.remaining)}</span>
                       </div>
-                      {l.dueDate && <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest">{new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</p>}
+                      <div className="flex justify-between items-end relative z-10 min-h-[24px]">
+                        {l.dueDate ? <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest">{new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</p> : <span />}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 -mb-1 -mr-1">
+                          {l.remaining > 0 && (
+                            <button onClick={() => { setActiveLoanForPayment(l); setIsPaymentModalOpen(true); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-brand-green rounded-lg text-[10px] transition-colors" title="Bayar Cicilan">💸</button>
+                          )}
+                          <button onClick={() => { setEditingLoan(l); setIsLoanModalOpen(true); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-white/20 rounded-lg text-[10px] transition-colors" title="Edit">✏️</button>
+                          <button onClick={() => handleDeleteLoan(l.id)} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-brand-red rounded-lg text-[10px] transition-colors" title="Hapus">🗑️</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
