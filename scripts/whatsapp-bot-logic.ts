@@ -1030,7 +1030,7 @@ const compoundCommandHandlers: Record<string, CommandHandler> = {
     'hapus kategori': async (user, parts) => handleDeleteCategory(user, parts),
 };
 
-async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
+export async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
     const cmd = parts[0];
