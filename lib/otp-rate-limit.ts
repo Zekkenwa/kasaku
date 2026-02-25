@@ -1,12 +1,25 @@
 import { prisma } from "@/lib/prisma";
-import { User } from "@prisma/client";
 
-export async function checkOtpRateLimit(user: User) {
+// The extended prisma client doesn't expose OtpRateLimit types directly,
+// so we use a typed reference through the base client accessor.
+const db = prisma as any;
+
+/**
+ * Check OTP rate limit for a specific user + category.
+ * Each category (LOGIN, PASSWORD, EMAIL, PHONE, VERIFY, REGISTER) has its own independent cooldown.
+ */
+export async function checkOtpRateLimit(userId: string, category: string) {
     const now = new Date();
 
+    const record = await db.otpRateLimit.findUnique({
+        where: { userId_category: { userId, category } },
+    });
+
+    if (!record) return { allowed: true };
+
     // 1. Check if blocked
-    if (user.otpBlockedUntil && user.otpBlockedUntil > now) {
-        const diff = Math.ceil((user.otpBlockedUntil.getTime() - now.getTime()) / 60000);
+    if (record.blockedUntil && record.blockedUntil > now) {
+        const diff = Math.ceil((record.blockedUntil.getTime() - now.getTime()) / 60000);
         return {
             allowed: false,
             error: `Terlalu banyak percobaan. Mohon tunggu ${diff} menit atau hubungi support.`
@@ -14,9 +27,9 @@ export async function checkOtpRateLimit(user: User) {
     }
 
     // 2. Check 3 minute delay
-    if (user.otpLastSentAt) {
-        const diffMs = now.getTime() - user.otpLastSentAt.getTime();
-        if (diffMs < 3 * 60 * 1000) { // 3 minutes
+    if (record.lastSentAt) {
+        const diffMs = now.getTime() - record.lastSentAt.getTime();
+        if (diffMs < 3 * 60 * 1000) {
             const waitSeconds = Math.ceil((180000 - diffMs) / 1000);
             return {
                 allowed: false,
@@ -25,43 +38,47 @@ export async function checkOtpRateLimit(user: User) {
         }
     }
 
-    // If allowed, we update state (increment attempt)
-    // BUT we must allow the caller to succeed first? 
-    // Actually, usually we increment on SUCCESS of sending. 
-    // But to be safe, we return allowed: true and let caller handle update.
-    // However, logic for "5 attempts then block" needs to be handled.
-
     return { allowed: true };
 }
 
-export async function updateOtpRateLimit(user: User) {
+/**
+ * Update OTP rate limit after successfully sending an OTP for a specific category.
+ */
+export async function updateOtpRateLimit(userId: string, category: string) {
     const now = new Date();
-    let attempts = user.otpAttempts + 1;
-    let blockedUntil = user.otpBlockedUntil;
 
-    // Check if we should reset attempts (e.g. if last attempt was > 1 hour ago? User didn't specify reset time)
-    // User said: "sampai 5 attempt otp delay antar attempt 3 menit ... setelah 5 attempt ... menunggu 10 menit"
-    // Usually attempts reset after a successful verification or after the block expires.
+    const record = await db.otpRateLimit.findUnique({
+        where: { userId_category: { userId, category } },
+    });
 
-    // If user was previously blocked and block expired, we should reset attempts?
-    if (user.otpBlockedUntil && user.otpBlockedUntil < now) {
+    let attempts = (record?.attempts ?? 0) + 1;
+    let blockedUntil: Date | null = record?.blockedUntil ?? null;
+
+    // If user was previously blocked and block expired, reset attempts
+    if (blockedUntil && blockedUntil < now) {
         attempts = 1;
         blockedUntil = null;
     }
 
     if (attempts >= 5) {
         blockedUntil = new Date(now.getTime() + 10 * 60 * 1000); // Block 10 mins
-        attempts = 0; // Reset attempts after blocking? Or keep them? Usually reset after block expires.
-        // Let's set attempts to 0 so when block expires they start fresh.
+        attempts = 0;
     }
 
-    await prisma.user.update({
-        where: { id: user.id },
-        data: {
-            otpLastSentAt: now,
-            otpAttempts: attempts,
-            otpBlockedUntil: blockedUntil
-        }
+    await db.otpRateLimit.upsert({
+        where: { userId_category: { userId, category } },
+        create: {
+            userId,
+            category,
+            lastSentAt: now,
+            attempts,
+            blockedUntil,
+        },
+        update: {
+            lastSentAt: now,
+            attempts,
+            blockedUntil,
+        },
     });
 
     return { blockedUntil };

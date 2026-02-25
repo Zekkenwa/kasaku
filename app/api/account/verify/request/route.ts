@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // 1. Rate Limit Check
-    const limitParams = await checkOtpRateLimit(user);
+    const limitParams = await checkOtpRateLimit(user.id, "VERIFY");
     if (!limitParams.allowed) {
         return NextResponse.json({ error: limitParams.error }, { status: 429 });
     }
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     });
 
     // 2. Update Rate Limit Stats
-    await updateOtpRateLimit(user);
+    await updateOtpRateLimit(user.id, "VERIFY");
 
     try {
         await sendWhatsAppOTP(cleanPhone, otpCode);

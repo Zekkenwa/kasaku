@@ -24,7 +24,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Nomor WhatsApp belum terdaftar. Harap lengkapi profil." }, { status: 400 });
         }
 
-        const limitParams = await checkOtpRateLimit(user);
+        const limitParams = await checkOtpRateLimit(user.id, "PASSWORD");
         if (!limitParams.allowed) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
         try {
             await sendWhatsAppOTP(user.phone, otpCode);
-            await updateOtpRateLimit(user);
+            await updateOtpRateLimit(user.id, "PASSWORD");
             return NextResponse.json({ success: true, message: "OTP terkirim" });
         } catch (e) {
             return NextResponse.json({ error: "Gagal kirim WhatsApp" }, { status: 500 });

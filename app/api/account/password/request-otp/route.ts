@@ -21,7 +21,7 @@ export async function POST() {
         }
 
         // 1. Rate Limit Check
-        const limitParams = await checkOtpRateLimit(user);
+        const limitParams = await checkOtpRateLimit(user.id, "PASSWORD");
         if (!limitParams.allowed) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
@@ -40,7 +40,7 @@ export async function POST() {
         });
 
         // 2. Update Rate Limit Stats
-        await updateOtpRateLimit(user);
+        await updateOtpRateLimit(user.id, "PASSWORD");
 
         // Send OTP
         await sendWhatsAppOTP(user.phone, otpCode);

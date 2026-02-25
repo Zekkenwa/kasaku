@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Nomor WhatsApp lama tidak sesuai." }, { status: 400 });
         }
 
-        const limitParams = await checkOtpRateLimit(user);
+        const limitParams = await checkOtpRateLimit(user.id, "PHONE");
         if (!limitParams.allowed) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
         try {
             await sendWhatsAppOTP(user.phone, otpCode);
-            await updateOtpRateLimit(user);
+            await updateOtpRateLimit(user.id, "PHONE");
             return NextResponse.json({ success: true, message: "OTP dikirim ke nomor lama" });
         } catch (e) {
             return NextResponse.json({ error: "Gagal mengirim OTP" }, { status: 500 });
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         });
         if (existing) return NextResponse.json({ error: "Nomor sudah digunakan akun lain" }, { status: 400 });
 
-        const limitParams = await checkOtpRateLimit(user);
+        const limitParams = await checkOtpRateLimit(user.id, "PHONE");
         if (!limitParams.allowed) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
 
         try {
             await sendWhatsAppOTP(cleanPhone, otpCode);
-            await updateOtpRateLimit(user);
+            await updateOtpRateLimit(user.id, "PHONE");
             return NextResponse.json({ success: true, message: "OTP dikirim ke nomor baru" });
         } catch (e) {
             return NextResponse.json({ error: "Gagal mengirim OTP" }, { status: 500 });

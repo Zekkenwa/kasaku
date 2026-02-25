@@ -32,7 +32,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Anda belum menghubungkan nomor WhatsApp." }, { status: 400 });
         }
 
-        const limitParams = await checkOtpRateLimit(user);
+        const limitParams = await checkOtpRateLimit(user.id, "EMAIL");
         if (!limitParams.allowed) {
             return NextResponse.json({ error: limitParams.error }, { status: 429 });
         }
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
         try {
             await sendWhatsAppOTP(user.phone, otpCode);
-            await updateOtpRateLimit(user); // Optimization: Only update limit after successful send
+            await updateOtpRateLimit(user.id, "EMAIL"); // Optimization: Only update limit after successful send
             return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });
         } catch (e) {
             console.error("Failed send OTP", e);

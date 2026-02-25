@@ -47,6 +47,21 @@ model User {
   userEngagement UserEngagement?
   badges       Badge[]
   pendingBotTransactions PendingBotTransaction[]
+  otpRateLimits OtpRateLimit[]
+}
+
+model OtpRateLimit {
+  id             String    @id @default(cuid())
+  userId         String
+  category       String    // e.g. "LOGIN", "PASSWORD", "EMAIL", "PHONE"
+  lastSentAt     DateTime?
+  attempts       Int       @default(0)
+  blockedUntil   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
 }
 
 model Account {
