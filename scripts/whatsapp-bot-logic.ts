@@ -341,7 +341,7 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
         const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        return await executeTransaction(user, type, amount, categoryName, description);
+        return await executeTransaction(user, type, amount, categoryName, description, new Date());
     }
 
     // --- DEBT (hutang/piutang) ---
@@ -861,36 +861,51 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
     // --- AI FALLBACK (Natural Language Parsing) ---
     const parsed = await parseTransactionText(text);
-    if (parsed && parsed.isTransaction && parsed.type && parsed.amount && parsed.amount > 0) {
-        let categoryName = parsed.categoryName || "Umum";
+    if (parsed && parsed.isTransaction && parsed.transactions && parsed.transactions.length > 0) {
+        const results = [];
 
-        // Try fuzzy matching the AI category to an existing user category to avoid duplicates
-        const userCategories = await prisma.category.findMany({
-            where: { userId: user.id, type: parsed.type }
-        });
+        for (const item of parsed.transactions) {
+            let categoryName = item.categoryName || "Umum";
 
-        if (userCategories.length > 0) {
-            const fuse = new Fuse(userCategories, { keys: ['name'], threshold: 0.4 });
-            const result = fuse.search(categoryName);
-            if (result.length > 0) {
-                categoryName = result[0].item.name;
+            // Try fuzzy matching the AI category to an existing user category to avoid duplicates
+            const userCategories = await prisma.category.findMany({
+                where: { userId: user.id, type: item.type }
+            });
+
+            if (userCategories.length > 0) {
+                const fuse = new Fuse(userCategories, { keys: ['name'], threshold: 0.4 });
+                const searchResult = fuse.search(categoryName);
+                if (searchResult.length > 0) {
+                    categoryName = searchResult[0].item.name;
+                }
             }
+
+            const description = item.note || (item.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran');
+
+            let txDate = new Date();
+            if (item.date) {
+                const parsedDate = new Date(item.date);
+                if (!isNaN(parsedDate.getTime())) {
+                    txDate = parsedDate;
+                }
+            }
+
+            const txResult = await executeTransaction(user, item.type, item.amount, categoryName, description, txDate);
+            if (typeof txResult === 'object') {
+                txResult.title = `🤖 AI: ${txResult.title}`;
+            }
+            results.push(txResult);
         }
 
-        const description = parsed.note || (parsed.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran');
-
-        const txResult = await executeTransaction(user, parsed.type, parsed.amount, categoryName, description);
-        if (typeof txResult === 'object') {
-            txResult.title = `🤖 AI: ${txResult.title}`;
-        }
-        return txResult;
+        if (results.length === 1) return results[0];
+        return results;
     }
 
     return null;
 }
 
 // Helper function to execute transaction logic internally
-async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string) {
+async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string, date: Date = new Date()) {
     let category = await prisma.category.findFirst({
         where: {
             userId: user.id,
@@ -928,7 +943,7 @@ async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount:
             categoryId: category.id,
             walletId: wallet?.id,
             note: description,
-            createdAt: new Date()
+            createdAt: date
         }
     });
 
@@ -937,6 +952,6 @@ async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount:
         amount: amount,
         category: category.name,
         note: description,
-        date: new Date()
+        date: date
     };
 }
