@@ -143,6 +143,7 @@ export default function DashboardClient({
     def: any;
     unlocked: boolean;
     rect: DOMRect;
+    anchorEl: HTMLElement;
     isFirst: boolean;
     isLast: boolean;
   } | null>(null);
@@ -175,7 +176,18 @@ export default function DashboardClient({
           console.error("Failed to parse seen badges", e);
         }
       }
-      fetch("/api/recurring/process", { method: "POST" }).catch(err => console.error("Auto-process error:", err));
+      fetch("/api/recurring/process", { method: "POST" })
+        .then(async (res) => {
+          const data = await res.json().catch(() => null);
+          if (data?.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
+            const warningText = [
+              "⚠️ Beberapa rutinitas pengeluaran dibatalkan karena saldo tidak mencukupi.",
+              ...data.warnings,
+            ].join("\n");
+            alert(warningText);
+          }
+        })
+        .catch(err => console.error("Auto-process error:", err));
     }
   }, []);
 
@@ -200,6 +212,28 @@ export default function DashboardClient({
       return () => clearTimeout(timer);
     }
   }, [gamificationPopups, currentPopupIndex]);
+
+  useEffect(() => {
+    if (!activeTooltip) return;
+
+    const updateTooltipPosition = () => {
+      setActiveTooltip((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          rect: prev.anchorEl.getBoundingClientRect(),
+        };
+      });
+    };
+
+    window.addEventListener("scroll", updateTooltipPosition, { passive: true });
+    window.addEventListener("resize", updateTooltipPosition, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", updateTooltipPosition);
+      window.removeEventListener("resize", updateTooltipPosition);
+    };
+  }, [activeTooltip]);
 
   const toggleHideSaldo = () => {
     setHideSaldo(prev => {
@@ -521,6 +555,7 @@ export default function DashboardClient({
                                   def,
                                   unlocked: !!unlocked,
                                   rect: e.currentTarget.getBoundingClientRect(),
+                                  anchorEl: e.currentTarget,
                                   isFirst: i === 0,
                                   isLast: i === orderedBadgeDefinitions.length - 1
                                 });
@@ -536,6 +571,7 @@ export default function DashboardClient({
                                   def,
                                   unlocked: !!unlocked,
                                   rect: e.currentTarget.getBoundingClientRect(),
+                                  anchorEl: e.currentTarget,
                                   isFirst: i === 0,
                                   isLast: i === orderedBadgeDefinitions.length - 1
                                 });
@@ -555,6 +591,7 @@ export default function DashboardClient({
                                 def,
                                 unlocked: !!unlocked,
                                 rect: e.currentTarget.getBoundingClientRect(),
+                                anchorEl: e.currentTarget,
                                 isFirst: i === 0,
                                 isLast: i === orderedBadgeDefinitions.length - 1
                               });
