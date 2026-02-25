@@ -60,6 +60,8 @@ type Loan = { id: string; name: string; amount: number; remaining: number; creat
 type Budget = { id: string; categoryId: string; categoryName: string; limitAmount: number; period?: string };
 type Wallet = { id: string; name: string; type: "CASH" | "BANK" | "EWALLET"; initialBalance: number };
 type Goal = { id: string; name: string; targetAmount: number; currentAmount: number; deadline?: string; notes?: string };
+type Engagement = { id: string; currentStreak: number; highestStreak: number; freezeDays: number; healthScore: number; lastLogDate: string | null };
+type Badge = { id: string; code: string; name: string; description: string; progress: number; maxProgress: number; isUnlocked: boolean; level: number; earnedAt: string };
 
 type Props = {
   userName: string;
@@ -85,6 +87,8 @@ type Props = {
   selectedYear: number;
   dateRange: { start: string; end: string };
   firstTxDate: string | null;
+  engagement: Engagement | null;
+  badges: Badge[];
 };
 
 const currency = (v: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(v);
@@ -99,9 +103,32 @@ const monthLabel = (m: number) => new Intl.DateTimeFormat("id-ID", { month: "lon
 const PIE_COLORS_EXPENSE = ["#F26076", "#FF9760", "#FFD150", "#458B73", "#e11d48", "#ea580c", "#ca8a04", "#0f766e"];
 const PIE_COLORS_INCOME = ["#458B73", "#10b981", "#059669", "#34d399", "#FFD150", "#F26076", "#FF9760", "#06b6d4"];
 
+const BADGE_DEFINITIONS = [
+  { code: "STARTER", name: "The Starter", description: "First transaction ever.", maxProgress: 1, level: 1, icon: "🥚" },
+  { code: "WEEK_WARRIOR", name: "Week Warrior", description: "7-day streak.", maxProgress: 7, level: 1, icon: "⚔️" },
+  { code: "HABIT_BUILDER", name: "Habit Builder", description: "30-day streak.", maxProgress: 30, level: 2, icon: "🛡️" },
+  { code: "UNSTOPPABLE", name: "Unstoppable", description: "100-day streak.", maxProgress: 100, level: 3, icon: "👑" },
+  { code: "SAVERS_CLUB", name: "Savers Club", description: "First Rp 100.000 saved.", maxProgress: 100000, level: 1, icon: "💰" },
+  { code: "MILLIONAIRE_MINDSET", name: "Millionaire Mindset", description: "First Rp 1.000.000 saved.", maxProgress: 1000000, level: 2, icon: "💎" },
+  { code: "WHALE", name: "Whale", description: "Balance reaches Rp 10.000.000.", maxProgress: 10000000, level: 3, icon: "🐋" },
+  { code: "BUDGET_MASTER", name: "Budget Master", description: "Stay under budget for 1 category.", maxProgress: 1, level: 1, icon: "🎯" },
+  { code: "BUDGET_GOD", name: "Budget God", description: "Stay under all budgets for 3 consecutive months.", maxProgress: 3, level: 3, icon: "👼" },
+  { code: "DEBT_FREE", name: "Debt Free", description: "Pay off all loans/debts.", maxProgress: 1, level: 2, icon: "🕊️" },
+  { code: "TRUSTWORTHY", name: "Trustworthy", description: "Lend money to a friend (Receivable).", maxProgress: 1, level: 1, icon: "🤝" },
+  { code: "GOAL_SETTER", name: "Goal Setter", description: "Create your first Goal.", maxProgress: 1, level: 1, icon: "🚀" },
+  { code: "GOAL_ACHIEVER", name: "Goal Achiever", description: "Reach 100% on a Goal.", maxProgress: 1, level: 2, icon: "🏁" },
+  { code: "CONSISTENT_AUTOMATOR", name: "Consistent Automator", description: "Set up 1 Routine transaction.", maxProgress: 1, level: 1, icon: "⚙️" },
+  { code: "BIG_SPENDER", name: "Big Spender", description: "Spend > Rp 1.000.000 in a single expense.", maxProgress: 1000000, level: 2, icon: "💸" },
+  { code: "AI_WHISPERER", name: "AI Whisperer", description: "Use the WhatsApp AI for 10 transactions.", maxProgress: 10, level: 2, icon: "🤖" },
+  { code: "GENEROUS", name: "Generous", description: "Transfer money 5 times.", maxProgress: 5, level: 1, icon: "🎁" },
+  { code: "THE_PLANNER", name: "The Planner", description: "Create budgets for 3+ categories.", maxProgress: 3, level: 1, icon: "📋" },
+  { code: "RESILIENT", name: "Resilient", description: "Use a Freeze Day to save a streak.", maxProgress: 1, level: 2, icon: "🧊" },
+  { code: "FINANCIAL_GURU", name: "Financial Guru", description: "Reach a Financial Health Score of 90+.", maxProgress: 90, level: 3, icon: "🧘" },
+];
+
 export default function DashboardClient({
   userName, categories, transactions, totals, charts, loans, budgets, wallets,
-  monthOptions, yearOptions, selectedMonth, selectedYear, categoryObjects, goals, dateRange, firstTxDate,
+  monthOptions, yearOptions, selectedMonth, selectedYear, categoryObjects, goals, dateRange, firstTxDate, engagement, badges
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -206,8 +233,13 @@ export default function DashboardClient({
             </div>
             <div>
               <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest mb-1">Beranda Finansial</p>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                Halo, {userName} <span className="text-brand-green">🍃</span>
+              <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight flex items-center md:items-end gap-3 flex-wrap">
+                <span>Halo, {userName} <span className="text-brand-green">🍃</span></span>
+                {engagement && engagement.currentStreak > 0 && (
+                  <div title={`${engagement.freezeDays} Freeze Days tersisa`} className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-orange-500/20 to-rose-500/20 border border-orange-500/30 text-orange-400 font-black text-sm md:text-base shadow-[0_0_20px_rgba(249,115,22,0.15)] mb-1 cursor-default hover:scale-105 transition-transform">
+                    <span className="drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]">🔥</span> {engagement.currentStreak} Hari
+                  </div>
+                )}
               </h1>
             </div>
           </div>
@@ -279,6 +311,37 @@ export default function DashboardClient({
                 </div>
               </div>
 
+              {/* Premium Health Score Widget */}
+              <div className="w-full md:w-64 lg:w-80 p-6 lg:p-8 rounded-[2.5rem] bg-gradient-to-br from-[#252525] to-[#1a1a1a] border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col items-center justify-center group min-h-[300px]">
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+                <h3 className="text-[11px] font-black text-neutral-400 uppercase tracking-widest absolute top-8 left-8 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Health Score
+                </h3>
+
+                <div className="relative w-36 h-36 lg:w-40 lg:h-40 mt-6 flex flex-col items-center justify-center">
+                  <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-white/5" />
+                    <circle
+                      cx="50" cy="50" r="42" fill="transparent"
+                      className={`${(engagement?.healthScore ?? 50) >= 80 ? 'stroke-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.5)]' : (engagement?.healthScore ?? 50) >= 50 ? 'stroke-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.5)]' : 'stroke-rose-500 drop-shadow-[0_0_12px_rgba(244,63,94,0.5)]'} transition-all duration-[1500ms] ease-out`}
+                      strokeWidth="8"
+                      strokeDasharray="264"
+                      strokeDashoffset={264 - (264 * (engagement?.healthScore ?? 50)) / 100}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="relative z-10 flex flex-col items-center justify-center translate-y-1">
+                    <span className="text-4xl lg:text-5xl font-black text-white tracking-tighter drop-shadow-md leading-none">{engagement?.healthScore ?? 50}</span>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-center text-[11px] font-bold uppercase tracking-widest text-neutral-500 group-hover:text-neutral-400 transition-colors">
+                  {(engagement?.healthScore ?? 50) >= 80 ? <span className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">Sangat Sehat</span> :
+                    (engagement?.healthScore ?? 50) >= 50 ? <span className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">Cukup Stabil</span> :
+                      <span className="text-rose-400 drop-shadow-[0_0_5px_rgba(244,63,94,0.5)]">Perlu Perhatian</span>}
+                </p>
+              </div>
+
               {/* Outstanding Primary Action */}
               <button onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
                 className="w-full md:w-[220px] p-8 rounded-[2.5rem] bg-gradient-to-br from-[#458B73] to-emerald-700 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-[0_20px_40px_-10px_rgba(69,139,115,0.5)] hover:shadow-[0_20px_50px_-10px_rgba(69,139,115,0.7)] hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-4 group relative overflow-hidden border border-white/20">
@@ -314,6 +377,53 @@ export default function DashboardClient({
                     <span className="w-5 h-5 flex items-center justify-center bg-[#F26076]/20 rounded-full text-xs">↑</span> Pengeluaran
                   </h4>
                   <span className="text-2xl font-black text-white tracking-tight">{censor(currency(totals.totalExpense))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2.5 TROPHY ROOM - GAMIFICATION BADGES */}
+            <div className="flex flex-col gap-4">
+              <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                Trophy Room <span className="text-xl">🏆</span>
+              </h3>
+              <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/80 backdrop-blur-xl border border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-overlay"></div>
+                <div className="relative z-10 w-full overflow-x-auto custom-scrollbar pb-6 pr-6">
+                  <div className="flex gap-4 min-w-max">
+                    {BADGE_DEFINITIONS.map((def, i) => {
+                      const unlocked = badges.find(b => b.code === def.code && b.isUnlocked);
+                      return (
+                        <div
+                          key={def.code}
+                          title={`${def.name}: ${def.description}`}
+                          className={`w-28 flex flex-col items-center justify-start p-4 rounded-3xl transition-all duration-500 ease-out group
+                            ${unlocked ? 'bg-gradient-to-br from-white/10 to-white/5 border border-white/20 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.5)] hover:bg-white/10 hover:scale-105 hover:-translate-y-2' : 'bg-black/20 border border-white/5 opacity-60 grayscale hover:grayscale-0 hover:opacity-100'}
+                          `}
+                        >
+                          {unlocked && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 animate-pulse border-2 border-[#1a1a1a]"></div>
+                          )}
+                          <div className={`text-4xl mb-3 drop-shadow-xl ${unlocked ? 'group-hover:scale-110 transition-transform duration-300' : 'opacity-40 brightness-50 contrast-150 saturate-0'}`}>
+                            {def.icon}
+                          </div>
+
+                          <p className={`text-xs text-center font-bold tracking-tight leading-tight mb-2 ${unlocked ? 'text-white' : 'text-neutral-500'}`}>
+                            {def.name}
+                          </p>
+
+                          {unlocked ? (
+                            <div className="px-2 py-0.5 mt-auto rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest border border-emerald-500/30 w-full text-center">
+                              Level {def.level}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1 mt-auto text-[9px] font-bold text-neutral-600 uppercase tracking-widest">
+                              🔒 Terkunci
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { WASocket } from '@whiskeysockets/baileys';
 import { prisma } from '../lib/prisma';
 import { generateBlindIndex } from '../lib/encryption';
 import { parseTransactionText } from '../lib/ai';
+import { processGamificationTick } from '../lib/gamification';
 import Fuse from 'fuse.js';
 
 // Helper to format currency
@@ -195,12 +196,28 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
                 (res.amount !== undefined ? `💰 *Jumlah*: ${formatCurrency(res.amount)}\n` : '') +
                 (res.category ? `🏷️ *Kategori*: ${res.category}\n` : '') +
                 `📄 *Keterangan*:\n${res.note}\n` +
-                `📅 *Waktu*: ${timeStr}\n\n` +
-                `_Terima kasih sudah menggunakan Kasaku!_`;
+                `📅 *Waktu*: ${timeStr}\n\n`;
         } else {
             finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
-                results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n');
+                results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
         }
+
+        // --- GAMIFICATION TICK ---
+        try {
+            const gamification = await processGamificationTick(user.id);
+            if (gamification) {
+                if (gamification.newStreak > 1) {
+                    finalReply += `🔥 *Streak Hari ke-${gamification.newStreak}!*\n`;
+                }
+                if (gamification.unlockedMessages && gamification.unlockedMessages.length > 0) {
+                    finalReply += `\n` + gamification.unlockedMessages.join('\n') + `\n`;
+                }
+            }
+        } catch (e) {
+            console.error("[BOT] Gamification Error:", e);
+        }
+
+        finalReply += `_Terima kasih sudah menggunakan Kasaku!_`;
 
         await sock.sendMessage(remoteJid, { text: finalReply });
     } else {

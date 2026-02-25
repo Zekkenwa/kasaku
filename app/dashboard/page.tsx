@@ -57,7 +57,7 @@ export default async function DashboardPage(props: {
 
   const daysInRange = Math.ceil((filterEnd.getTime() - filterStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  const [minTx, maxTx, categories, transactionsRaw, loansRaw, budgets, wallets, goalsRaw, incomeAgg, expenseAgg] = await Promise.all([
+  const [minTx, maxTx, categories, transactionsRaw, loansRaw, budgets, wallets, goalsRaw, incomeAgg, expenseAgg, engagement, badgesRaw] = await Promise.all([
     prisma.transaction.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: "asc" },
@@ -117,6 +117,12 @@ export default async function DashboardPage(props: {
     prisma.transaction.aggregate({
       where: { userId: user.id, type: "EXPENSE" },
       _sum: { amount: true },
+    }),
+    prisma.userEngagement.findUnique({
+      where: { userId: user.id },
+    }),
+    prisma.badge.findMany({
+      where: { userId: user.id },
     }),
   ]);
 
@@ -274,6 +280,11 @@ export default async function DashboardPage(props: {
         end: filterEnd.toISOString().split('T')[0]
       }}
       firstTxDate={minTx?.createdAt.toISOString().split('T')[0] ?? null}
+      engagement={engagement ? { ...engagement, lastLogDate: engagement.lastLogDate?.toISOString() ?? null } : null}
+      badges={badgesRaw.map(b => ({
+        ...b,
+        earnedAt: b.earnedAt.toISOString()
+      }))}
     />
   );
 }

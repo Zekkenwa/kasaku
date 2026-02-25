@@ -43,6 +43,8 @@ model User {
   recurringTransactions RecurringTransaction[]
   goals        Goal[]
   botActionHistories BotActionHistory[]
+  userEngagement UserEngagement?
+  badges       Badge[]
 }
 
 model Account {
@@ -265,6 +267,40 @@ model WhatsAppAuth {
   id    String @id @default(cuid())
   key   String @unique
   value String @db.Text
+}
+
+model UserEngagement {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Streaks & Freezes
+  currentStreak   Int      @default(0)
+  highestStreak   Int      @default(0)
+  freezeDays      Int      @default(7) // Starts at 7, caps at 30
+  lastLogDate     DateTime? // Last date a transaction was made
+  
+  // Scoring
+  healthScore     Int      @default(50) // 0 to 100
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String   // e.g., "STARTER", "BUDGET_MASTER"
+  name        String   // "The Starter"
+  description String
+  earnedAt    DateTime @default(now())
+  progress    Int      @default(0) // Tracks % completion before unlock
+  maxProgress Int      @default(1)
+  isUnlocked  Boolean  @default(false)
+  level       Int      @default(1) // Bronze, Silver, Gold
+
+  @@unique([userId, code])
 }
 
 model BotActionHistory {
