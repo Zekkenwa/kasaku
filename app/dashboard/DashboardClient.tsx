@@ -219,6 +219,23 @@ export default function DashboardClient({
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [editingBudget, setEditingBudget] = useState<{ categoryId: string; limitAmount: number; id?: string; period?: string } | null>(null);
 
+  const openCreateLoanModal = (type: "PAYABLE" | "RECEIVABLE") => {
+    setLoanTab(type);
+    setEditingLoan(null);
+    setIsLoanModalOpen(true);
+  };
+
+  const openEditLoanModal = (loan: Loan) => {
+    setLoanTab(loan.type === "RECEIVABLE" ? "RECEIVABLE" : "PAYABLE");
+    setEditingLoan(loan);
+    setIsLoanModalOpen(true);
+  };
+
+  const closeLoanModal = () => {
+    setIsLoanModalOpen(false);
+    setEditingLoan(null);
+  };
+
   const badgeByCode = useMemo(() => {
     return new Map(badges.map((badge) => [badge.code, badge]));
   }, [badges]);
@@ -738,14 +755,27 @@ export default function DashboardClient({
             <div className="p-6 rounded-[2rem] bg-[#252525]/60 backdrop-blur-md border border-white/5 shadow-lg flex flex-col group hover:bg-[#252525]/80 hover:border-indigo-500/30 transition-all max-h-[300px]">
               <div className="flex justify-between items-center mb-4 gap-2">
                 <h3 className="font-black text-white text-sm flex items-center gap-2 whitespace-nowrap"><span className="text-indigo-400">🤝</span> {loanTab === "PAYABLE" ? "Hutang" : "Piutang"}</h3>
-                <div className="flex bg-black/40 rounded-lg p-1 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => openCreateLoanModal(loanTab)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-indigo-500 text-white font-black transition-all text-xs"
+                    title={loanTab === "PAYABLE" ? "Tambah Hutang" : "Tambah Piutang"}
+                  >
+                    +
+                  </button>
+                  <div className="flex bg-black/40 rounded-lg p-1">
                   <button onClick={() => setLoanTab("PAYABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "PAYABLE" ? "bg-brand-red text-white shadow" : "text-neutral-500 hover:text-white"}`}>Hutang</button>
                   <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "RECEIVABLE" ? "bg-brand-green text-white shadow" : "text-neutral-500 hover:text-white"}`}>Piutang</button>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                 {(loanTab === "PAYABLE" ? payableLoans : receivableLoans).map(l => (
-                  <div key={l.id} className="p-3 rounded-xl bg-black/20 hover:bg-white/10 border border-transparent hover:border-white/5 transition-all text-left group relative">
+                  <div
+                    key={l.id}
+                    onClick={() => openEditLoanModal(l)}
+                    className="p-3 rounded-xl bg-black/20 hover:bg-white/10 border border-transparent hover:border-white/5 transition-all text-left group relative cursor-pointer"
+                  >
                     <div className="flex flex-col">
                       <div className="flex justify-between items-start mb-1 relative z-10">
                         <p className="font-black text-[11px] text-white truncate pr-2">{l.name}</p>
@@ -753,12 +783,12 @@ export default function DashboardClient({
                       </div>
                       <div className="flex justify-between items-end relative z-10 min-h-[24px]">
                         {l.dueDate ? <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest">{new Date(l.dueDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })}</p> : <span />}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 -mb-1 -mr-1">
+                        <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex gap-1 -mb-1 -mr-1">
                           {l.remaining > 0 && (
-                            <button onClick={() => { setActiveLoanForPayment(l); setIsPaymentModalOpen(true); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-brand-green rounded-lg text-[10px] transition-colors" title="Bayar Cicilan">💸</button>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveLoanForPayment(l); setIsPaymentModalOpen(true); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-brand-green rounded-lg text-[10px] transition-colors" title="Bayar Cicilan">💸</button>
                           )}
-                          <button onClick={() => { setEditingLoan(l); setIsLoanModalOpen(true); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-white/20 rounded-lg text-[10px] transition-colors" title="Edit">✏️</button>
-                          <button onClick={() => handleDeleteLoan(l.id)} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-brand-red rounded-lg text-[10px] transition-colors" title="Hapus">🗑️</button>
+                          <button onClick={(e) => { e.stopPropagation(); openEditLoanModal(l); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-white/20 rounded-lg text-[10px] transition-colors" title="Edit">✏️</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteLoan(l.id); }} className="w-6 h-6 flex items-center justify-center bg-black/60 hover:bg-brand-red rounded-lg text-[10px] transition-colors" title="Hapus">🗑️</button>
                         </div>
                       </div>
                     </div>
@@ -788,7 +818,7 @@ export default function DashboardClient({
         />
       </Modal>
       <Modal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} title="Kelola Kategori"> <CategoryManager categories={categoryObjects} /> </Modal>
-      <Modal isOpen={isLoanModalOpen} onClose={() => setIsLoanModalOpen(false)} title={editingLoan ? "Edit Hutang/Piutang" : (loanTab === "PAYABLE" ? "Tambah Hutang" : "Tambah Piutang")}> <LoanForm initialData={editingLoan} onClose={() => setIsLoanModalOpen(false)} defaultType={loanTab} /> </Modal>
+      <Modal isOpen={isLoanModalOpen} onClose={closeLoanModal} title={editingLoan ? "Edit Hutang/Piutang" : (loanTab === "PAYABLE" ? "Tambah Hutang" : "Tambah Piutang")}> <LoanForm initialData={editingLoan} onClose={closeLoanModal} defaultType={loanTab} /> </Modal>
       <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Pembayaran Cicilan">
         {activeLoanForPayment && <PaymentForm loanId={activeLoanForPayment.id} loanName={activeLoanForPayment.name} remaining={activeLoanForPayment.remaining} loanType={activeLoanForPayment.type} onClose={() => setIsPaymentModalOpen(false)} />}
       </Modal>
@@ -810,7 +840,11 @@ export default function DashboardClient({
           className="fixed z-[99999] p-4 rounded-2xl bg-[#1f1f1f]/95 backdrop-blur-md border border-white/10 shadow-2xl flex flex-col gap-1 items-center pointer-events-none animate-in fade-in zoom-in-95 duration-200"
           style={{
             top: activeTooltip.rect.top - 10,
-            left: activeTooltip.isFirst ? activeTooltip.rect.left : activeTooltip.isLast ? activeTooltip.rect.right : activeTooltip.rect.left + activeTooltip.rect.width / 2,
+            left: activeTooltip.isFirst
+              ? activeTooltip.rect.left + 12
+              : activeTooltip.isLast
+                ? activeTooltip.rect.right - 12
+                : activeTooltip.rect.left + activeTooltip.rect.width / 2,
             transform: `translate(${activeTooltip.isFirst ? '0' : activeTooltip.isLast ? '-100%' : '-50%'}, -100%)`,
             width: '208px'
           }}
