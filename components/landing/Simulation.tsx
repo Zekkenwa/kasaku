@@ -110,9 +110,12 @@ export default function Simulation() {
     const chatEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Auto-scroll chat
+    // Auto-scroll chat (scoped to chat container only, never scrolls the page)
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const el = chatEndRef.current;
+        if (el?.parentElement) {
+            el.parentElement.scrollTop = el.parentElement.scrollHeight;
+        }
     }, [messages]);
 
     // --- COMMAND PARSER ---

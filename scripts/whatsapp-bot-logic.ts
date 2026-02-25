@@ -475,6 +475,19 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
         const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
 
+        // Balance validation for EXPENSE — block if insufficient funds (no data change, undo unaffected)
+        if (type === 'EXPENSE') {
+            const wallet = await prisma.wallet.findFirst({ where: { userId: user.id }, select: { id: true, initialBalance: true } });
+            if (wallet) {
+                const incomeAgg = await prisma.transaction.aggregate({ _sum: { amount: true }, where: { walletId: wallet.id, type: 'INCOME' } });
+                const expenseAgg = await prisma.transaction.aggregate({ _sum: { amount: true }, where: { walletId: wallet.id, type: 'EXPENSE' } });
+                const currentBalance = wallet.initialBalance + (incomeAgg._sum.amount || 0) - (expenseAgg._sum.amount || 0);
+                if (amount > currentBalance) {
+                    return `⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo saat ini: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(amount)}\n❌ Kurang: ${formatCurrency(amount - currentBalance)}\n\n💡 _Silakan isi ulang saldo atau ubah jumlah transaksi._`;
+                }
+            }
+        }
+
         const txResult = await executeTransaction(user, type, amount, categoryName, description, new Date());
         if (typeof txResult === 'object' && txResult.transactionId) {
             await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });

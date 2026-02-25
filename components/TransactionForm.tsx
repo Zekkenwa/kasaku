@@ -92,7 +92,13 @@ export default function TransactionForm({
                 }),
             });
 
-            if (!res.ok) throw new Error("Gagal menyimpan");
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => null);
+                const errorMsg = errorData?.error || "Gagal menyimpan transaksi.";
+                alert(errorMsg);
+                setLoading(false);
+                return;
+            }
 
             const data = await res.json().catch(() => ({}));
 
@@ -104,7 +110,7 @@ export default function TransactionForm({
             onClose();
         } catch (error) {
             console.error(error);
-            alert("Terjadi kesalahan");
+            alert("Terjadi kesalahan jaringan");
         } finally {
             setLoading(false);
         }
