@@ -1,17 +1,23 @@
-﻿import { PrismaClient } from "@prisma/client";
+﻿/**
+ * Prisma Client singleton with automatic field-level encryption.
+ *
+ * Extends PrismaClient with middleware that:
+ * - Encrypts `access_token`, `refresh_token` (Account) on writes
+ * - Encrypts `phone`, `tempPhone` (User) on writes and generates `phoneHash` blind index
+ * - Decrypts all encrypted fields transparently on reads
+ *
+ * @module prisma
+ */
+import { PrismaClient } from "@prisma/client";
 import { encrypt, decrypt, generateBlindIndex } from "./encryption";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
-
-// Use pooling dynamically for the server vs. serverless environment if needed, but remove hardcoded 5 limit.
-// Supabase recommended options can be set directly in the .env DATABASE_URL string by the user.
 let url = process.env.DATABASE_URL;
 
-// We optionally append limits ONLY IF they are NOT already set in the env var, leaving control to deployment.
+// Append connection pool limits if not already configured in DATABASE_URL
 if (url && !url.includes('connection_limit')) {
-  // A more generous limit for the long-running process, but Vercel can manage its own endpoints.
   const defaultLimit = process.env.PRISMA_CONNECTION_LIMIT || '15';
   url += (url.includes('?') ? '&' : '?') + `connection_limit=${defaultLimit}&pool_timeout=30`;
 }

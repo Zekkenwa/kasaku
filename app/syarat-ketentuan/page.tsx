@@ -92,8 +92,49 @@ export default function TermsConditionsPage() {
                         </ul>
                     </section>
 
-                    {/* 5. Privasi & Komitmen Kami (Special Card) */}
-                    <section className="animate-fade-in-up delay-500 my-10 relative group">
+                    {/* 5. Penggunaan AI */}
+                    <section className="animate-fade-in-up delay-500">
+                        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                            <span className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold">5</span>
+                            Penggunaan Data untuk Fitur AI
+                        </h2>
+                        <p className="mb-4">
+                            Kasaku menggunakan <strong>Google Gemini AI</strong> untuk memproses pesan WhatsApp Anda secara otomatis menjadi pencatatan transaksi keuangan. Berikut penjelasan lengkap mengenai bagaimana data Anda diolah:
+                        </p>
+                        <ul className="grid gap-3 mb-4">
+                            <li className="bg-[#252525] p-4 rounded-xl border border-white/5 flex gap-3">
+                                <span className="text-lg">🤖</span>
+                                <div>
+                                    <strong className="text-white block text-sm mb-1">Pemrosesan Real-Time</strong>
+                                    <span className="text-xs text-neutral-400">Setiap pesan yang Anda kirim ke bot WhatsApp Kasaku dikirim ke Google Gemini API untuk dianalisis dan dikonversi menjadi data transaksi terstruktur (jumlah, kategori, dompet, dsb). Proses ini terjadi secara instan dan tidak disimpan di server Google.</span>
+                                </div>
+                            </li>
+                            <li className="bg-[#252525] p-4 rounded-xl border border-white/5 flex gap-3">
+                                <span className="text-lg">🚫</span>
+                                <div>
+                                    <strong className="text-white block text-sm mb-1">Tidak untuk Training</strong>
+                                    <span className="text-xs text-neutral-400">Data pesan Anda <strong>TIDAK</strong> digunakan oleh Google untuk melatih (training) model AI mereka. Kasaku menggunakan Gemini API secara berbayar (paid tier), yang secara eksplisit menjamin data pengguna tidak disimpan atau digunakan untuk peningkatan model.</span>
+                                </div>
+                            </li>
+                            <li className="bg-[#252525] p-4 rounded-xl border border-white/5 flex gap-3">
+                                <span className="text-lg">📋</span>
+                                <div>
+                                    <strong className="text-white block text-sm mb-1">Data yang Dikirim</strong>
+                                    <span className="text-xs text-neutral-400">Hanya <em>isi pesan teks</em> Anda yang dikirim ke AI. Kami tidak mengirimkan nomor telepon, identitas pribadi, atau riwayat transaksi historis Anda ke Google. Sistem AI hanya menerima satu pesan per request tanpa konteks percakapan sebelumnya.</span>
+                                </div>
+                            </li>
+                            <li className="bg-[#252525] p-4 rounded-xl border border-white/5 flex gap-3">
+                                <span className="text-lg">💾</span>
+                                <div>
+                                    <strong className="text-white block text-sm mb-1">Penyimpanan Hasil</strong>
+                                    <span className="text-xs text-neutral-400">Hasil parsing AI (berupa data transaksi terstruktur) disimpan di database Kasaku yang terenkripsi. Pesan WhatsApp asli Anda tidak disimpan di server kami setelah diproses.</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    {/* 6. Privasi & Komitmen Kami (Special Card) */}
+                    <section className="animate-fade-in-up delay-[600ms] my-10 relative group">
                         <div className="absolute inset-0 bg-brand-green/20 rounded-3xl blur-xl group-hover:bg-brand-green/30 transition-colors" />
                         <div className="relative bg-[#0F291E] p-8 rounded-3xl border border-brand-green/30 overflow-hidden">
                             <div className="absolute top-0 right-0 p-8 opacity-10">
@@ -127,20 +168,27 @@ export default function TermsConditionsPage() {
                                     </div>
                                     <span className="text-sm text-brand-green/90">Data Anda dilindungi enkripsi AES-256 untuk menjamin kerahasiaan maksimal.</span>
                                 </li>
+                                <li className="flex gap-3 items-start">
+                                    <div className="w-5 h-5 rounded-full bg-brand-green flex items-center justify-center mt-0.5 shrink-0">
+                                        <svg className="w-3 h-3 text-[#0F291E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                    <span className="text-sm text-brand-green/90">Pesan WhatsApp Anda <strong>tidak disimpan</strong> setelah diproses oleh AI dan <strong>tidak digunakan untuk training model</strong>.</span>
+                                </li>
                             </ul>
                         </div>
                     </section>
 
-                    {/* 6. Hak Pengguna */}
+                    {/* 7. Hak Pengguna */}
                     <section className="animate-fade-in-up delay-700">
                         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                            <span className="w-8 h-8 rounded-lg bg-brand-red/20 text-brand-red flex items-center justify-center text-sm font-bold">6</span>
+                            <span className="w-8 h-8 rounded-lg bg-brand-red/20 text-brand-red flex items-center justify-center text-sm font-bold">7</span>
                             Hak Anda (Kontrol Penuh)
                         </h2>
                         <ul className="list-disc pl-5 space-y-2 text-neutral-400 marker:text-brand-red">
                             <li>Mengakses dan melihat seluruh riwayat transaksi Anda kapan saja.</li>
                             <li>Mengubah atau menghapus data transaksi tertentu.</li>
                             <li><strong>Menghapus Akun:</strong> Anda dapat meminta penghapusan akun serta seluruh data terkait secara permanen melalui menu Pengaturan di aplikasi.</li>
+                            <li><strong>Opt-out AI:</strong> Anda dapat berhenti menggunakan fitur bot WhatsApp kapan saja tanpa kehilangan akses ke dashboard web.</li>
                         </ul>
                     </section>
 

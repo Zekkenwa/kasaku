@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-// Badge definitions based on Implementation Plan
+/** Badge definitions with code, display name, unlock threshold, and difficulty level. */
 export const BADGE_DEFINITIONS = [
     { code: "STARTER", name: "The Starter", description: "First transaction ever.", maxProgress: 1, level: 1 },
     { code: "WEEK_WARRIOR", name: "Week Warrior", description: "7-day streak.", maxProgress: 7, level: 1 },
@@ -31,8 +31,11 @@ export interface GamificationResult {
     unlockedMessages: string[];
 }
 
+/**
+ * Processes a gamification tick for a user: updates streaks, freeze days,
+ * calculates financial health score, and evaluates badge progress.
+ */
 export async function processGamificationTick(userId: string): Promise<GamificationResult | null> {
-    // 1. Fetch User Engagement
     let engagement = await prisma.userEngagement.findUnique({ where: { userId } });
     if (!engagement) {
         engagement = await prisma.userEngagement.create({
@@ -42,11 +45,9 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
         const unlockedMessages = await evaluateBadges(userId, { newStreak: 1, usedFreeze: false, score: 50, income: 0, expense: 0 });
         return { newStreak: 1, newFreeze: 7, healthScore: 50, unlockedMessages };
     } else {
-        // 2. Process Streak & Freezes
         const now = new Date();
         const lastDate = engagement.lastLogDate || new Date(0);
 
-        // Normalize to start of day
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const lastLog = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
 
@@ -65,11 +66,9 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
 
         if (txToday) {
             if (diffDays === 1) {
-                // Perfect, logged yesterday
                 newStreak += 1;
                 newLastLog = now;
             } else if (diffDays > 1) {
-                // Missed days
                 const missedDays = diffDays - 1;
                 if (newFreeze >= missedDays) {
                     newFreeze -= missedDays;
@@ -77,30 +76,24 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
                     usedFreeze = true;
                     newLastLog = now;
                 } else {
-                    // Streak broken
                     newStreak = 1;
                     newLastLog = now;
                 }
             } else if (diffDays === 0 && !engagement.lastLogDate) {
-                // First ever
                 newStreak = 1;
                 newLastLog = now;
             }
 
             if (newStreak > newHighest) newHighest = newStreak;
 
-            // Check Freeze Day Cap
             if (diffDays >= 1 && newStreak % 7 === 0) {
                 newFreeze = Math.min(30, newFreeze + 1);
             }
         }
 
-        // 3. Process Health Score
-        // Calculate Health Score
-        // 30% Savings, 30% Budget, 20% Debt, 20% Goals
-        let score = 50; // Base score
+        // Health Score: 30% Savings + 30% Budget + 20% Debt + 20% Goals
+        let score = 50;
 
-        // Fetch Month Data
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const txs = await prisma.transaction.findMany({
             where: { userId, createdAt: { gte: startOfMonth } }
@@ -109,7 +102,7 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
         const income = txs.filter((t: any) => t.type === 'INCOME').reduce((sum: number, t: any) => sum + t.amount, 0);
         const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((sum: number, t: any) => sum + t.amount, 0);
 
-        // Savings Rate (30)
+        // Savings Rate (+30 points max)
         if (income > 0) {
             const savingsRate = ((income - expense) / income) * 100;
             if (savingsRate > 20) score += 30;
@@ -117,7 +110,7 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
             else if (savingsRate < 0) score -= 10;
         }
 
-        // Budgets (30)
+        // Budget Adherence (+30 points max)
         const budgets = await prisma.budget.findMany({ where: { userId } });
         if (budgets.length > 0) {
             let overBudgetCount = 0;
@@ -129,13 +122,13 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
             else if ((overBudgetCount / budgets.length) >= 0.5) score -= 10;
         }
 
-        // Debt (20)
+        // Debt Load (-15 penalty or +20 bonus)
         const loans = await prisma.loan.findMany({ where: { userId, status: 'ONGOING' } });
         let totalDebt = loans.filter((l: any) => l.type === 'PAYABLE').reduce((s: number, l: any) => s + l.amount, 0);
         if (totalDebt === 0) score += 20;
         else if (income > 0 && totalDebt > (income * 0.3)) score -= 15;
 
-        // Goals (20)
+        // Goal Progress (+20 points)
         const goals = await prisma.goal.findMany({ where: { userId } });
         const fundedGoalsThisMonth = await prisma.botActionHistory.findFirst({
             where: { userId, action: 'FUND_GOAL', createdAt: { gte: startOfMonth } }
@@ -151,7 +144,6 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
             data: { currentStreak: newStreak, highestStreak: newHighest, freezeDays: newFreeze, lastLogDate: newLastLog, healthScore: score }
         });
 
-        // 4. Evaluate Badges Engine
         const unlockedMessages = await evaluateBadges(userId, { newStreak, usedFreeze, score, income, expense });
 
         return {
@@ -163,13 +155,16 @@ export async function processGamificationTick(userId: string): Promise<Gamificat
     }
 }
 
+/**
+ * Evaluates all badge definitions against the user's current progress
+ * and unlocks any newly achieved badges.
+ */
 async function evaluateBadges(userId: string, context: any): Promise<string[]> {
     const existingBadges = await prisma.badge.findMany({ where: { userId } });
     const badgeMap = new Map<string, any>(existingBadges.map((b: any) => [b.code, b]));
 
     const unlockedMessages: string[] = [];
 
-    // Helper to evaluate
     const checkBadge = async (code: string, currentProgress: number) => {
         const def = BADGE_DEFINITIONS.find(d => d.code === code);
         if (!def) return;
@@ -201,10 +196,7 @@ async function evaluateBadges(userId: string, context: any): Promise<string[]> {
     await checkBadge('HABIT_BUILDER', context.newStreak);
     await checkBadge('UNSTOPPABLE', context.newStreak);
 
-    // 5-7. WEALTH (SAVERS_CLUB, MILLIONAIRE_MINDSET, WHALE)
-    const allWallets = await prisma.wallet.findMany({ where: { userId } });
-    const totalBalance = allWallets.reduce((sum, w) => sum + w.initialBalance, 0); // Assuming initialBalance acts as current balance for simplicity here, though actual balance needs tx calculation. For badges, we use the engagement's context if possible, but calculating full net worth here is heavy. Let's use total income as of this month for a proxy, or just wallet balances if tracked. Wait, let's just use `context.income - context.expense` for the month as progress, or a lifetime sum.
-    // Better: sum of all INCOME txs - sum of all EXPENSE txs
+    // Wealth badges: net lifetime savings
     const lifetimeIncome = await prisma.transaction.aggregate({ where: { userId, type: 'INCOME' }, _sum: { amount: true } });
     const lifetimeExpense = await prisma.transaction.aggregate({ where: { userId, type: 'EXPENSE' }, _sum: { amount: true } });
     const netWealth = (lifetimeIncome._sum.amount || 0) - (lifetimeExpense._sum.amount || 0);
@@ -212,46 +204,46 @@ async function evaluateBadges(userId: string, context: any): Promise<string[]> {
     await checkBadge('MILLIONAIRE_MINDSET', netWealth);
     await checkBadge('WHALE', netWealth);
 
-    // 8-9. BUDGETS
+    // Budget badges
     const budgetCount = await prisma.budget.count({ where: { userId } });
-    await checkBadge('BUDGET_MASTER', budgetCount > 0 ? 1 : 0); // Simplified
-    await checkBadge('BUDGET_GOD', budgetCount >= 3 ? 3 : budgetCount); // Simplified
+    await checkBadge('BUDGET_MASTER', budgetCount > 0 ? 1 : 0);
+    await checkBadge('BUDGET_GOD', budgetCount >= 3 ? 3 : budgetCount);
     await checkBadge('THE_PLANNER', budgetCount);
 
-    // 10-11. DEBT & TRUST
+    // Debt & trust badges
     const receivableCount = await prisma.loan.count({ where: { userId, type: 'RECEIVABLE' } });
     await checkBadge('TRUSTWORTHY', receivableCount);
 
     const payableCount = await prisma.loan.count({ where: { userId, type: 'PAYABLE', status: 'ONGOING' } });
     await checkBadge('DEBT_FREE', (payableCount === 0 && txCount > 0) ? 1 : 0);
 
-    // 12-13. GOALS
+    // Goal badges
     const goalCount = await prisma.goal.count({ where: { userId } });
     await checkBadge('GOAL_SETTER', goalCount);
-    const achievedGoal = await prisma.goal.findFirst({ where: { userId, currentAmount: { gte: 1 /* simplified check */ } } }); // Need raw query to compare columns, but let's just check if any goal exists and has currentAmount > 0 for now, or fetch all and check.
+    const achievedGoal = await prisma.goal.findFirst({ where: { userId, currentAmount: { gte: 1 } } });
     const allGoals = await prisma.goal.findMany({ where: { userId } });
     const hasAchievedGoal = allGoals.some((g: any) => g.currentAmount >= g.targetAmount);
     await checkBadge('GOAL_ACHIEVER', hasAchievedGoal ? 1 : 0);
 
-    // 14. ROUTINE
+    // Routine badge
     const routineCount = await prisma.recurringTransaction.count({ where: { userId } });
     await checkBadge('CONSISTENT_AUTOMATOR', routineCount);
 
-    // 17. GENEROUS
+    // Generosity badge
     const generousTxs = await prisma.transaction.count({ where: { userId, type: 'EXPENSE', category: { name: { contains: 'Transfer', mode: 'insensitive' } } } });
     await checkBadge('GENEROUS', generousTxs);
 
-    // 19. RESILIENT
+    // Resilience badge
     if (context.usedFreeze) await checkBadge('RESILIENT', 1);
 
-    // 20. FINANCIAL GURU
+    // Financial Guru badge
     await checkBadge('FINANCIAL_GURU', context.score);
 
-    // AI Whisperer
+    // AI usage badge
     const aiTx = await prisma.botActionHistory.count({ where: { userId, action: 'CREATE_TRANSACTIONS' } });
     await checkBadge('AI_WHISPERER', aiTx);
 
-    // Big Spender
+    // Big Spender badge
     const maxTx = await prisma.transaction.findFirst({ where: { userId, type: 'EXPENSE' }, orderBy: { amount: 'desc' } });
     await checkBadge('BIG_SPENDER', maxTx ? maxTx.amount : 0);
 
