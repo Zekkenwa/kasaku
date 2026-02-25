@@ -12,6 +12,7 @@ type Props = {
 
 export default function ChangePasswordModal({ isOpen, onClose, email, phone }: Props) {
     const [step, setStep] = useState<"REQUEST" | "VERIFY">("REQUEST");
+    const [inputPhone, setInputPhone] = useState("");
     const [otp, setOtp] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -28,7 +29,23 @@ export default function ChangePasswordModal({ isOpen, onClose, email, phone }: P
 
     if (!isOpen) return null;
 
-    const requestOtp = async () => {
+    const requestOtp = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+
+        if (!inputPhone) {
+            setError("Mohon masukkan nomor WhatsApp Anda");
+            return;
+        }
+
+        // Validate that the manually entered phone matches the one in DB
+        // We do a simple string match. If user enters "0812..." instead of "62812...", we normalize or just strictly check.
+        // But for security, let's strictly check:
+        const fullPhone = "62" + inputPhone;
+        if (fullPhone !== phone) {
+            setError("Nomor WhatsApp tidak cocok dengan yang terdaftar di akun ini");
+            return;
+        }
+
         setLoading(true);
         setError("");
         try {
@@ -113,14 +130,32 @@ export default function ChangePasswordModal({ isOpen, onClose, email, phone }: P
                 )}
 
                 {step === "REQUEST" ? (
-                    <div className="space-y-4">
-                        <div className="p-4 bg-black/20 rounded-xl border border-white/5">
-                            <p className="text-xs text-neutral-500 uppercase font-bold mb-1">Nomor WhatsApp</p>
-                            <p className="text-white font-mono">{phone || "Belum terdaftar"}</p>
+                    <form onSubmit={requestOtp} className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] text-neutral-500 uppercase font-black ml-1">Ketik Nomor WhatsApp Terdaftar</label>
+                            <div className="relative">
+                                <span className="absolute left-4 top-3.5 text-neutral-500 font-mono">+62</span>
+                                <input
+                                    type="tel"
+                                    value={inputPhone}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, "");
+                                        if (val.startsWith("62")) val = val.substring(2);
+                                        else if (val.startsWith("0")) val = val.substring(1);
+                                        setInputPhone(val);
+                                        if (error) setError("");
+                                    }}
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white font-mono focus:border-[#458B73] outline-none transition-colors"
+                                    placeholder="812345678"
+                                    required
+                                    autoComplete="off"
+                                />
+                            </div>
+                            <p className="text-[10px] text-neutral-500 italic px-1">Demi keamanan, ketik nomor yang terdaftar di akun ini secara manual (awalan 62).</p>
                         </div>
                         <button
-                            onClick={requestOtp}
-                            disabled={loading || !phone}
+                            type="submit"
+                            disabled={loading || !inputPhone}
                             className="w-full py-3 bg-[#458B73] hover:bg-[#3aa381] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#458B73]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {loading ? (
@@ -135,7 +170,7 @@ export default function ChangePasswordModal({ isOpen, onClose, email, phone }: P
                                 "Kirim Kode OTP"
                             )}
                         </button>
-                    </div>
+                    </form>
                 ) : (
                     <form onSubmit={submitPassword} className="space-y-4">
                         <div>

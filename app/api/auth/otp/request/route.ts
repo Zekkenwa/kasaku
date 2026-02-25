@@ -1,7 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendEmailOTP } from "@/lib/email";
+import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
 
 export async function POST(req: Request) {
@@ -60,10 +60,11 @@ export async function POST(req: Request) {
     // 4. Update Rate Limit Stats
     await updateOtpRateLimit(user);
 
-    // 4. Send OTP via Email
-    const sent = await sendEmailOTP(user.email, otpCode);
-    if (!sent) {
-        return NextResponse.json({ error: "Gagal mengirim OTP ke email. Silakan coba beberapa saat lagi." }, { status: 503 });
+    // 4. Send OTP via WhatsApp
+    try {
+        await sendWhatsAppOTP(cleanPhone, otpCode);
+    } catch (e) {
+        return NextResponse.json({ error: "Gagal mengirim OTP ke WhatsApp. Silakan coba beberapa saat lagi." }, { status: 503 });
     }
 
     return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });

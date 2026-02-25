@@ -63,7 +63,8 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
 
     const handleRequestOldOtp = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        const data = await apiCall("request_old_otp", { oldPhone: oldPhoneInput });
+        const fullOldPhone = "62" + oldPhoneInput;
+        const data = await apiCall("request_old_otp", { oldPhone: fullOldPhone });
         if (data) {
             setStep("OLD_VERIFY");
             setCountdown(60);
@@ -82,7 +83,8 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
 
     const handleRequestNewOtp = async (e: React.FormEvent) => {
         e.preventDefault();
-        const data = await apiCall("request_new_otp", { newPhone });
+        const fullNewPhone = "62" + newPhone;
+        const data = await apiCall("request_new_otp", { newPhone: fullNewPhone });
         if (data) {
             setStep("NEW_VERIFY");
             setCountdown(60);
@@ -152,16 +154,24 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
                     <form onSubmit={handleRequestOldOtp} className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-[10px] text-neutral-500 uppercase font-black ml-1">Verifikasi Nomor Lama</label>
-                            <input
-                                type="tel"
-                                value={oldPhoneInput}
-                                onChange={(e) => setOldPhoneInput(e.target.value.replace(/\D/g, ""))}
-                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-4 text-white font-mono text-lg focus:border-[#458B73] outline-none"
-                                placeholder="Masukkan nomor WhatsApp lama"
-                                required
-                                autoComplete="off"
-                            />
-                            <p className="text-[10px] text-neutral-500 italic px-1">Demi keamanan, masukkan nomor WhatsApp yang terdaftar saat ini secara manual.</p>
+                            <div className="relative">
+                                <span className="absolute left-4 top-3.5 text-neutral-500 font-mono">+62</span>
+                                <input
+                                    type="tel"
+                                    value={oldPhoneInput}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, "");
+                                        if (val.startsWith("62")) val = val.substring(2);
+                                        else if (val.startsWith("0")) val = val.substring(1);
+                                        setOldPhoneInput(val);
+                                    }}
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white font-mono focus:border-[#458B73] outline-none transition-colors"
+                                    placeholder="812345678"
+                                    required
+                                    autoComplete="off"
+                                />
+                            </div>
+                            <p className="text-[10px] text-neutral-500 italic px-1">Demi keamanan, ketik nomor yang terdaftar di akun ini secara manual.</p>
                         </div>
                         <button
                             type="submit"
@@ -207,14 +217,22 @@ export default function PhoneChangeModal({ isOpen, onClose, currentPhone, onSucc
                     <form onSubmit={handleRequestNewOtp} className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-[10px] text-neutral-500 uppercase font-black ml-1">Nomor WhatsApp Baru</label>
-                            <input
-                                type="tel"
-                                value={newPhone}
-                                onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, ""))}
-                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-4 text-white font-mono text-lg focus:border-[#458B73] outline-none"
-                                placeholder="628123456789"
-                                required
-                            />
+                            <div className="relative">
+                                <span className="absolute left-4 top-3.5 text-neutral-500 font-mono">+62</span>
+                                <input
+                                    type="tel"
+                                    value={newPhone}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, "");
+                                        if (val.startsWith("62")) val = val.substring(2);
+                                        else if (val.startsWith("0")) val = val.substring(1);
+                                        setNewPhone(val);
+                                    }}
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white font-mono focus:border-[#458B73] outline-none transition-colors"
+                                    placeholder="812345678"
+                                    required
+                                />
+                            </div>
                         </div>
                         <button
                             type="submit"

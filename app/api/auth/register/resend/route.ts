@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendEmailOTP } from "@/lib/email";
+import { sendWhatsAppOTP } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
 
 export async function POST(req: Request) {
@@ -41,10 +41,25 @@ export async function POST(req: Request) {
         // 2. Update Rate Limit Stats
         await updateOtpRateLimit(user);
 
-        // Send OTP via Email
-        const sent = await sendEmailOTP(email, otpCode);
+        // Send OTP via WhatsApp
+        let phoneToSend = user.tempPhone || user.phone;
+        if (!phoneToSend) {
+            return NextResponse.json({ error: "Nomor WhatsApp tidak ditemukan pada akun ini." }, { status: 400 });
+        }
+
+        // Decrypt if necessary. If it starts with 62 or 08 it's probably unencrypted.
+        if (phoneToSend.length > 20) {
+            try {
+                const { decrypt } = require("@/lib/encryption");
+                phoneToSend = decrypt(phoneToSend);
+            } catch (e) {
+                // Ignore decryption error, fallback to raw
+            }
+        }
+
+        const sent = await sendWhatsAppOTP(phoneToSend as string, otpCode);
         if (!sent) {
-            return NextResponse.json({ error: "Gagal mengirim OTP ke email. Silakan coba beberapa saat lagi." }, { status: 503 });
+            return NextResponse.json({ error: "Gagal mengirim OTP ke WhatsApp. Silakan coba beberapa saat lagi." }, { status: 503 });
         }
 
         return NextResponse.json({ success: true });

@@ -48,15 +48,16 @@ export default function LoginPage() {
   const requestOtp = async () => {
     if (isLoading) return;
 
+    const fullPhone = "62" + phone;
     // Check if user exists before sending OTP
-    const exists = await checkUser(phone);
+    const exists = await checkUser(fullPhone);
     if (!exists) return; // Stop if user not found
 
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/otp/request", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ phone: fullPhone })
       });
       const data = await res.json();
       if (res.ok) {
@@ -230,15 +231,21 @@ export default function LoginPage() {
                   <div>
                     <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Nomor WhatsApp Aktif</label>
                     <div className="relative">
-                      <span className="absolute left-4 top-3.5 text-neutral-500 text-sm">📱</span>
+                      <span className="absolute left-4 top-3.5 text-neutral-500 font-mono">+62</span>
                       <input
-                        type="text"
+                        type="tel"
                         value={phone}
-                        onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "")); setUserNotFound(false); }}
-                        onBlur={() => checkUser(phone)}
-                        placeholder="Contoh: 628123456789"
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/\D/g, "");
+                          if (val.startsWith("62")) val = val.substring(2);
+                          else if (val.startsWith("0")) val = val.substring(1);
+                          setPhone(val);
+                          setUserNotFound(false);
+                        }}
+                        onBlur={() => checkUser("62" + phone)}
+                        placeholder="812345678"
                         required
-                        className={`w-full pl-11 pr-4 py-3 rounded-xl bg-[#1a1a1a] border text-white placeholder-neutral-600 focus:outline-none focus:ring-2 transition-all ${userNotFound ? 'border-red-500 focus:ring-red-500/50' : 'border-white/5 focus:ring-brand-green/50 focus:border-brand-green/50'}`}
+                        className={`w-full pl-12 pr-4 py-3 rounded-xl bg-[#1a1a1a] border text-white font-mono placeholder-neutral-600 focus:outline-none focus:ring-2 transition-all ${userNotFound ? 'border-red-500 focus:ring-red-500/50' : 'border-white/5 focus:ring-brand-green/50 focus:border-brand-green/50'}`}
                       />
                     </div>
                     {userNotFound && (
@@ -269,7 +276,8 @@ export default function LoginPage() {
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   setIsLoading(true);
-                  const result = await signIn("credentials", { phone, otp, redirect: false });
+                  const fullPhone = "62" + phone;
+                  const result = await signIn("credentials", { phone: fullPhone, otp, redirect: false });
                   setIsLoading(false);
                   if (result?.ok) {
                     router.replace("/dashboard");
@@ -278,7 +286,7 @@ export default function LoginPage() {
                   }
                 }}>
                   <div className="text-center mb-6">
-                    <p className="text-sm text-neutral-400">Kode OTP terkirim ke <strong className="text-white">{phone}</strong></p>
+                    <p className="text-sm text-neutral-400">Kode OTP terkirim ke <strong className="text-white">+62 {phone}</strong></p>
                     <div className="flex gap-4 justify-center mt-3">
                       <button type="button" onClick={() => { setOtpSent(false); setUserNotFound(false); }} className="text-xs text-neutral-500 hover:text-white underline transition-colors">Ubah Nomor</button>
                       <button

@@ -33,10 +33,11 @@ export default function EmailChangeModal({ isOpen, onClose, currentEmail, phone 
         setLoading(true);
         setError("");
         try {
+            const fullPhone = "62" + inputPhone;
             const res = await fetch("/api/account/email/change", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "request_otp", phone: inputPhone }),
+                body: JSON.stringify({ action: "request_otp", phone: fullPhone }),
             });
             const data = await res.json();
             if (res.ok) {
@@ -117,14 +118,22 @@ export default function EmailChangeModal({ isOpen, onClose, currentEmail, phone 
                     <div className="space-y-4">
                         <div>
                             <label className="block text-[10px] font-black text-neutral-500 uppercase mb-2 ml-1">Konfirmasi Nomor WhatsApp</label>
-                            <input
-                                type="tel"
-                                value={inputPhone}
-                                onChange={(e) => setInputPhone(e.target.value.replace(/\D/g, ""))}
-                                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-[#458B73] transition-colors"
-                                placeholder="628123456789"
-                                required
-                            />
+                            <div className="relative">
+                                <span className="absolute left-4 top-3.5 text-neutral-500 font-mono">+62</span>
+                                <input
+                                    type="tel"
+                                    value={inputPhone}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, "");
+                                        if (val.startsWith("62")) val = val.substring(2);
+                                        else if (val.startsWith("0")) val = val.substring(1);
+                                        setInputPhone(val);
+                                    }}
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-[#458B73] transition-colors"
+                                    placeholder="812345678"
+                                    required
+                                />
+                            </div>
                             <p className="text-[10px] text-neutral-500 mt-2 ml-1">Masukkan nomor WhatsApp Anda untuk menerima OTP.</p>
                         </div>
                         <button

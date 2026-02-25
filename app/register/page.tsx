@@ -50,17 +50,18 @@ export default function RegisterPage() {
         }
 
         // Basic Validation
-        if (!phone.startsWith("62") || phone.length < 10) {
-            setError("Nomor WhatsApp harus berawalan 62 dan minimal 10 digit");
+        if (phone.length < 8) {
+            setError("Nomor WhatsApp belum lengkap");
             setLoading(false);
             return;
         }
 
+        const fullPhone = "62" + phone;
         try {
             const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password, phone })
+                body: JSON.stringify({ name, email, password, phone: fullPhone })
             });
 
             const data = await res.json();
@@ -146,7 +147,9 @@ export default function RegisterPage() {
     };
 
     const handlePhoneChange = async (val: string) => {
-        const p = val.replace(/\D/g, "");
+        let p = val.replace(/\D/g, "");
+        if (p.startsWith("62")) p = p.substring(2);
+        else if (p.startsWith("0")) p = p.substring(1);
         setPhone(p);
 
         // Clear error immediately if it was about phone already registered
@@ -158,7 +161,7 @@ export default function RegisterPage() {
             // Check duplicate (debounce ideally, but simple for now)
             const res = await fetch("/api/auth/check-phone", {
                 method: "POST",
-                body: JSON.stringify({ phone: p })
+                body: JSON.stringify({ phone: "62" + p })
             });
             const data = await res.json();
             if (data.exists) {
@@ -190,7 +193,7 @@ export default function RegisterPage() {
                     {step === "form" ? (
                         <form onSubmit={handleRegister} className="space-y-5">
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Nama Lengkap</label>
+                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Nama</label>
                                 <div className="relative">
                                     <span className="absolute left-4 top-3.5 text-neutral-500">👤</span>
                                     <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green/50 transition-all" placeholder="Nama Anda" />
@@ -245,14 +248,14 @@ export default function RegisterPage() {
                             <div>
                                 <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Nomor WhatsApp</label>
                                 <div className="relative">
-                                    <span className="absolute left-4 top-3.5 text-neutral-500">📱</span>
+                                    <span className="absolute left-4 top-3.5 text-neutral-500 font-mono">+62</span>
                                     <input
                                         required
-                                        type="text"
+                                        type="tel"
                                         value={phone}
                                         onChange={e => handlePhoneChange(e.target.value)}
-                                        className={`w-full pl-11 pr-4 py-3 rounded-xl bg-[#1a1a1a] border text-white placeholder-neutral-600 focus:outline-none focus:ring-2 transition-all ${error?.includes("terdaftar") ? "border-red-500 focus:ring-red-500/50" : "border-white/5 focus:ring-brand-green/50 focus:border-brand-green/50"}`}
-                                        placeholder="62812..."
+                                        className={`w-full pl-12 pr-4 py-3 rounded-xl bg-[#1a1a1a] border text-white font-mono placeholder-neutral-600 focus:outline-none focus:ring-2 transition-all ${error?.includes("terdaftar") ? "border-red-500 focus:ring-red-500/50" : "border-white/5 focus:ring-brand-green/50 focus:border-brand-green/50"}`}
+                                        placeholder="812345678"
                                     />
                                 </div>
                                 <p className="text-[10px] text-neutral-500 mt-2 ml-1">Kode OTP akan dikirim ke nomor ini.</p>
@@ -261,7 +264,7 @@ export default function RegisterPage() {
                             <div className="flex items-center gap-3 px-1">
                                 <input required type="checkbox" id="terms" className="w-4 h-4 rounded bg-[#1a1a1a] border-white/10 text-brand-green focus:ring-brand-green/50 cursor-pointer" />
                                 <label htmlFor="terms" className="text-[10px] text-neutral-500 font-black uppercase tracking-widest cursor-pointer">
-                                    Saya setuju dengan <Link href="/terms" className="text-brand-green hover:underline">Ketentuan</Link> & <Link href="/privacy" className="text-brand-green hover:underline">Privasi</Link>
+                                    Saya setuju dengan <Link href="https://kasaku.vercel.app/syarat-ketentuan" target="_blank" rel="noopener noreferrer" className="text-brand-green hover:underline">Ketentuan & Privasi</Link>
                                 </label>
                             </div>
 
@@ -301,7 +304,7 @@ export default function RegisterPage() {
                         <form onSubmit={handleVerifyOtp} className="space-y-6">
                             <div className="text-center">
                                 <p className="text-sm text-neutral-400 mb-6">
-                                    Masukkan kode 6 digit yang dikirim ke <strong className="text-white">{phone}</strong>
+                                    Masukkan kode 6 digit yang dikirim ke <strong className="text-white">+62 {phone}</strong>
                                 </p>
                                 <input
                                     required

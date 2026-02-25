@@ -57,14 +57,11 @@ export async function POST(req: Request) {
         // 4b. Create Default Categories
         await prisma.category.createMany({
             data: [
-                { userId: user.id, name: "Makan & Minum", type: "EXPENSE" },
-                { userId: user.id, name: "Transportasi", type: "EXPENSE" },
-                { userId: user.id, name: "Belanja", type: "EXPENSE" },
-                { userId: user.id, name: "Hiburan", type: "EXPENSE" },
-                { userId: user.id, name: "Tagihan", type: "EXPENSE" },
+                { userId: user.id, name: "Kebutuhan", type: "EXPENSE" },
+                { userId: user.id, name: "Jajan", type: "EXPENSE" },
+                { userId: user.id, name: "Makan", type: "EXPENSE" },
                 { userId: user.id, name: "Lainnya", type: "EXPENSE" },
-                { userId: user.id, name: "Gaji", type: "INCOME" },
-                { userId: user.id, name: "Bonus", type: "INCOME" },
+                { userId: user.id, name: "Gaji/Komisi", type: "INCOME" },
                 { userId: user.id, name: "Lainnya", type: "INCOME" },
             ]
         });

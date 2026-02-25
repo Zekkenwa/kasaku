@@ -7,9 +7,11 @@ import Link from "next/link";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import EmailChangeModal from "@/components/EmailChangeModal";
 import PhoneChangeModal from "@/components/PhoneChangeModal";
+import NameChangeModal from "@/components/NameChangeModal";
 
 type User = {
   name: string | null;
+  lastUsernameChangeAt?: string | null;
   email: string | null;
   phone: string | null;
   image: string | null;
@@ -28,6 +30,7 @@ export default function AccountSettingsClient({ user }: { user: User }) {
 
   // Privacy States
   const [showEmail, setShowEmail] = useState(false);
+  const [isNameChangeOpen, setIsNameChangeOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isEmailChangeOpen, setIsEmailChangeOpen] = useState(false);
   const [isPhoneChangeOpen, setIsPhoneChangeOpen] = useState(false);
@@ -124,10 +127,28 @@ export default function AccountSettingsClient({ user }: { user: User }) {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Nama Lengkap</label>
+                <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Nama</label>
                 <div className="flex justify-between items-center group">
                   <span className="text-neutral-200 font-medium">{user.name}</span>
-                  <button className="text-xs text-[#458B73] opacity-0 group-hover:opacity-100 transition-opacity hover:underline">Edit</button>
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      if (!user.lastUsernameChangeAt) return null;
+                      const lastChange = new Date(user.lastUsernameChangeAt);
+                      const now = new Date();
+                      const daysPassed = Math.floor((now.getTime() - lastChange.getTime()) / (1000 * 60 * 60 * 24));
+                      const daysLeft = 7 - daysPassed;
+
+                      if (daysLeft > 0) {
+                        return (
+                          <span className="text-[10px] font-mono bg-[#458B73]/10 text-[#458B73] px-2 py-0.5 rounded-md border border-[#458B73]/20">
+                            Bisa diubah dalam {daysLeft} hari
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <button onClick={() => setIsNameChangeOpen(true)} className="text-xs text-[#458B73] opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:underline">Edit</button>
+                  </div>
                 </div>
               </div>
               <div className="h-px bg-white/5" />
@@ -135,14 +156,14 @@ export default function AccountSettingsClient({ user }: { user: User }) {
               {/* Email with Masking */}
               <div>
                 <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Email</label>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center group">
                   <span className="text-neutral-200 font-medium font-mono">
                     {showEmail ? user.email : maskEmail(user.email)}
                   </span>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setIsEmailChangeOpen(true)}
-                      className="text-xs text-[#458B73] hover:underline"
+                      className="text-xs text-[#458B73] opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:underline"
                     >
                       Edit
                     </button>
@@ -202,7 +223,7 @@ export default function AccountSettingsClient({ user }: { user: User }) {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setIsPhoneChangeOpen(true)}
-                      className="text-xs text-[#458B73] hover:underline"
+                      className="text-xs text-[#458B73] opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:underline"
                     >
                       Edit
                     </button>
@@ -298,6 +319,13 @@ export default function AccountSettingsClient({ user }: { user: User }) {
         isOpen={isPhoneChangeOpen}
         onClose={() => setIsPhoneChangeOpen(false)}
         currentPhone={user.phone}
+      />
+
+      <NameChangeModal
+        isOpen={isNameChangeOpen}
+        onClose={() => setIsNameChangeOpen(false)}
+        currentName={user.name || ""}
+        lastChangeAt={user.lastUsernameChangeAt}
       />
     </div>
   );

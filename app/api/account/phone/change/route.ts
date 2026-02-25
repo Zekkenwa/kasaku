@@ -34,7 +34,15 @@ export async function POST(request: Request) {
         if (!oldPhone) return NextResponse.json({ error: "Nomor WhatsApp lama diperlukan." }, { status: 400 });
 
         const cleanOld = oldPhone.replace(/\D/g, "");
-        const cleanCurrent = user.phone.replace(/\D/g, "");
+
+        let cleanCurrent = "";
+        try {
+            const { decrypt } = require("@/lib/encryption");
+            const decryptedPhone = decrypt(user.phone);
+            cleanCurrent = decryptedPhone.replace(/\D/g, "");
+        } catch (e) {
+            cleanCurrent = user.phone.replace(/\D/g, "");
+        }
 
         if (cleanOld !== cleanCurrent) {
             return NextResponse.json({ error: "Nomor WhatsApp lama tidak sesuai." }, { status: 400 });
@@ -134,10 +142,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "OTP salah atau kadaluarsa" }, { status: 400 });
         }
 
+        const { encrypt } = require("@/lib/encryption");
+        const encryptedPhone = encrypt(user.tempPhone);
+
         await prisma.user.update({
             where: { id: user.id },
             data: {
-                phone: user.tempPhone,
+                phone: encryptedPhone,
                 tempPhone: null,
                 otpCode: null,
                 otpExpiresAt: null,

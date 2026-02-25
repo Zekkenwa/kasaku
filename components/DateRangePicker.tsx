@@ -20,6 +20,8 @@ export default function DateRangePicker({ startDate, endDate, firstTxDate, onApp
     }, [startDate, endDate]);
 
     const [isShaking, setIsShaking] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [warningVisible, setWarningVisible] = useState(false);
 
     useEffect(() => {
         if (isShaking) {
@@ -29,11 +31,32 @@ export default function DateRangePicker({ startDate, endDate, firstTxDate, onApp
     }, [isShaking]);
 
     const maxDate = new Date().toISOString().split('T')[0];
-    const showWarning = firstTxDate && start && start < firstTxDate;
+    const isInvalid = Boolean(firstTxDate && start && start < firstTxDate);
+
+    // Automatically show the warning when an invalid date is selected
+    useEffect(() => {
+        if (isInvalid) {
+            setWarningVisible(true);
+        } else {
+            setWarningVisible(false);
+        }
+    }, [isInvalid, start]);
+
+    // Disappear the warning after 5 seconds if not hovered over
+    useEffect(() => {
+        let timer: ReturnType<typeof setTimeout>;
+        if (warningVisible && !isHovered) {
+            timer = setTimeout(() => {
+                setWarningVisible(false);
+            }, 5000);
+        }
+        return () => clearTimeout(timer);
+    }, [warningVisible, isHovered]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (showWarning) {
+        if (isInvalid) {
+            setWarningVisible(true);
             setIsShaking(true);
             return;
         }
@@ -58,12 +81,18 @@ export default function DateRangePicker({ startDate, endDate, firstTxDate, onApp
                         value={start}
                         max={maxDate}
                         onChange={(e) => setStart(e.target.value)}
-                        className="px-2 py-1 text-sm border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className={`px-2 py-1 text-sm border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white ${isInvalid ? 'ring-2 ring-amber-500/50 outline-none' : ''}`}
                         style={{ colorScheme: "light dark" }}
                     />
-                    {showWarning && (
-                        <div className={`absolute top-full left-0 w-full mt-1 z-10 text-[10px] leading-tight text-amber-700 bg-amber-50 dark:bg-amber-900/50 dark:text-amber-200 p-2 rounded-md border border-amber-200 dark:border-amber-800 shadow-sm ${isShaking ? "shake" : ""}`}>
-                            Data baru tersedia mulai <b>{new Date(firstTxDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}</b>.
+                    {warningVisible && (
+                        <div
+                            onMouseEnter={() => setIsHovered(true)}
+                            onMouseLeave={() => setIsHovered(false)}
+                            className={`absolute left-0 bottom-full mb-2 w-max max-w-xs z-[9999] text-[10px] leading-tight text-amber-700 bg-amber-50 dark:bg-black/90 dark:text-amber-400 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900 shadow-xl ${isShaking ? "shake" : ""}`}>
+                            Mohon input tanggal mulai dari <b>{new Date(firstTxDate!).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}</b><br />
+                            (Tanggal pertama transaksi)
+                            {/* Tooltip Arrow */}
+                            <div className="absolute top-full left-4 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-transparent border-t-amber-200/50 dark:border-t-amber-900/50"></div>
                         </div>
                     )}
                 </div>
@@ -80,7 +109,7 @@ export default function DateRangePicker({ startDate, endDate, firstTxDate, onApp
                 </div>
                 <button
                     type="submit"
-                    className={`px-3 py-1.5 text-sm rounded transition-colors ${showWarning ? "bg-gray-400 text-gray-200 cursor-not-allowed" : "bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600"}`}
+                    className={`px-3 py-1.5 text-sm rounded transition-colors ${isInvalid ? "bg-gray-400 text-gray-200 cursor-not-allowed" : "bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600"}`}
                 >
                     Terapkan
                 </button>

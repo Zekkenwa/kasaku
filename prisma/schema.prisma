@@ -23,6 +23,7 @@ model User {
   deleteRequestedAt  DateTime?
   deleteScheduledAt  DateTime?
   lastEmailChangeAt  DateTime?
+  lastUsernameChangeAt DateTime?
   
   // OTP Rate Limiting
   otpLastSentAt      DateTime?

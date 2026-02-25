@@ -15,7 +15,28 @@ export async function POST(request: Request) {
 
   if (typeof body.name === "string") {
     const value = body.name.trim();
-    data.name = value.length ? value : null;
+    if (value.length) {
+      const currentUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+
+      if (currentUser?.lastUsernameChangeAt) {
+        const lastChange = new Date(currentUser.lastUsernameChangeAt);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - lastChange.getTime());
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 7) {
+          return NextResponse.json(
+            { error: `Anda hanya bisa mengubah nama sekali dalam 7 hari.\nTunggu ${7 - diffDays} hari lagi.` },
+            { status: 400 }
+          );
+        }
+      }
+
+      data.name = value;
+      data.lastUsernameChangeAt = new Date();
+    } else {
+      data.name = null;
+    }
   }
 
   if (typeof body.phone === "string") {
