@@ -42,10 +42,13 @@ const getTimeStr = () => {
 
 const parseAmount = (str: string): number | null => {
     const cleaned = str.toLowerCase().replace(/\./g, "").replace(/,/g, "").trim();
-    // Handle "rb" / "ribu" shorthand
+    // Handle "k" shorthand (50k = 50.000)
+    const kMatch = cleaned.match(/^(\d+)\s*k$/);
+    if (kMatch) return parseInt(kMatch[1]) * 1000;
+    // Handle "rb" / "ribu" shorthand (50rb = 50.000)
     const rbMatch = cleaned.match(/^(\d+)\s*(rb|ribu)$/);
     if (rbMatch) return parseInt(rbMatch[1]) * 1000;
-    // Handle "jt" / "juta" shorthand
+    // Handle "jt" / "juta" shorthand (5jt = 5.000.000)
     const jtMatch = cleaned.match(/^(\d+)\s*(jt|juta)$/);
     if (jtMatch) return parseInt(jtMatch[1]) * 1000000;
     // Plain number
@@ -68,11 +71,11 @@ const CATEGORIES: Record<string, string> = {
 
 const HELP_TEXT = `📋 *Perintah yang tersedia:*
 
-• *pengeluaran [jumlah] [kategori]*
-  Contoh: pengeluaran 50000 jajan
+• *keluar [jumlah] [kategori]*
+  Contoh: keluar 50k jajan
 
-• *pemasukan [jumlah] [kategori]*
-  Contoh: pemasukan 100000 gaji
+• *masuk [jumlah] [kategori]*
+  Contoh: masuk 100rb gaji
 
 • *saldo*
   Cek saldo saat ini
@@ -80,6 +83,7 @@ const HELP_TEXT = `📋 *Perintah yang tersedia:*
 • *laporan*
   Lihat ringkasan transaksi
 
+💡 Jumlah bisa pakai: 50k, 50rb, 5jt
 Kategori: jajan, makan, transport, belanja, hiburan, gaji, komisi, bonus, lainnya`;
 
 export default function Simulation() {
@@ -89,7 +93,7 @@ export default function Simulation() {
         { icon: "💰", name: "Gajian", amount: 2500000, category: "Gaji", time: "Hari ini" }
     ]);
     const [messages, setMessages] = useState<ChatMessage[]>([
-        { sender: "bot", text: "Halo Guest! 👋\nKetik *help* untuk melihat perintah yang tersedia.\n\nContoh: ketik *pengeluaran 50000 jajan* untuk mencatat pengeluaran.", time: getTimeStr() }
+        { sender: "bot", text: "Halo Guest! 👋\nKetik *help* untuk melihat perintah yang tersedia.\n\nContoh, ketik : *keluar 50k jajan* untuk mencatat pengeluaran.", time: getTimeStr() }
     ]);
     const [input, setInput] = useState("");
     const [userMsgCount, setUserMsgCount] = useState(0);
@@ -235,10 +239,13 @@ export default function Simulation() {
             return next;
         });
 
+        const debtAmount = newBalance < 0 ? Math.abs(newBalance) : 0;
+        const balanceLabel = newBalance < 0 ? `⚠️ Saldo: *${formatRp(newBalance)}*\n🔴 Hutang: *${formatRp(debtAmount)}*` : `💰 Sisa saldo: *${formatRp(newBalance)}*`;
+
         setTimeout(() => {
             setMessages(prev => [...prev, {
                 sender: "bot",
-                text: `✅ Pengeluaran tercatat!\n\n${icon} *${category}*\n💸 ${formatRp(amount)}\n💰 Sisa saldo: ${formatRp(newBalance)}`,
+                text: `✅ Pengeluaran tercatat!\n\n${icon} *${category}*\n💸 ${formatRp(amount)}\n${balanceLabel}`,
                 time: getTimeStr()
             }]);
         }, 500);
@@ -376,7 +383,7 @@ export default function Simulation() {
                                     </div>
                                     <div className="text-right">
                                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Saldo</div>
-                                        <div className="text-xl font-bold text-white tracking-tight">{formatRp(balance)}</div>
+                                        <div className={`text-xl font-bold tracking-tight ${balance < 0 ? 'text-red-400' : 'text-white'}`}>{formatRp(balance)}</div>
                                     </div>
                                 </div>
 
@@ -427,6 +434,22 @@ export default function Simulation() {
                                         </div>
                                     </div>
 
+                                    {/* Debt Card (appears when balance < 0) */}
+                                    {balance < 0 && (
+                                        <div className="col-span-1 md:col-span-3 bg-red-500/10 p-4 rounded-2xl border border-red-500/20 animate-slide-in-right">
+                                            <div className="flex justify-between items-end mb-1.5">
+                                                <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">🔴 Hutang</span>
+                                                <span className="text-[10px] font-bold text-red-400">{formatRp(Math.abs(balance))}</span>
+                                            </div>
+                                            <div className="w-full bg-red-900/30 h-2.5 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full bg-red-500 animate-pulse w-full" />
+                                            </div>
+                                            <div className="text-right text-[10px] text-red-400/70 mt-1">
+                                                Saldo minus, kamu berhutang!
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Mini Transactions */}
                                     <div className="bg-[#252525] p-4 rounded-2xl border border-white/5 overflow-hidden flex flex-col">
                                         <h4 className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Riwayat</h4>
@@ -472,8 +495,8 @@ export default function Simulation() {
                                                 </div>
                                             )}
                                             <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed relative ${msg.sender === "user"
-                                                    ? "bg-[#005c4b] text-white rounded-br-sm"
-                                                    : "bg-[#1f2937] text-neutral-200 rounded-bl-sm"
+                                                ? "bg-[#005c4b] text-white rounded-br-sm"
+                                                : "bg-[#1f2937] text-neutral-200 rounded-bl-sm"
                                                 }`}>
                                                 {msg.sender === "bot" ? renderBotText(msg.text) : msg.text}
                                                 <div className={`text-[9px] mt-1 ${msg.sender === "user" ? "text-white/40 text-right" : "text-neutral-500"}`}>
@@ -531,7 +554,7 @@ export default function Simulation() {
                                             setBalance(2500000);
                                             setBudgetSpent(0);
                                             setTransactions([{ icon: "💰", name: "Gajian", amount: 2500000, category: "Gaji", time: "Hari ini" }]);
-                                            setMessages([{ sender: "bot", text: "Halo Guest! 👋\nKetik *help* untuk melihat perintah yang tersedia.\n\nContoh: ketik *pengeluaran 50000 jajan* untuk mencatat pengeluaran.", time: getTimeStr() }]);
+                                            setMessages([{ sender: "bot", text: "Halo Guest! 👋\nKetik *help* untuk melihat perintah yang tersedia.\n\nContoh, ketik : *keluar 50k jajan* untuk mencatat pengeluaran.", time: getTimeStr() }]);
                                             setChartValues(Array.from({ length: 20 }, () => 2500000));
                                         }}
                                         className="mt-4 text-sm text-neutral-500 hover:text-white"
