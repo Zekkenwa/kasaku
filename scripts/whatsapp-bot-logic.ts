@@ -630,10 +630,119 @@ async function handleRutin(user: BotUser, parts: string[]): Promise<ProcessComma
     };
 }
 
+async function handleBudget(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Gagal: Jumlah budget tidak ditemukan";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const categoryPart = parts.find((p) => p.startsWith('@'));
+    if (!categoryPart) return "❌ Gagal: Kategori wajib pakai @ (cth: @Makan)";
+    const categoryName = categoryPart.substring(1).replace(/_/g, ' ');
+
+    const category = await prisma.category.findFirst({
+        where: { userId: user.id, name: { equals: categoryName, mode: 'insensitive' } }
+    });
+    if (!category) return `❌ Gagal: Kategori '${categoryName}' tidak ditemukan.`;
+
+    const existingBudget = await prisma.budget.findFirst({
+        where: { userId: user.id, categoryId: category.id }
+    });
+
+    if (existingBudget) {
+        await prisma.budget.update({
+            where: { id: existingBudget.id },
+            data: { limitAmount: amount }
+        });
+        await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: existingBudget.id, isNew: false, oldAmount: existingBudget.limitAmount });
+    } else {
+        const newBudget = await prisma.budget.create({
+            data: {
+                userId: user.id,
+                categoryId: category.id,
+                limitAmount: amount,
+                period: 'MONTHLY'
+            }
+        });
+        await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: newBudget.id, isNew: true });
+    }
+
+    return {
+        title: 'Budget Diatur',
+        amount: amount,
+        category: category.name,
+        note: `Batas pengeluaran bulanan diatur`,
+        date: new Date()
+    };
+}
+
+async function handleGoalCreate(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Target tidak ditemukan (cth: 1jt).";
+    const target = parseAmount(parts[amountIdx])!;
+
+    const nameParts = parts.filter((p, i) => i > 0 && i !== amountIdx && !p.startsWith('@'));
+    const name = nameParts.join(' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+    if (!name) return "❌ Nama goal belum diisi.";
+
+    const newGoal = await prisma.goal.create({
+        data: {
+            userId: user.id,
+            name: name,
+            targetAmount: target,
+            currentAmount: 0
+        }
+    });
+
+    await saveActionHistory(user.id, 'CREATE_GOAL', { goalId: newGoal.id });
+
+    return {
+        title: 'Goal Baru Dibuat',
+        amount: target,
+        category: 'Tabungan',
+        note: `Target baru: ${name}`,
+        date: new Date()
+    };
+}
+
+async function handleGoalFund(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 1 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const goalPart = parts.find((p) => p.startsWith('@'));
+    if (!goalPart) return "❌ Nama goal harus pakai @.";
+    const goalName = goalPart.substring(1).replace(/_/g, ' ');
+
+    const goal = await prisma.goal.findFirst({ where: { userId: user.id, name: { equals: goalName, mode: 'insensitive' } } });
+    if (!goal) return `❌ Goal '${goalName}' tidak ditemukan.`;
+
+    await prisma.goal.update({
+        where: { id: goal.id },
+        data: { currentAmount: { increment: amount } }
+    });
+
+    await saveActionHistory(user.id, 'FUND_GOAL', { goalId: goal.id, amount: amount });
+
+    return {
+        title: 'Tabungan Goal',
+        amount: amount,
+        category: 'Tabungan',
+        note: `Berhasil nabung ke '${goal.name}'. Terkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`,
+        date: new Date()
+    };
+}
+
 const directCommandHandlers: Record<string, CommandHandler> = {
     laporan: async (user, parts) => handleLaporan(user, parts),
     transfer: async (user, parts) => handleTransfer(user, parts),
     rutin: async (user, parts) => handleRutin(user, parts),
+    budget: async (user, parts) => handleBudget(user, parts),
+    goal: async (user, parts) => handleGoalCreate(user, parts),
+};
+
+const compoundCommandHandlers: Record<string, CommandHandler> = {
+    'isi goal': async (user, parts) => handleGoalFund(user, parts),
 };
 
 async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
@@ -718,6 +827,12 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
     const directHandler = directCommandHandlers[normalizedCmd] || directCommandHandlers[cmd];
     if (directHandler) {
         return directHandler(user, parts, text);
+    }
+
+    const compoundCmd = `${normalizedCmd} ${parts[1] || ''}`;
+    const compoundHandler = compoundCommandHandlers[compoundCmd] || compoundCommandHandlers[`${cmd} ${parts[1] || ''}`];
+    if (compoundHandler) {
+        return compoundHandler(user, parts, text);
     }
 
     // --- CATEGORY DELETION ---
@@ -1019,121 +1134,6 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
         };
     }
 
-
-    // --- BUDGET ---
-    if (cmd === 'budget') {
-        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Gagal: Jumlah budget tidak ditemukan";
-        const amount = parseAmount(parts[amountIdx])!;
-
-        const categoryPart = parts.find(p => p.startsWith('@'));
-        if (!categoryPart) return "❌ Gagal: Kategori wajib pakai @ (cth: @Makan)";
-        const categoryName = categoryPart.substring(1).replace(/_/g, ' ');
-
-        // Find Category
-        const category = await prisma.category.findFirst({
-            where: { userId: user.id, name: { equals: categoryName, mode: 'insensitive' } }
-        });
-        if (!category) return `❌ Gagal: Kategori '${categoryName}' tidak ditemukan.`;
-
-        // Upsert Budget
-        // Prisma doesn't support upsert on composite unique key directly easily without where clause matching exact unique constraint name or fields.
-        // But we have @@unique([userId, categoryId])
-        const existingBudget = await prisma.budget.findFirst({
-            where: { userId: user.id, categoryId: category.id }
-        });
-
-        let budgetId;
-        if (existingBudget) {
-            budgetId = existingBudget.id;
-            await prisma.budget.update({
-                where: { id: existingBudget.id },
-                data: { limitAmount: amount }
-            });
-            await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: existingBudget.id, isNew: false, oldAmount: existingBudget.limitAmount });
-        } else {
-            const newBudget = await prisma.budget.create({
-                data: {
-                    userId: user.id,
-                    categoryId: category.id,
-                    limitAmount: amount,
-                    period: 'MONTHLY'
-                }
-            });
-            budgetId = newBudget.id;
-            await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: newBudget.id, isNew: true });
-        }
-
-        return {
-            title: 'Budget Diatur',
-            amount: amount,
-            category: category.name,
-            note: `Batas pengeluaran bulanan diatur`,
-            date: new Date()
-        };
-    }
-
-
-    // --- GOALS ---
-    if (cmd === 'goal') {
-        // goal [nama] [target]
-        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Target tidak ditemukan (cth: 1jt).";
-        const target = parseAmount(parts[amountIdx])!;
-
-        const nameParts = parts.filter((p, i) => i > 0 && i !== amountIdx && !p.startsWith('@'));
-        const name = nameParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
-
-        if (!name) return "❌ Nama goal belum diisi.";
-
-        const newGoal = await prisma.goal.create({
-            data: {
-                userId: user.id,
-                name: name,
-                targetAmount: target,
-                currentAmount: 0
-            }
-        });
-
-        await saveActionHistory(user.id, 'CREATE_GOAL', { goalId: newGoal.id });
-
-        return {
-            title: 'Goal Baru Dibuat',
-            amount: target,
-            category: 'Tabungan',
-            note: `Target baru: ${name}`,
-            date: new Date()
-        };
-    }
-
-    if (cmd === 'isi' && parts[1] === 'goal') {
-        // isi goal [jml] @[nama]
-        const amountIdx = parts.findIndex((p, i) => i > 1 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
-        const amount = parseAmount(parts[amountIdx])!;
-
-        const goalPart = parts.find(p => p.startsWith('@'));
-        if (!goalPart) return "❌ Nama goal harus pakai @.";
-        const goalName = goalPart.substring(1).replace(/_/g, ' ');
-
-        const goal = await prisma.goal.findFirst({ where: { userId: user.id, name: { equals: goalName, mode: 'insensitive' } } });
-        if (!goal) return `❌ Goal '${goalName}' tidak ditemukan.`;
-
-        await prisma.goal.update({
-            where: { id: goal.id },
-            data: { currentAmount: { increment: amount } }
-        });
-
-        await saveActionHistory(user.id, 'FUND_GOAL', { goalId: goal.id, amount: amount });
-
-        return {
-            title: 'Tabungan Goal',
-            amount: amount,
-            category: 'Tabungan',
-            note: `Berhasil nabung ke '${goal.name}'. Terkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`,
-            date: new Date()
-        };
-    }
 
     // --- AI FALLBACK (Natural Language Parsing) ---
     const parsed = await parseTransactionText(text);
