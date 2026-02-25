@@ -45,13 +45,10 @@ export async function POST(request: Request) {
         },
     });
 
-    let gamification = null;
-    try {
-        const { processGamificationTick } = await import('@/lib/gamification');
-        gamification = await processGamificationTick(userId);
-    } catch (e) {
-        console.error("Gamification error on Web transaction:", e);
-    }
+    // Fire-and-forget: process gamification in background, don't block the response
+    import('@/lib/gamification')
+        .then(({ processGamificationTick }) => processGamificationTick(userId))
+        .catch((e) => console.error("Gamification error on Web transaction:", e));
 
-    return NextResponse.json({ transaction, gamification });
+    return NextResponse.json({ transaction });
 }

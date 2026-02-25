@@ -53,7 +53,7 @@ export default function TransactionForm({
         e.preventDefault();
         setLoading(true);
 
-        const categoryId = categoryObjects.find((c) => c.name === categoryName)?.id;
+        const categoryId = categoryObjects.find((c) => c.name === categoryName && c.type === type)?.id;
 
         if (!categoryId) {
             alert("Kategori tidak valid");
