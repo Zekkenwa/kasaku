@@ -201,9 +201,6 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
             finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
                 results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
         }
-
-        finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
-
         finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
 
         // --- GAMIFICATION TICK ---
