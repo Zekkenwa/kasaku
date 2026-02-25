@@ -62,7 +62,7 @@ export default async function DonationPage() {
                             href={backHref}
                             className="block w-full py-3 px-6 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white font-medium rounded-xl transition-all border border-transparent hover:border-white/5"
                         >
-                            Kembali ke {session ? "Dashboard" : "Beranda"}
+                            Kembali
                         </Link>
                     </div>
                 </div>

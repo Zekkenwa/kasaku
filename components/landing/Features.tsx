@@ -8,9 +8,9 @@ export default function Features() {
             bg: "bg-brand-green/10",
         },
         {
-            title: "Analisis Visual",
-            desc: "Grafik donat dan garis yang cantik membantumu memahami kemana perginya uangmu setiap bulan.",
-            icon: "📊",
+            title: "Integrasi AI Cerdas",
+            desc: "AI Kasaku memahami pesan WhatsApp-mu secara natural. Cukup ketik 'makan siang 25rb' dan transaksi langsung tercatat otomatis dengan kategori yang tepat.",
+            icon: "🤖",
             color: "text-brand-yellow",
             bg: "bg-brand-yellow/10",
         },
