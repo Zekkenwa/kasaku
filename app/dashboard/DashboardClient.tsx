@@ -319,7 +319,7 @@ export default function DashboardClient({
             </div>
 
             {/* 3. TRANSACTION HISTORY */}
-            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex-1 flex flex-col relative overflow-hidden max-h-[500px] lg:max-h-none lg:h-[600px]">
+            <div className="p-6 md:p-8 rounded-[2.5rem] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/5 shadow-2xl flex flex-col relative overflow-hidden h-[500px] lg:h-[600px]">
               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
