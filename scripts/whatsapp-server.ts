@@ -1,4 +1,4 @@
-import { makeWASocket, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import * as http from 'http';
 import * as qrcode from 'qrcode-terminal';
@@ -27,11 +27,15 @@ const SILENCE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await usePrismaAuthState(prisma);
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`[BOT] Using WhatsApp version ${version.join('.')}, isLatest: ${isLatest}`);
 
     // Create socket
     const socket = makeWASocket({
+        version,
         auth: state,
         logger: pino({ level: 'silent' }) as any,
+        browser: Browsers.macOS('Desktop'),
     });
 
     sock = socket;
