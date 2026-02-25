@@ -55,7 +55,7 @@ const centerTextPlugin = {
 };
 
 type TransactionType = "INCOME" | "EXPENSE";
-type Transaction = { id: string; type: TransactionType; category: string; amount: number; note?: string; date: string; walletId?: string };
+type Transaction = { id: string; type: TransactionType; category: string; amount: number; note?: string; date: string; walletId?: string; walletName?: string };
 type Loan = { id: string; name: string; amount: number; remaining: number; createdAt: string; dueDate?: string; status: "ONGOING" | "PAID"; type: "PAYABLE" | "RECEIVABLE"; payments: { id: string; amount: number; date: string; note?: string }[] };
 type Budget = { id: string; categoryId: string; categoryName: string; limitAmount: number; period?: string };
 type Wallet = { id: string; name: string; type: "CASH" | "BANK" | "EWALLET"; initialBalance: number };
@@ -76,6 +76,8 @@ type Props = {
     expenseLine: number[];
     incomePie: { labels: string[]; data: number[] };
     expensePie: { labels: string[]; data: number[] };
+    incomeWalletPie?: { labels: string[]; data: number[] };
+    expenseWalletPie?: { labels: string[]; data: number[] };
   };
   loans: Loan[];
   budgets: Budget[];
@@ -102,6 +104,10 @@ const monthLabel = (m: number) => new Intl.DateTimeFormat("id-ID", { month: "lon
 
 const PIE_COLORS_EXPENSE = ["#F26076", "#FF9760", "#FFD150", "#458B73", "#e11d48", "#ea580c", "#ca8a04", "#0f766e"];
 const PIE_COLORS_INCOME = ["#458B73", "#10b981", "#059669", "#34d399", "#FFD150", "#F26076", "#FF9760", "#06b6d4"];
+
+// Wallet-specific chart colors to distinguish them from category charts
+const PIE_COLORS_INCOME_WALLET = ["#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#0284c7"];
+const PIE_COLORS_EXPENSE_WALLET = ["#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#e11d48"];
 
 const BADGE_DEFINITIONS = [
   { code: "STARTER", name: "The Starter", description: "First transaction ever.", maxProgress: 1, level: 1, icon: "🥚" },
@@ -422,6 +428,38 @@ export default function DashboardClient({
               </div>
             </div>
 
+            {/* 2.1 WALLET ANALYSIS (METRIK DOMPET) */}
+            {charts.incomeWalletPie && charts.expenseWalletPie && (
+              <div className="flex flex-col md:flex-row gap-6 mt-6">
+                {/* Income Wallet Summary */}
+                <div className="flex-1 p-8 rounded-[2.5rem] bg-[#1f1f1f]/80 backdrop-blur-xl border border-white/10 shadow-2xl flex items-center gap-6 group hover:border-[#0ea5e9]/40 transition-all relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#0ea5e9]/10 rounded-full blur-[50px] pointer-events-none" />
+                  <div className="relative w-24 h-24 shrink-0">
+                    <Doughnut data={{ labels: charts.incomeWalletPie.labels, datasets: [{ data: charts.incomeWalletPie.data, backgroundColor: PIE_COLORS_INCOME_WALLET, borderWidth: 0 }] }} options={{ cutout: "75%", plugins: { legend: { display: false } } as any, maintainAspectRatio: true }} />
+                  </div>
+                  <div className="flex-1 z-10">
+                    <h4 className="flex items-center gap-2 text-[10px] font-black text-[#0ea5e9] uppercase tracking-widest mb-1">
+                      <span className="w-5 h-5 flex items-center justify-center bg-[#0ea5e9]/20 rounded-full text-xs">🏦</span> Pemasukan via Dompet
+                    </h4>
+                    <span className="text-2xl font-black text-white tracking-tight">{censor(currency(totals.totalIncome))}</span>
+                  </div>
+                </div>
+                {/* Expense Wallet Summary */}
+                <div className="flex-1 p-8 rounded-[2.5rem] bg-[#1f1f1f]/80 backdrop-blur-xl border border-white/10 shadow-2xl flex items-center gap-6 group hover:border-[#f43f5e]/40 transition-all relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#f43f5e]/10 rounded-full blur-[50px] pointer-events-none" />
+                  <div className="relative w-24 h-24 shrink-0">
+                    <Doughnut data={{ labels: charts.expenseWalletPie.labels, datasets: [{ data: charts.expenseWalletPie.data, backgroundColor: PIE_COLORS_EXPENSE_WALLET, borderWidth: 0 }] }} options={{ cutout: "75%", plugins: { legend: { display: false } } as any, maintainAspectRatio: true }} />
+                  </div>
+                  <div className="flex-1 z-10">
+                    <h4 className="flex items-center gap-2 text-[10px] font-black text-[#f43f5e] uppercase tracking-widest mb-1">
+                      <span className="w-5 h-5 flex items-center justify-center bg-[#f43f5e]/20 rounded-full text-xs">💸</span> Pengeluaran via Dompet
+                    </h4>
+                    <span className="text-2xl font-black text-white tracking-tight">{censor(currency(totals.totalExpense))}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 2.5 TROPHY ROOM - GAMIFICATION BADGES */}
             <div className="flex flex-col gap-4 relative z-50">
               <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
@@ -551,7 +589,11 @@ export default function DashboardClient({
                       </div>
                       <div>
                         <p className="font-black text-sm md:text-base text-white truncate max-w-[120px] md:max-w-[200px]">{t.category}</p>
-                        <span className="text-[10px] text-neutral-500 uppercase font-black tracking-widest">{t.date}</span>
+                        <span className="text-[10px] text-neutral-500 font-bold tracking-widest flex items-center gap-1.5 mt-0.5">
+                          <span className="uppercase">{t.date}</span>
+                          <span className="w-1 h-1 rounded-full bg-neutral-600"></span>
+                          <span className="truncate max-w-[80px] md:max-w-[120px] text-neutral-400">via {t.walletName || "Saldo utama"}</span>
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">

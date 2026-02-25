@@ -88,6 +88,9 @@ export default async function DashboardPage(props: {
         walletId: true,
         category: {
           select: { name: true }
+        },
+        wallet: {
+          select: { name: true }
         }
       },
       orderBy: { createdAt: "desc" },
@@ -144,6 +147,7 @@ export default async function DashboardPage(props: {
     note: t.note ?? undefined,
     date: t.createdAt.toISOString().slice(0, 10),
     walletId: t.walletId ?? undefined,
+    walletName: t.wallet?.name ?? "Saldo utama",
   }));
 
   const hasUncategorized = transactions.some((t) => t.category === uncategorizedName);
@@ -193,6 +197,34 @@ export default async function DashboardPage(props: {
 
   const incomeChart = aggregateChartData("INCOME");
   const expenseChart = aggregateChartData("EXPENSE");
+
+  // Helper to aggregate top N wallets + "Lainnya"
+  const aggregateWalletChartData = (type: "INCOME" | "EXPENSE") => {
+    const walletMap = new Map<string, number>();
+
+    transactions.filter(t => t.type === type).forEach(t => {
+      const current = walletMap.get(t.walletName) || 0;
+      walletMap.set(t.walletName, current + t.amount);
+    });
+
+    const data = Array.from(walletMap.entries()).map(([name, amount]) => ({ name, amount }));
+    data.sort((a, b) => b.amount - a.amount);
+
+    if (data.length <= 4) {
+      return {
+        labels: data.map(d => d.name),
+        data: data.map(d => d.amount)
+      };
+    }
+
+    const top4 = data.slice(0, 4);
+    const others = data.slice(4).reduce((sum, d) => sum + d.amount, 0);
+
+    return {
+      labels: [...top4.map(d => d.name), "Lainnya"],
+      data: [...top4.map(d => d.amount), others]
+    };
+  };
 
   // Generate labels for the range (full date format)
   const labels = Array.from({ length: daysInRange }, (_, i) => {
@@ -260,6 +292,8 @@ export default async function DashboardPage(props: {
         expenseLine,
         incomePie: incomeChart,
         expensePie: expenseChart,
+        incomeWalletPie: aggregateWalletChartData("INCOME"),
+        expenseWalletPie: aggregateWalletChartData("EXPENSE"),
       }}
       loans={loans}
       budgets={budgets.map(b => ({
