@@ -218,6 +218,25 @@ export default function DashboardClient({
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [editingBudget, setEditingBudget] = useState<{ categoryId: string; limitAmount: number; id?: string; period?: string } | null>(null);
+
+  const badgeByCode = useMemo(() => {
+    return new Map(badges.map((badge) => [badge.code, badge]));
+  }, [badges]);
+
+  const orderedBadgeDefinitions = useMemo(() => {
+    const unlockedCodesByNewest = badges
+      .filter((badge) => badge.isUnlocked)
+      .sort((a, b) => new Date(b.earnedAt).getTime() - new Date(a.earnedAt).getTime())
+      .map((badge) => badge.code);
+
+    const unlockedDefs = unlockedCodesByNewest
+      .map((code) => BADGE_DEFINITIONS.find((definition) => definition.code === code))
+      .filter((definition): definition is (typeof BADGE_DEFINITIONS)[number] => Boolean(definition));
+
+    const lockedDefs = BADGE_DEFINITIONS.filter((definition) => !unlockedCodesByNewest.includes(definition.code));
+
+    return [...unlockedDefs, ...lockedDefs];
+  }, [badges]);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [typeFilter, setTypeFilter] = useState<"ALL" | TransactionType>("ALL");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
@@ -467,8 +486,8 @@ export default function DashboardClient({
                   >
                     <div className="flex gap-4 min-w-max items-stretch justify-start pb-4 px-2 pt-2">
 
-                      {BADGE_DEFINITIONS.map((def, i) => {
-                        const unlocked = badges.find(b => b.code === def.code && b.isUnlocked);
+                      {orderedBadgeDefinitions.map((def, i) => {
+                        const unlocked = badgeByCode.get(def.code)?.isUnlocked;
                         return (
                           <div
                             key={def.code}
@@ -485,7 +504,7 @@ export default function DashboardClient({
                                   unlocked: !!unlocked,
                                   rect: e.currentTarget.getBoundingClientRect(),
                                   isFirst: i === 0,
-                                  isLast: i === BADGE_DEFINITIONS.length - 1
+                                  isLast: i === orderedBadgeDefinitions.length - 1
                                 });
                               }
                             }}
@@ -500,7 +519,7 @@ export default function DashboardClient({
                                   unlocked: !!unlocked,
                                   rect: e.currentTarget.getBoundingClientRect(),
                                   isFirst: i === 0,
-                                  isLast: i === BADGE_DEFINITIONS.length - 1
+                                  isLast: i === orderedBadgeDefinitions.length - 1
                                 });
                               }
                             }}
@@ -519,7 +538,7 @@ export default function DashboardClient({
                                 unlocked: !!unlocked,
                                 rect: e.currentTarget.getBoundingClientRect(),
                                 isFirst: i === 0,
-                                isLast: i === BADGE_DEFINITIONS.length - 1
+                                isLast: i === orderedBadgeDefinitions.length - 1
                               });
                             }}
                             onBlur={() => setActiveTooltip(null)}
