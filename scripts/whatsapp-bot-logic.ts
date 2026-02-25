@@ -198,11 +198,10 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
                 `📄 *Keterangan*:\n${res.note}\n` +
                 `📅 *Waktu*: ${timeStr}\n\n`;
         } else {
-            // Check if ALL string results already have an emoji prefix indicating they are pre-formatted messages
-            const isPreFormatted = results.length === 1 && typeof results[0] === 'string' && /^(✅|❌|💳|⚠️)/.test(results[0]);
+            const allPreFormatted = results.every(r => typeof r === 'string' && /^(✅|❌|💳|⚠️|🤖)/.test(r));
 
-            if (isPreFormatted) {
-                finalReply = results[0] + `\n\n`;
+            if (allPreFormatted) {
+                finalReply = results.join('\n\n') + `\n\n`;
             } else {
                 finalReply = `✅ ${results.length > 1 ? 'Beberapa transaksi berhasil diproses:' : 'Berhasil!'}\n\n` +
                     results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
@@ -1169,9 +1168,79 @@ async function processCommand(user: any, text: string): Promise<string | any | n
                                 if (searchResult.length > 0) categoryName = searchResult[0].item.name;
                             }
                             const description = item.note || (item.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran');
-                            const txResult = await executeTransaction(user, item.type, item.amount, categoryName, description, txDate);
+
+                            const wallets = await prisma.wallet.findMany({
+                                where: { userId: user.id },
+                                orderBy: { createdAt: 'asc' }
+                            });
+
+                            let explicitWalletId: string | undefined = undefined;
+                            let matchedWallet: any = undefined;
+
+                            if (item.walletName) {
+                                matchedWallet = wallets.find(w => w.name.toLowerCase() === item.walletName!.toLowerCase() || w.name.toLowerCase().includes(item.walletName!.toLowerCase()));
+                                if (!matchedWallet && item.walletName.toLowerCase() !== 'saldo utama') {
+                                    results.push(`⚠️ AI: Anda tidak memiliki dompet bernama '${item.walletName}'. Mohon buat dulu di web.`);
+                                    break;
+                                }
+                                if (matchedWallet) {
+                                    explicitWalletId = matchedWallet.id;
+                                }
+                            }
+
+                            // Balance validation for EXPENSE
+                            if (item.type === 'EXPENSE') {
+                                let targetWalletToCheck = matchedWallet;
+                                if (!targetWalletToCheck && wallets.length === 1) {
+                                    targetWalletToCheck = wallets[0];
+                                }
+
+                                if (targetWalletToCheck) {
+                                    const incomeSum = await prisma.transaction.aggregate({
+                                        where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'INCOME' },
+                                        _sum: { amount: true }
+                                    });
+                                    const expenseSum = await prisma.transaction.aggregate({
+                                        where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'EXPENSE' },
+                                        _sum: { amount: true }
+                                    });
+
+                                    const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
+
+                                    if (item.amount > currentBalance) {
+                                        results.push(`⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(item.amount)}\n❌ Kurang: ${formatCurrency(item.amount - currentBalance)}`);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // MULTI-WALLET PENDING STATE FALLBACK
+                            if (!explicitWalletId && (!item.walletName || item.walletName.toLowerCase() !== 'saldo utama') && wallets.length > 1) {
+                                await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
+                                await prisma.pendingBotTransaction.create({
+                                    data: {
+                                        userId: user.id,
+                                        type: item.type,
+                                        amount: item.amount,
+                                        categoryName: categoryName,
+                                        description: description + (txDate.toDateString() !== new Date().toDateString() ? ` [${txDate.toISOString()}]` : "")
+                                    }
+                                });
+
+                                let options = wallets.map((w, index) => `${index + 1}. ${w.name}`).join('\n');
+                                options += `\n${wallets.length + 1}. Saldo Utama`;
+                                results.push(`💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan untuk transaksi AI ini?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`);
+                                break;
+                            }
+
+                            const defaultWalletId = (wallets.length === 1 && !item.walletName) ? wallets[0].id : explicitWalletId;
+
+                            const txResult = await executeTransaction(user, item.type, item.amount, categoryName, description, txDate, defaultWalletId);
                             if (typeof txResult === 'object') {
                                 if (txResult.transactionId) await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
+                                if (matchedWallet) {
+                                    txResult.note = `${txResult.note} (via ${matchedWallet.name})`;
+                                }
                                 txResult.title = `🤖 AI: ${txResult.title}`;
                                 results.push(txResult);
                             } else {

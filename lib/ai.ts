@@ -42,6 +42,10 @@ const botActionItemSchema = {
             type: Type.STRING,
             description: "The source wallet name for transfers.",
         },
+        walletName: {
+            type: Type.STRING,
+            description: "An optionally specified wallet for transaction or recurring tasks (e.g. from phrases like 'via GoPay', 'pakai BCA', 'ke Saldo Utama').",
+        },
         note: {
             type: Type.STRING,
             description: "Extra context or description.",
@@ -82,6 +86,7 @@ export type ParsedBotActionItem = {
     categoryName?: string;
     targetName?: string;
     fromWallet?: string;
+    walletName?: string;
     note?: string;
     date?: string;
     interval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
@@ -110,7 +115,7 @@ export async function parseTransactionText(text: string): Promise<ParsedBotActio
           Current local time: ${today}
           
           Intents & Rules:
-          - CREATE_TRANSACTION: Spending money (EXPENSE) or getting money (INCOME). Include amount, type, categoryName, note, and date (if past).
+          - CREATE_TRANSACTION: Spending money (EXPENSE) or getting money (INCOME). Include amount, type, categoryName, note, walletName (if requested via 'via', 'pakai', 'dompet'), and date (if past).
           - CREATE_CATEGORY: User explicitly asks to make a new category. Provide categoryName and type.
           - CREATE_DEBT: Loaning money to someone (piutang / RECEIVABLE / type: EXPENSE context) or borrowing from someone (hutang / PAYABLE / type: INCOME context). targetName is the person. amount required.
           - PAY_DEBT: Paying off a debt / someone paying you back. targetName is the person. amount required.
