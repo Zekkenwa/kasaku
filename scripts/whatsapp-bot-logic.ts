@@ -1111,229 +1111,232 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
     }
 
 
-    // --- AI FALLBACK (Natural Language Parsing) ---
+    return handleAIFallback(user, text);
+}
+
+async function handleAIFallback(user: BotUser, text: string): Promise<ProcessCommandResult> {
     const parsed = await parseTransactionText(text);
-    if (parsed && parsed.isValidCommand && parsed.actions && parsed.actions.length > 0) {
-        const results = [];
+    if (!(parsed && parsed.isValidCommand && parsed.actions && parsed.actions.length > 0)) {
+        return null;
+    }
 
-        for (const item of parsed.actions) {
-            let txDate = new Date();
-            if (item.date) {
-                const parsedDate = new Date(item.date);
-                if (!isNaN(parsedDate.getTime())) txDate = parsedDate;
-            }
+    const results = [];
 
-            try {
-                switch (item.intent) {
-                    case 'CREATE_TRANSACTION':
-                        if (item.type && item.amount) {
-                            let categoryName = item.categoryName || "Umum";
-                            const userCategories = await prisma.category.findMany({ where: { userId: user.id, type: item.type } });
-                            if (userCategories.length > 0) {
-                                const fuse = new Fuse(userCategories, { keys: ['name'], threshold: 0.4 });
-                                const searchResult = fuse.search(categoryName);
-                                if (searchResult.length > 0) categoryName = searchResult[0].item.name;
-                            }
-                            const description = item.note || (item.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran');
+    for (const item of parsed.actions) {
+        let txDate = new Date();
+        if (item.date) {
+            const parsedDate = new Date(item.date);
+            if (!isNaN(parsedDate.getTime())) txDate = parsedDate;
+        }
 
-                            const wallets = await prisma.wallet.findMany({
-                                where: { userId: user.id },
-                                orderBy: { createdAt: 'asc' }
-                            });
+        try {
+            switch (item.intent) {
+                case 'CREATE_TRANSACTION':
+                    if (item.type && item.amount) {
+                        let categoryName = item.categoryName || "Umum";
+                        const userCategories = await prisma.category.findMany({ where: { userId: user.id, type: item.type } });
+                        if (userCategories.length > 0) {
+                            const fuse = new Fuse(userCategories, { keys: ['name'], threshold: 0.4 });
+                            const searchResult = fuse.search(categoryName);
+                            if (searchResult.length > 0) categoryName = searchResult[0].item.name;
+                        }
+                        const description = item.note || (item.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran');
 
-                            let explicitWalletId: string | undefined = undefined;
-                            let matchedWallet: (typeof wallets)[number] | undefined;
+                        const wallets = await prisma.wallet.findMany({
+                            where: { userId: user.id },
+                            orderBy: { createdAt: 'asc' }
+                        });
 
-                            if (item.walletName) {
-                                matchedWallet = wallets.find(w => w.name.toLowerCase() === item.walletName!.toLowerCase() || w.name.toLowerCase().includes(item.walletName!.toLowerCase()));
-                                if (!matchedWallet && item.walletName.toLowerCase() !== 'saldo utama') {
-                                    results.push(`⚠️ AI: Anda tidak memiliki dompet bernama '${item.walletName}'. Mohon buat dulu di web.`);
-                                    break;
-                                }
-                                if (matchedWallet) {
-                                    explicitWalletId = matchedWallet.id;
-                                }
-                            }
+                        let explicitWalletId: string | undefined;
+                        let matchedWallet: (typeof wallets)[number] | undefined;
 
-                            // Balance validation for EXPENSE
-                            if (item.type === 'EXPENSE') {
-                                let targetWalletToCheck = matchedWallet;
-                                if (!targetWalletToCheck && wallets.length === 1) {
-                                    targetWalletToCheck = wallets[0];
-                                }
-
-                                if (targetWalletToCheck) {
-                                    const incomeSum = await prisma.transaction.aggregate({
-                                        where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'INCOME' },
-                                        _sum: { amount: true }
-                                    });
-                                    const expenseSum = await prisma.transaction.aggregate({
-                                        where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'EXPENSE' },
-                                        _sum: { amount: true }
-                                    });
-
-                                    const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
-
-                                    if (item.amount > currentBalance) {
-                                        results.push(`⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(item.amount)}\n❌ Kurang: ${formatCurrency(item.amount - currentBalance)}`);
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // MULTI-WALLET PENDING STATE FALLBACK
-                            if (!explicitWalletId && (!item.walletName || item.walletName.toLowerCase() !== 'saldo utama') && wallets.length > 1) {
-                                await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
-                                await prisma.pendingBotTransaction.create({
-                                    data: {
-                                        userId: user.id,
-                                        type: item.type,
-                                        amount: item.amount,
-                                        categoryName: categoryName,
-                                        description: description + (txDate.toDateString() !== new Date().toDateString() ? ` [${txDate.toISOString()}]` : "")
-                                    }
-                                });
-
-                                let options = wallets.map((w, index) => `${index + 1}. ${w.name}`).join('\n');
-                                options += `\n${wallets.length + 1}. Saldo Utama`;
-                                results.push(`💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan untuk transaksi AI ini?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`);
+                        if (item.walletName) {
+                            matchedWallet = wallets.find(w => w.name.toLowerCase() === item.walletName!.toLowerCase() || w.name.toLowerCase().includes(item.walletName!.toLowerCase()));
+                            if (!matchedWallet && item.walletName.toLowerCase() !== 'saldo utama') {
+                                results.push(`⚠️ AI: Anda tidak memiliki dompet bernama '${item.walletName}'. Mohon buat dulu di web.`);
                                 break;
                             }
+                            if (matchedWallet) {
+                                explicitWalletId = matchedWallet.id;
+                            }
+                        }
 
-                            const defaultWalletId = (wallets.length === 1 && !item.walletName) ? wallets[0].id : explicitWalletId;
+                        if (item.type === 'EXPENSE') {
+                            let targetWalletToCheck = matchedWallet;
+                            if (!targetWalletToCheck && wallets.length === 1) {
+                                targetWalletToCheck = wallets[0];
+                            }
 
-                            const txResult = await executeTransaction(user, item.type, item.amount, categoryName, description, txDate, defaultWalletId);
-                            if (typeof txResult === 'object') {
-                                if (txResult.transactionId) await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
-                                if (matchedWallet) {
-                                    txResult.note = `${txResult.note} (via ${matchedWallet.name})`;
+                            if (targetWalletToCheck) {
+                                const incomeSum = await prisma.transaction.aggregate({
+                                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'INCOME' },
+                                    _sum: { amount: true }
+                                });
+                                const expenseSum = await prisma.transaction.aggregate({
+                                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'EXPENSE' },
+                                    _sum: { amount: true }
+                                });
+
+                                const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
+
+                                if (item.amount > currentBalance) {
+                                    results.push(`⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(item.amount)}\n❌ Kurang: ${formatCurrency(item.amount - currentBalance)}`);
+                                    break;
                                 }
-                                txResult.title = `🤖 AI: ${txResult.title}`;
-                                results.push(txResult);
+                            }
+                        }
+
+                        if (!explicitWalletId && (!item.walletName || item.walletName.toLowerCase() !== 'saldo utama') && wallets.length > 1) {
+                            await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
+                            await prisma.pendingBotTransaction.create({
+                                data: {
+                                    userId: user.id,
+                                    type: item.type,
+                                    amount: item.amount,
+                                    categoryName: categoryName,
+                                    description: description + (txDate.toDateString() !== new Date().toDateString() ? ` [${txDate.toISOString()}]` : "")
+                                }
+                            });
+
+                            let options = wallets.map((w, index) => `${index + 1}. ${w.name}`).join('\n');
+                            options += `\n${wallets.length + 1}. Saldo Utama`;
+                            results.push(`💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan untuk transaksi AI ini?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`);
+                            break;
+                        }
+
+                        const defaultWalletId = (wallets.length === 1 && !item.walletName) ? wallets[0].id : explicitWalletId;
+
+                        const txResult = await executeTransaction(user, item.type, item.amount, categoryName, description, txDate, defaultWalletId);
+                        if (typeof txResult === 'object') {
+                            if (txResult.transactionId) await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
+                            if (matchedWallet) {
+                                txResult.note = `${txResult.note} (via ${matchedWallet.name})`;
+                            }
+                            txResult.title = `🤖 AI: ${txResult.title}`;
+                            results.push(txResult);
+                        } else {
+                            results.push(`❌ AI Error: ${txResult}`);
+                        }
+                    }
+                    break;
+                case 'CREATE_CATEGORY':
+                    if (item.categoryName && item.type) {
+                        const newCat = await prisma.category.create({
+                            data: { userId: user.id, name: item.categoryName, type: item.type }
+                        });
+                        await saveActionHistory(user.id, 'CREATE_CATEGORY', { categoryId: newCat.id });
+                        results.push(`🤖 AI: ✅ Kategori '${newCat.name}' berhasil dibuat.`);
+                    }
+                    break;
+                case 'DELETE_CATEGORY':
+                    if (item.categoryName && item.type) {
+                        const delCat = await prisma.category.findFirst({ where: { userId: user.id, name: { equals: item.categoryName, mode: 'insensitive' }, type: item.type } });
+                        if (delCat) {
+                            await prisma.category.delete({ where: { id: delCat.id } });
+                            await saveActionHistory(user.id, 'DELETE_CATEGORY', { categoryData: delCat });
+                            results.push(`🤖 AI: ✅ Kategori '${delCat.name}' dihapus.`);
+                        }
+                    }
+                    break;
+                case 'CREATE_DEBT':
+                    if (item.targetName && item.amount && item.type) {
+                        const newLoan = await prisma.loan.create({
+                            data: { userId: user.id, name: item.targetName, amount: item.amount, type: item.type === 'EXPENSE' ? 'RECEIVABLE' : 'PAYABLE', status: 'ONGOING', createdAt: txDate }
+                        });
+                        await saveActionHistory(user.id, 'CREATE_DEBT', { loanId: newLoan.id });
+                        results.push(`🤖 AI: ✅ Hutang/Piutang dengan ${item.targetName} dicatat.`);
+                    }
+                    break;
+                case 'PAY_DEBT':
+                    if (item.targetName && item.amount) {
+                        const activeLoan = await prisma.loan.findFirst({ where: { userId: user.id, name: { equals: item.targetName, mode: 'insensitive' }, status: 'ONGOING' } });
+                        if (activeLoan) {
+                            const newAmount = Math.max(0, activeLoan.amount - item.amount);
+                            await prisma.loan.update({ where: { id: activeLoan.id }, data: { amount: newAmount, status: newAmount === 0 ? 'PAID' : 'ONGOING' } });
+                            await saveActionHistory(user.id, 'PAY_DEBT', { loanId: activeLoan.id, oldStatus: activeLoan.status });
+                            results.push(`🤖 AI: ✅ Cicilan Hutang/Piutang ${item.targetName} dicatat.`);
+                        }
+                    }
+                    break;
+                case 'TRANSFER':
+                    if (item.fromWallet && item.targetName && item.amount) {
+                        const w1 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: item.fromWallet, mode: 'insensitive' } } });
+                        const w2 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: item.targetName, mode: 'insensitive' } } });
+                        if (w1 && w2) {
+                            const txE = await prisma.transaction.create({ data: { userId: user.id, amount: item.amount, type: 'EXPENSE', walletId: w1.id, note: `Transfer ke ${w2.name}` } });
+                            const txI = await prisma.transaction.create({ data: { userId: user.id, amount: item.amount, type: 'INCOME', walletId: w2.id, note: `Transfer dari ${w1.name}` } });
+                            await saveActionHistory(user.id, 'TRANSFER', { incomeTxId: txI.id, expenseTxId: txE.id });
+                            results.push(`🤖 AI: ✅ Transfer ${formatCurrency(item.amount)} dari ${w1.name} ke ${w2.name} berhasil.`);
+                        }
+                    }
+                    break;
+                case 'CREATE_GOAL':
+                    if (item.targetName && item.amount) {
+                        const ng = await prisma.goal.create({ data: { userId: user.id, name: item.targetName, targetAmount: item.amount, currentAmount: 0 } });
+                        await saveActionHistory(user.id, 'CREATE_GOAL', { goalId: ng.id });
+                        results.push(`🤖 AI: ✅ Goal Baru '${item.targetName}' dibuat.`);
+                    }
+                    break;
+                case 'FUND_GOAL':
+                    if (item.targetName && item.amount) {
+                        const fg = await prisma.goal.findFirst({ where: { userId: user.id, name: { equals: item.targetName, mode: 'insensitive' } } });
+                        if (fg) {
+                            await prisma.goal.update({ where: { id: fg.id }, data: { currentAmount: { increment: item.amount } } });
+                            await saveActionHistory(user.id, 'FUND_GOAL', { goalId: fg.id, amount: item.amount });
+                            results.push(`🤖 AI: ✅ Berhasil menabung ${formatCurrency(item.amount)} ke Goal '${item.targetName}'.`);
+                        }
+                    }
+                    break;
+                case 'CREATE_RECURRING':
+                    if (item.targetName && item.amount && item.type && item.interval) {
+                        const rCat = await prisma.category.findFirst({ where: { userId: user.id, type: item.type } });
+                        if (rCat) {
+                            const nr = await prisma.recurringTransaction.create({ data: { userId: user.id, name: item.targetName, amount: item.amount, type: item.type, categoryId: rCat.id, frequency: item.interval, startDate: txDate, nextRun: txDate } });
+                            await saveActionHistory(user.id, 'CREATE_RECURRING', { recurringId: nr.id });
+                            results.push(`🤖 AI: ✅ Rutinitas '${item.targetName}' berhasil dibuat.`);
+                        }
+                    }
+                    break;
+                case 'SET_BUDGET':
+                    if (item.categoryName && item.amount) {
+                        const bCat = await prisma.category.findFirst({ where: { userId: user.id, name: { equals: item.categoryName, mode: 'insensitive' } } });
+                        if (bCat) {
+                            const existingB = await prisma.budget.findFirst({ where: { userId: user.id, categoryId: bCat.id } });
+                            if (existingB) {
+                                await prisma.budget.update({ where: { id: existingB.id }, data: { limitAmount: item.amount } });
+                                await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: existingB.id, isNew: false, oldAmount: existingB.limitAmount });
                             } else {
-                                results.push(`❌ AI Error: ${txResult}`);
+                                const nb = await prisma.budget.create({ data: { userId: user.id, categoryId: bCat.id, limitAmount: item.amount, period: 'MONTHLY' } });
+                                await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: nb.id, isNew: true });
                             }
+                            results.push(`🤖 AI: ✅ Budget '${bCat.name}' berhasil diatur ke ${formatCurrency(item.amount)}.`);
                         }
-                        break;
-                    case 'CREATE_CATEGORY':
-                        if (item.categoryName && item.type) {
-                            const newCat = await prisma.category.create({
-                                data: { userId: user.id, name: item.categoryName, type: item.type }
-                            });
-                            await saveActionHistory(user.id, 'CREATE_CATEGORY', { categoryId: newCat.id });
-                            results.push(`🤖 AI: ✅ Kategori '${newCat.name}' berhasil dibuat.`);
-                        }
-                        break;
-                    case 'DELETE_CATEGORY':
-                        if (item.categoryName && item.type) {
-                            const delCat = await prisma.category.findFirst({ where: { userId: user.id, name: { equals: item.categoryName, mode: 'insensitive' }, type: item.type } });
-                            if (delCat) {
-                                await prisma.category.delete({ where: { id: delCat.id } });
-                                await saveActionHistory(user.id, 'DELETE_CATEGORY', { categoryData: delCat });
-                                results.push(`🤖 AI: ✅ Kategori '${delCat.name}' dihapus.`);
-                            }
-                        }
-                        break;
-                    case 'CREATE_DEBT':
-                        if (item.targetName && item.amount && item.type) {
-                            const newLoan = await prisma.loan.create({
-                                data: { userId: user.id, name: item.targetName, amount: item.amount, type: item.type === 'EXPENSE' ? 'RECEIVABLE' : 'PAYABLE', status: 'ONGOING', createdAt: txDate }
-                            });
-                            await saveActionHistory(user.id, 'CREATE_DEBT', { loanId: newLoan.id });
-                            results.push(`🤖 AI: ✅ Hutang/Piutang dengan ${item.targetName} dicatat.`);
-                        }
-                        break;
-                    case 'PAY_DEBT':
-                        if (item.targetName && item.amount) {
-                            const activeLoan = await prisma.loan.findFirst({ where: { userId: user.id, name: { equals: item.targetName, mode: 'insensitive' }, status: 'ONGOING' } });
-                            if (activeLoan) {
-                                const newAmount = Math.max(0, activeLoan.amount - item.amount);
-                                await prisma.loan.update({ where: { id: activeLoan.id }, data: { amount: newAmount, status: newAmount === 0 ? 'PAID' : 'ONGOING' } });
-                                await saveActionHistory(user.id, 'PAY_DEBT', { loanId: activeLoan.id, oldStatus: activeLoan.status });
-                                results.push(`🤖 AI: ✅ Cicilan Hutang/Piutang ${item.targetName} dicatat.`);
-                            }
-                        }
-                        break;
-                    case 'TRANSFER':
-                        if (item.fromWallet && item.targetName && item.amount) {
-                            const w1 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: item.fromWallet, mode: 'insensitive' } } });
-                            const w2 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: item.targetName, mode: 'insensitive' } } });
-                            if (w1 && w2) {
-                                const txE = await prisma.transaction.create({ data: { userId: user.id, amount: item.amount, type: 'EXPENSE', walletId: w1.id, note: `Transfer ke ${w2.name}` } });
-                                const txI = await prisma.transaction.create({ data: { userId: user.id, amount: item.amount, type: 'INCOME', walletId: w2.id, note: `Transfer dari ${w1.name}` } });
-                                await saveActionHistory(user.id, 'TRANSFER', { incomeTxId: txI.id, expenseTxId: txE.id });
-                                results.push(`🤖 AI: ✅ Transfer ${formatCurrency(item.amount)} dari ${w1.name} ke ${w2.name} berhasil.`);
-                            }
-                        }
-                        break;
-                    case 'CREATE_GOAL':
-                        if (item.targetName && item.amount) {
-                            const ng = await prisma.goal.create({ data: { userId: user.id, name: item.targetName, targetAmount: item.amount, currentAmount: 0 } });
-                            await saveActionHistory(user.id, 'CREATE_GOAL', { goalId: ng.id });
-                            results.push(`🤖 AI: ✅ Goal Baru '${item.targetName}' dibuat.`);
-                        }
-                        break;
-                    case 'FUND_GOAL':
-                        if (item.targetName && item.amount) {
-                            const fg = await prisma.goal.findFirst({ where: { userId: user.id, name: { equals: item.targetName, mode: 'insensitive' } } });
-                            if (fg) {
-                                await prisma.goal.update({ where: { id: fg.id }, data: { currentAmount: { increment: item.amount } } });
-                                await saveActionHistory(user.id, 'FUND_GOAL', { goalId: fg.id, amount: item.amount });
-                                results.push(`🤖 AI: ✅ Berhasil menabung ${formatCurrency(item.amount)} ke Goal '${item.targetName}'.`);
-                            }
-                        }
-                        break;
-                    case 'CREATE_RECURRING':
-                        if (item.targetName && item.amount && item.type && item.interval) {
-                            const rCat = await prisma.category.findFirst({ where: { userId: user.id, type: item.type } });
-                            if (rCat) {
-                                const nr = await prisma.recurringTransaction.create({ data: { userId: user.id, name: item.targetName, amount: item.amount, type: item.type, categoryId: rCat.id, frequency: item.interval, startDate: txDate, nextRun: txDate } });
-                                await saveActionHistory(user.id, 'CREATE_RECURRING', { recurringId: nr.id });
-                                results.push(`🤖 AI: ✅ Rutinitas '${item.targetName}' berhasil dibuat.`);
-                            }
-                        }
-                        break;
-                    case 'SET_BUDGET':
-                        if (item.categoryName && item.amount) {
-                            const bCat = await prisma.category.findFirst({ where: { userId: user.id, name: { equals: item.categoryName, mode: 'insensitive' } } });
-                            if (bCat) {
-                                const existingB = await prisma.budget.findFirst({ where: { userId: user.id, categoryId: bCat.id } });
-                                if (existingB) {
-                                    await prisma.budget.update({ where: { id: existingB.id }, data: { limitAmount: item.amount } });
-                                    await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: existingB.id, isNew: false, oldAmount: existingB.limitAmount });
-                                } else {
-                                    const nb = await prisma.budget.create({ data: { userId: user.id, categoryId: bCat.id, limitAmount: item.amount, period: 'MONTHLY' } });
-                                    await saveActionHistory(user.id, 'SET_BUDGET', { budgetId: nb.id, isNew: true });
-                                }
-                                results.push(`🤖 AI: ✅ Budget '${bCat.name}' berhasil diatur ke ${formatCurrency(item.amount)}.`);
-                            }
-                        }
-                        break;
-                    default:
-                        results.push(`🤖 AI: Intent tidak dikenal (${item.intent})`);
-                }
-            } catch (e) {
-                console.error("AI execution error for intent", item.intent, e);
-                results.push(`❌ AI gagal memproses aksi: ${item.intent}`);
+                    }
+                    break;
+                default:
+                    results.push(`🤖 AI: Intent tidak dikenal (${item.intent})`);
             }
+        } catch (e) {
+            console.error("AI execution error for intent", item.intent, e);
+            results.push(`❌ AI gagal memproses aksi: ${item.intent}`);
         }
+    }
 
-        if (results.length === 1) {
-            const first = results[0];
-            if (typeof first === 'object') return first;
-            return first;
-        }
+    if (results.length === 1) {
+        const first = results[0];
+        if (typeof first === 'object') return first;
+        return first;
+    }
 
-        if (results.length > 1) {
-            return results
-                .map((item) => {
-                    if (typeof item === 'string') return item;
-                    const amountLabel = item.amount !== undefined ? formatCurrency(item.amount) : '-';
-                    const categoryLabel = item.category || '-';
-                    return `• ${item.title}: ${amountLabel} (${categoryLabel})`;
-                })
-                .join('\n');
-        }
+    if (results.length > 1) {
+        return results
+            .map((item) => {
+                if (typeof item === 'string') return item;
+                const amountLabel = item.amount !== undefined ? formatCurrency(item.amount) : '-';
+                const categoryLabel = item.category || '-';
+                return `• ${item.title}: ${amountLabel} (${categoryLabel})`;
+            })
+            .join('\n');
     }
 
     return null;
