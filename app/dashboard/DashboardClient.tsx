@@ -6,6 +6,7 @@ import {
 } from "chart.js";
 import { Doughnut, Line } from "react-chartjs-2";
 import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 import AccountMenu from "./AccountMenu";
@@ -610,26 +611,26 @@ export default function DashboardClient({
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-3 pr-2 relative z-10">
                 {filteredTransactions.slice((txPage - 1) * ITEMS_PER_PAGE, txPage * ITEMS_PER_PAGE).map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 group transition-all backdrop-blur-md">
-                    <div className="flex items-center gap-4">
+                  <div key={t.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0 p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 group transition-all backdrop-blur-md">
+                    <div className="flex items-center gap-4 w-full md:w-auto min-w-0">
                       <div className={`w-12 h-12 rounded-2xl shadow-inner flex items-center justify-center text-lg ${t.type === 'INCOME' ? 'bg-gradient-to-br from-[#458B73]/30 to-[#458B73]/10 text-[#458B73] border border-[#458B73]/20' : 'bg-gradient-to-br from-[#F26076]/30 to-[#F26076]/10 text-[#F26076] border border-[#F26076]/20'}`}>
                         {t.type === 'INCOME' ? '↓' : '↑'}
                       </div>
-                      <div>
-                        <p className="font-black text-sm md:text-base text-white truncate max-w-[120px] md:max-w-[200px]">{t.category}</p>
-                        <span className="text-[10px] text-neutral-500 font-bold tracking-widest flex items-center gap-1.5 mt-0.5">
+                      <div className="min-w-0">
+                        <p className="font-black text-sm md:text-base text-white break-words md:truncate max-w-full md:max-w-[200px]">{t.category}</p>
+                        <span className="text-[10px] text-neutral-500 font-bold tracking-widest flex flex-wrap items-center gap-1.5 mt-0.5">
                           <span className="uppercase">{t.date}</span>
                           <span className="w-1 h-1 rounded-full bg-neutral-600"></span>
-                          <span className="truncate max-w-[80px] md:max-w-[120px] text-neutral-400">via {t.walletName || "Saldo utama"}</span>
+                          <span className="max-w-full md:max-w-[120px] text-neutral-400 break-words md:truncate">via {t.walletName || "Saldo utama"}</span>
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                      <div className="text-left md:text-right min-w-0">
                         <span className={`block font-black text-sm md:text-base ${t.type === 'INCOME' ? 'text-brand-green' : 'text-brand-red'}`}>{t.type === 'INCOME' ? '+' : '-'}{currency(t.amount)}</span>
-                        {t.note && <span className="text-[10px] text-neutral-500 font-medium truncate max-w-[100px] hidden sm:block">{t.note}</span>}
+                        {t.note && <span className="text-[10px] text-neutral-500 font-medium block max-w-full md:max-w-[100px] break-words md:truncate">{t.note}</span>}
                       </div>
-                      <button onClick={() => { setEditingTx(t); setIsTxModalOpen(true); }} className="w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-white/10 text-xs">✏️</button>
+                      <button onClick={() => { setEditingTx(t); setIsTxModalOpen(true); }} className="w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-white/20 rounded-xl opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all border border-white/10 text-xs shrink-0">✏️</button>
                     </div>
                   </div>
                 ))}
@@ -835,7 +836,7 @@ export default function DashboardClient({
       </a>
 
       {/* Global Tooltip Portal for Gamification Badges */}
-      {activeTooltip && (
+      {activeTooltip && typeof document !== "undefined" && createPortal(
         <div
           className="fixed z-[99999] p-4 rounded-2xl bg-[#1f1f1f]/95 backdrop-blur-md border border-white/10 shadow-2xl flex flex-col gap-1 items-center pointer-events-none animate-in fade-in zoom-in-95 duration-200"
           style={{
@@ -859,7 +860,8 @@ export default function DashboardClient({
           {/* Tooltip Arrow pointing down */}
           <div className={`absolute -bottom-2 ${activeTooltip.isFirst ? 'left-10' : activeTooltip.isLast ? 'right-10' : 'left-1/2 -translate-x-1/2'} w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-transparent border-t-white/10`}></div>
           <div className={`absolute -bottom-[7px] ${activeTooltip.isFirst ? 'left-10' : activeTooltip.isLast ? 'right-10' : 'left-1/2 -translate-x-1/2'} w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-transparent border-t-[#111]`}></div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Gamification Popout Overlay */}
