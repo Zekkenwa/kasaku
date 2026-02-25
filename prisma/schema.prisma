@@ -107,7 +107,7 @@ model Category {
   type      CategoryType
   createdAt DateTime @default(now())
 
-  user         User          @relation(fields: [userId], references: [id])
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   budgets      Budget[]
   recurringTransactions RecurringTransaction[]
@@ -124,7 +124,7 @@ model Transaction {
   note       String?
   createdAt  DateTime         @default(now())
 
-  user     User      @relation(fields: [userId], references: [id])
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id])
   walletId String?
   wallet   Wallet?   @relation(fields: [walletId], references: [id])
@@ -145,7 +145,7 @@ model Budget {
   monthOfYear Int?
   createdAt   DateTime @default(now())
 
-  user     User     @relation(fields: [userId], references: [id])
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
 
   @@unique([userId, categoryId])
@@ -162,7 +162,7 @@ model Loan {
   type      LoanType   @default(PAYABLE)
   createdAt DateTime   @default(now())
 
-  user     User              @relation(fields: [userId], references: [id])
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments PaymentHistory[]
 
   @@index([userId])
@@ -177,7 +177,7 @@ model Wallet {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id])
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   recurringTransactions RecurringTransaction[]
 
