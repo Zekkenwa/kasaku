@@ -431,28 +431,59 @@ export default function DashboardClient({
                 <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-overlay rounded-[2.5rem] pointer-events-none"></div>
                 {/* Move margin outside the scroll container to keep the scrollbar nested correctly, while allowing overflow visual breaks */}
                 <div className="relative z-50 w-full overflow-visible">
-                  <div className="overflow-x-auto custom-scrollbar pb-6 pr-6 pt-4">
+                  <div
+                    className="overflow-x-auto custom-scrollbar pb-6 pr-6 pt-4"
+                    onScroll={() => setActiveTooltip(null)}
+                  >
                     <div className="flex gap-4 min-w-max items-stretch justify-start pb-4 px-2 pt-2">
+
                       {BADGE_DEFINITIONS.map((def, i) => {
                         const unlocked = badges.find(b => b.code === def.code && b.isUnlocked);
                         return (
                           <div
                             key={def.code}
                             tabIndex={0}
+                            onClick={(e) => {
+                              if (activeTooltip?.def.code === def.code) {
+                                setActiveTooltip(null);
+                              } else {
+                                if (unlocked && !seenBadges.includes(def.code)) {
+                                  setSeenBadges(prev => [...prev, def.code]);
+                                }
+                                setActiveTooltip({
+                                  def,
+                                  unlocked: !!unlocked,
+                                  rect: e.currentTarget.getBoundingClientRect(),
+                                  isFirst: i === 0,
+                                  isLast: i === BADGE_DEFINITIONS.length - 1
+                                });
+                              }
+                            }}
                             onMouseEnter={(e) => {
+                              // Only trigger on real mouse hover to avoid mobile double-firing
+                              if (window.matchMedia("(hover: hover)").matches) {
+                                if (unlocked && !seenBadges.includes(def.code)) {
+                                  setSeenBadges(prev => [...prev, def.code]);
+                                }
+                                setActiveTooltip({
+                                  def,
+                                  unlocked: !!unlocked,
+                                  rect: e.currentTarget.getBoundingClientRect(),
+                                  isFirst: i === 0,
+                                  isLast: i === BADGE_DEFINITIONS.length - 1
+                                });
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              if (window.matchMedia("(hover: hover)").matches) {
+                                setActiveTooltip(null);
+                              }
+                            }}
+                            onFocus={(e) => {
+                              if (window.matchMedia("(hover: hover)").matches) return;
                               if (unlocked && !seenBadges.includes(def.code)) {
                                 setSeenBadges(prev => [...prev, def.code]);
                               }
-                              setActiveTooltip({
-                                def,
-                                unlocked: !!unlocked,
-                                rect: e.currentTarget.getBoundingClientRect(),
-                                isFirst: i === 0,
-                                isLast: i === BADGE_DEFINITIONS.length - 1
-                              });
-                            }}
-                            onMouseLeave={() => setActiveTooltip(null)}
-                            onFocus={(e) => {
                               setActiveTooltip({
                                 def,
                                 unlocked: !!unlocked,
