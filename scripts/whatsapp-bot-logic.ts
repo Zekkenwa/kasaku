@@ -843,6 +843,159 @@ async function handleDebtPayment(user: BotUser, parts: string[]): Promise<Proces
     };
 }
 
+async function handleDeleteCategory(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const namePart = parts.filter((p, i) => i > 1 && !p.startsWith('@')).join(' ');
+    const typePart = parts.find((p) => p === '@masuk' || p === '@keluar' || p === '@in' || p === '@out');
+
+    if (!namePart) return "❌ Gagal: Nama kategori belum diisi.";
+
+    let type: 'INCOME' | 'EXPENSE' = 'EXPENSE';
+    if (typePart && (typePart === '@masuk' || typePart === '@in')) type = 'INCOME';
+
+    const category = await prisma.category.findFirst({
+        where: {
+            userId: user.id,
+            name: { equals: namePart, mode: 'insensitive' },
+            type: type
+        }
+    });
+
+    if (!category) return `❌ Gagal: Kategori '${namePart}' tidak ditemukan.`;
+
+    const usageCount = await prisma.transaction.count({ where: { categoryId: category.id } });
+    if (usageCount > 0) return `⚠️ Gagal: Kategori ini dipakai di ${usageCount} transaksi. Hapus transaksi dulu.`;
+
+    const recurringCount = await prisma.recurringTransaction.count({ where: { categoryId: category.id } });
+    if (recurringCount > 0) return `⚠️ Gagal: Kategori ini dipakai di ${recurringCount} rutinitas aktif. Hapus rutinitas dulu.`;
+
+    await prisma.category.delete({ where: { id: category.id } });
+    await saveActionHistory(user.id, 'DELETE_CATEGORY', { categoryData: category });
+
+    return `✅ Kategori '${category.name}' (${type}) berhasil dihapus.`;
+}
+
+async function handleManualTransaction(user: BotUser, normalizedCmd: 'keluar' | 'masuk', parts: string[]): Promise<ProcessCommandResult> {
+    const type = normalizedCmd === 'masuk' ? 'INCOME' : 'EXPENSE';
+
+    let amount = 0;
+    let amountStartIndex = -1;
+    let amountEndIndex = -1;
+
+    for (let i = 1; i < parts.length; i++) {
+        for (let j = parts.length; j > i; j--) {
+            const sub = parts.slice(i, j).join(' ');
+            const val = parseAmount(sub);
+            if (val !== null && val > 0) {
+                amount = val;
+                amountStartIndex = i;
+                amountEndIndex = j;
+                break;
+            }
+        }
+        if (amount > 0) break;
+    }
+
+    if (amount === 0) return "❌ Gagal: Jumlah tidak ditemukan (cth: 15k, seratus ribu)";
+
+    const categoryIdx = parts.findIndex((p) => p.startsWith('@'));
+    const viaIdx = parts.findIndex((p) => p === 'via');
+
+    let explicitWalletName: string | undefined;
+    if (viaIdx !== -1 && viaIdx < parts.length - 1) {
+        explicitWalletName = parts.slice(viaIdx + 1).join(' ').toLowerCase();
+    }
+
+    const descParts: string[] = [];
+    for (let i = 1; i < parts.length; i++) {
+        if (i >= amountStartIndex && i < amountEndIndex) continue;
+        if (categoryIdx !== -1 && i === categoryIdx) continue;
+        if (viaIdx !== -1 && i >= viaIdx) continue;
+        descParts.push(parts[i]);
+    }
+
+    let categoryName = 'Umum';
+    const categoryPart = parts.find((p) => p.startsWith('@'));
+    if (categoryPart) {
+        categoryName = categoryPart.substring(1).replace(/_/g, ' ');
+    }
+
+    const description = descParts.join(' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+    const wallets = await prisma.wallet.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'asc' }
+    });
+
+    let explicitWalletId: string | undefined;
+    let matchedWallet: (typeof wallets)[number] | undefined;
+
+    if (explicitWalletName) {
+        matchedWallet = wallets.find((wallet) => wallet.name.toLowerCase() === explicitWalletName || wallet.name.toLowerCase().includes(explicitWalletName));
+        if (!matchedWallet && explicitWalletName !== 'saldo utama') {
+            return `⚠️ Anda tidak memiliki dompet bernama '${explicitWalletName}'.\nMohon buat dulu di web: https://kasaku.vercel.app`;
+        }
+        if (matchedWallet) {
+            explicitWalletId = matchedWallet.id;
+        }
+    }
+
+    if (type === 'EXPENSE') {
+        let targetWalletToCheck = matchedWallet;
+        if (!targetWalletToCheck && wallets.length === 1) {
+            targetWalletToCheck = wallets[0];
+        }
+
+        if (targetWalletToCheck) {
+            const [incomeSum, expenseSum] = await Promise.all([
+                prisma.transaction.aggregate({
+                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'INCOME' },
+                    _sum: { amount: true }
+                }),
+                prisma.transaction.aggregate({
+                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'EXPENSE' },
+                    _sum: { amount: true }
+                })
+            ]);
+
+            const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
+            if (amount > currentBalance) {
+                return `⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(amount)}\n❌ Kurang: ${formatCurrency(amount - currentBalance)}\n\n💡 _Silakan isi ulang dompet ini atau ubah jumlah transaksi._`;
+            }
+        }
+    }
+
+    if (!explicitWalletId && explicitWalletName !== 'saldo utama' && wallets.length > 1) {
+        await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
+
+        await prisma.pendingBotTransaction.create({
+            data: {
+                userId: user.id,
+                type: type,
+                amount: amount,
+                categoryName: categoryName,
+                description: description
+            }
+        });
+
+        let options = wallets.map((wallet, index) => `${index + 1}. ${wallet.name}`).join('\n');
+        options += `\n${wallets.length + 1}. Saldo Utama`;
+
+        return `💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`;
+    }
+
+    const defaultWalletId = (wallets.length === 1 && !explicitWalletName) ? wallets[0].id : explicitWalletId;
+
+    const txResult = await executeTransaction(user, type, amount, categoryName, description, new Date(), defaultWalletId);
+    if (typeof txResult === 'object' && txResult.transactionId) {
+        await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
+        if (matchedWallet) {
+            txResult.note = `${txResult.note} (via ${matchedWallet.name})`;
+        }
+    }
+
+    return txResult;
+}
+
 const directCommandHandlers: Record<string, CommandHandler> = {
     laporan: async (user, parts) => handleLaporan(user, parts),
     transfer: async (user, parts) => handleTransfer(user, parts),
@@ -853,10 +1006,13 @@ const directCommandHandlers: Record<string, CommandHandler> = {
     piutang: async (user, parts) => handleDebtCreate(user, 'piutang', parts),
     lunas: async (user, parts) => handleDebtSettle(user, parts),
     bayar: async (user, parts) => handleDebtPayment(user, parts),
+    keluar: async (user, parts) => handleManualTransaction(user, 'keluar', parts),
+    masuk: async (user, parts) => handleManualTransaction(user, 'masuk', parts),
 };
 
 const compoundCommandHandlers: Record<string, CommandHandler> = {
     'isi goal': async (user, parts) => handleGoalFund(user, parts),
+    'hapus kategori': async (user, parts) => handleDeleteCategory(user, parts),
 };
 
 async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
@@ -947,176 +1103,6 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
     const compoundHandler = compoundCommandHandlers[compoundCmd] || compoundCommandHandlers[`${cmd} ${parts[1] || ''}`];
     if (compoundHandler) {
         return compoundHandler(user, parts, text);
-    }
-
-    // --- CATEGORY DELETION ---
-    if (cmd === 'hapus' && parts[1] === 'kategori') {
-        const namePart = parts.filter((p, i) => i > 1 && !p.startsWith('@')).join(' ');
-        const typePart = parts.find(p => p === '@masuk' || p === '@keluar' || p === '@in' || p === '@out');
-
-        if (!namePart) return "❌ Gagal: Nama kategori belum diisi.";
-
-        let type: 'INCOME' | 'EXPENSE' = 'EXPENSE';
-        if (typePart && (typePart === '@masuk' || typePart === '@in')) type = 'INCOME';
-
-        // Check exist
-        const category = await prisma.category.findFirst({
-            where: {
-                userId: user.id,
-                name: { equals: namePart, mode: 'insensitive' },
-                type: type
-            }
-        });
-
-        if (!category) return `❌ Gagal: Kategori '${namePart}' tidak ditemukan.`;
-
-        // Check usage in Transactions
-        const usageCount = await prisma.transaction.count({ where: { categoryId: category.id } });
-        if (usageCount > 0) return `⚠️ Gagal: Kategori ini dipakai di ${usageCount} transaksi. Hapus transaksi dulu.`;
-
-        // Check usage in Recurring Transactions
-        const recurringCount = await prisma.recurringTransaction.count({ where: { categoryId: category.id } });
-        if (recurringCount > 0) return `⚠️ Gagal: Kategori ini dipakai di ${recurringCount} rutinitas aktif. Hapus rutinitas dulu.`;
-
-        await prisma.category.delete({ where: { id: category.id } });
-
-        await saveActionHistory(user.id, 'DELETE_CATEGORY', { categoryData: category });
-
-        return `✅ Kategori '${category.name}' (${type}) berhasil dihapus.`;
-    }
-
-    // --- TRANSACTION (keluar/masuk) ---
-    if (['keluar', 'masuk'].includes(normalizedCmd)) {
-        const type = normalizedCmd === 'masuk' ? 'INCOME' : 'EXPENSE';
-
-        // Find amount (first string that looks like number)
-        let amount = 0;
-        let amountStartIndex = -1;
-        let amountEndIndex = -1;
-
-        for (let i = 1; i < parts.length; i++) {
-            for (let j = parts.length; j > i; j--) {
-                const sub = parts.slice(i, j).join(' ');
-                const val = parseAmount(sub);
-                if (val !== null && val > 0) {
-                    amount = val;
-                    amountStartIndex = i;
-                    amountEndIndex = j;
-                    break;
-                }
-            }
-            if (amount > 0) break;
-        }
-
-        if (amount === 0) return "❌ Gagal: Jumlah tidak ditemukan (cth: 15k, seratus ribu)";
-
-        const categoryIdx = parts.findIndex(p => p.startsWith('@'));
-        const viaIdx = parts.findIndex(p => p === 'via');
-
-        let explicitWalletName: string | undefined = undefined;
-        if (viaIdx !== -1 && viaIdx < parts.length - 1) {
-            explicitWalletName = parts.slice(viaIdx + 1).join(' ').toLowerCase();
-        }
-
-        let descParts = [];
-        for (let i = 1; i < parts.length; i++) {
-            if (i >= amountStartIndex && i < amountEndIndex) continue;
-            if (categoryIdx !== -1 && i === categoryIdx) continue;
-            if (viaIdx !== -1 && i >= viaIdx) continue;
-            descParts.push(parts[i]);
-        }
-
-        let categoryName = "Umum";
-        const categoryPart = parts.find(p => p.startsWith('@'));
-        if (categoryPart) {
-            categoryName = categoryPart.substring(1).replace(/_/g, ' ');
-        }
-
-        const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
-
-        const wallets = await prisma.wallet.findMany({
-            where: { userId: user.id },
-            orderBy: { createdAt: 'asc' }
-        });
-
-        let explicitWalletId: string | undefined = undefined;
-        let matchedWallet: (typeof wallets)[number] | undefined;
-
-        if (explicitWalletName) {
-            // Find an exact match or a partial match
-            matchedWallet = wallets.find(w => w.name.toLowerCase() === explicitWalletName || w.name.toLowerCase().includes(explicitWalletName!));
-            if (!matchedWallet && explicitWalletName !== 'saldo utama') {
-                return `⚠️ Anda tidak memiliki dompet bernama '${explicitWalletName}'.\nMohon buat dulu di web: https://kasaku.vercel.app`;
-            }
-            if (matchedWallet) {
-                explicitWalletId = matchedWallet.id;
-            }
-        }
-
-        // Balance validation for EXPENSE — block if insufficient funds (no data change, undo unaffected)
-        if (type === 'EXPENSE') {
-            let targetWalletToCheck = matchedWallet;
-            // If they didn't explicitly mention 'via', and they only have 1 wallet, we check that 1 wallet.
-            if (!targetWalletToCheck && wallets.length === 1) {
-                targetWalletToCheck = wallets[0];
-            }
-
-            if (targetWalletToCheck) {
-                const sumTransactions = await prisma.transaction.aggregate({
-                    where: { userId: user.id, walletId: targetWalletToCheck.id },
-                    _sum: { amount: true }
-                });
-
-                // Income is positive, Expense is negative in the system? No, in Kasaku type determines the sign during aggregation, but the DB stores absolute values.
-                // Wait, the aggregate sum of amount doesn't account for type! I need to do this properly.
-                const incomeSum = await prisma.transaction.aggregate({
-                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'INCOME' },
-                    _sum: { amount: true }
-                });
-                const expenseSum = await prisma.transaction.aggregate({
-                    where: { userId: user.id, walletId: targetWalletToCheck.id, type: 'EXPENSE' },
-                    _sum: { amount: true }
-                });
-
-                const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
-
-                if (amount > currentBalance) {
-                    return `⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(amount)}\n❌ Kurang: ${formatCurrency(amount - currentBalance)}\n\n💡 _Silakan isi ulang dompet ini atau ubah jumlah transaksi._`;
-                }
-            }
-        }
-
-        // --- MULTI-WALLET CHECK ---
-        if (!explicitWalletId && explicitWalletName !== 'saldo utama' && wallets.length > 1) {
-            // Delete any stale pending transactions first
-            await prisma.pendingBotTransaction.deleteMany({ where: { userId: user.id } });
-
-            await prisma.pendingBotTransaction.create({
-                data: {
-                    userId: user.id,
-                    type: type,
-                    amount: amount,
-                    categoryName: categoryName,
-                    description: description
-                }
-            });
-
-            let options = wallets.map((w, index) => `${index + 1}. ${w.name}`).join('\n');
-            options += `\n${wallets.length + 1}. Saldo Utama`;
-
-            return `💳 Anda memiliki beberapa dompet aktif. Dompet mana yang ingin digunakan?\n\n${options}\n\n_Balas dengan angka (contoh: 1)_`;
-        }
-
-        const defaultWalletId = (wallets.length === 1 && !explicitWalletName) ? wallets[0].id : explicitWalletId;
-
-        const txResult = await executeTransaction(user, type, amount, categoryName, description, new Date(), defaultWalletId);
-        if (typeof txResult === 'object' && txResult.transactionId) {
-            await saveActionHistory(user.id, 'CREATE_TRANSACTIONS', { transactionIds: [txResult.transactionId] });
-            if (matchedWallet) {
-                txResult.note = `${txResult.note} (via ${matchedWallet.name})`;
-            }
-        }
-        return txResult;
     }
 
     // --- UNDO (Universal Multi-step) ---
