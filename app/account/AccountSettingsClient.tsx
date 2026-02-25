@@ -42,9 +42,41 @@ export default function AccountSettingsClient({ user }: { user: User }) {
     await signOut({ callbackUrl: "/login" });
   };
 
-  const handleDeleteAccount = () => {
-    if (window.confirm("Apakah anda yakin ingin menghapus akun? Tindakan ini tidak dapat dibatalkan.")) {
-      alert("Fitur hapus akun akan segera tersedia.");
+  const handleDeleteAccount = async () => {
+    if (window.confirm("Apakah anda yakin ingin menghapus akun? Akun beserta seluruh data Anda akan dijadwalkan untuk dihapus secara permanen dalam 3 hari.")) {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/account/request-delete", { method: "POST" });
+        if (res.ok) {
+          alert("Permintaan hapus akun berhasil dikirim. Anda akan log out sekarang.");
+          await signOut({ callbackUrl: "/login" });
+        } else {
+          alert("Gagal memproses permintaan hapus akun.");
+          setIsLoading(false);
+        }
+      } catch (e) {
+        alert("Terjadi kesalahan jaringan.");
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleCancelDelete = async () => {
+    if (window.confirm("Batalkan penghapusan akun?")) {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/account/cancel-delete", { method: "POST" });
+        if (res.ok) {
+          alert("Penghapusan akun dibatalkan.");
+          window.location.reload();
+        } else {
+          alert("Gagal membatalkan penghapusan akun.");
+          setIsLoading(false);
+        }
+      } catch (e) {
+        alert("Terjadi kesalahan jaringan.");
+        setIsLoading(false);
+      }
     }
   };
 
@@ -114,6 +146,25 @@ export default function AccountSettingsClient({ user }: { user: User }) {
           </div>
           <h1 className="text-2xl font-bold text-white">{user.name}</h1>
         </div>
+
+        {/* Deletion Warning Banner */}
+        {user.deleteScheduledAt && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="text-sm text-red-200">
+              <span className="font-bold flex items-center gap-2 mb-1">
+                ⚠️ Peringatan Hapus Akun
+              </span>
+              Akun Anda dijadwalkan untuk dihapus permanen pada {new Date(user.deleteScheduledAt).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}.
+            </div>
+            <button
+              onClick={handleCancelDelete}
+              disabled={isLoading}
+              className="whitespace-nowrap px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+            >
+              Batalkan Hapus
+            </button>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="space-y-6">
