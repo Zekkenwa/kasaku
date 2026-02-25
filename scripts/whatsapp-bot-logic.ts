@@ -516,6 +516,126 @@ async function handleLaporan(user: BotUser, parts: string[]): Promise<ProcessCom
     };
 }
 
+async function handleTransfer(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const fromPart = parts.find((p, i) => p.startsWith('@') && parts[i - 1] === 'dari');
+    const toPart = parts.find((p, i) => p.startsWith('@') && parts[i - 1] === 'ke');
+
+    if (!fromPart || !toPart) return "❌ Format salah. Gunakan: transfer [jml] dari @[A] ke @[B]";
+
+    const fromName = fromPart.substring(1).replace(/_/g, ' ');
+    const toName = toPart.substring(1).replace(/_/g, ' ');
+    const noteParts = parts.filter((p, i) => i > amountIdx && !p.startsWith('@') && p !== 'dari' && p !== 'ke');
+    const note = noteParts.join(' ');
+
+    const w1 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: fromName, mode: 'insensitive' } } });
+    const w2 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: toName, mode: 'insensitive' } } });
+
+    if (!w1 || !w2) return "❌ Salah satu wallet tidak ditemukan.";
+
+    const [incomeAgg, expenseAgg] = await Promise.all([
+        prisma.transaction.aggregate({
+            _sum: { amount: true },
+            where: { walletId: w1.id, type: 'INCOME' }
+        }),
+        prisma.transaction.aggregate({
+            _sum: { amount: true },
+            where: { walletId: w1.id, type: 'EXPENSE' }
+        })
+    ]);
+
+    const currentBalance = w1.initialBalance + (incomeAgg._sum.amount || 0) - (expenseAgg._sum.amount || 0);
+
+    if (currentBalance < amount) {
+        return `❌ Gagal: Saldo ${w1.name} tidak cukup.\nSaldo: ${formatCurrency(currentBalance)}\nTransfer: ${formatCurrency(amount)}`;
+    }
+
+    const baseNote = note ? `- ${note}` : '';
+    const txExpense = await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            amount: amount,
+            type: 'EXPENSE',
+            walletId: w1.id,
+            note: `Transfer ke ${w2.name} ${baseNote}`.trim()
+        }
+    });
+    const txIncome = await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            amount: amount,
+            type: 'INCOME',
+            walletId: w2.id,
+            note: `Transfer dari ${w1.name} ${baseNote}`.trim()
+        }
+    });
+
+    await saveActionHistory(user.id, 'TRANSFER', { incomeTxId: txIncome.id, expenseTxId: txExpense.id });
+
+    return {
+        title: 'Transfer Saldo',
+        amount: amount,
+        category: 'Transfer',
+        note: `Dari ${w1.name} ke ${w2.name}`,
+        date: new Date()
+    };
+}
+
+async function handleRutin(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const typeStr = parts.find((p) => ['masuk', 'in', 'keluar', 'out'].includes(p));
+    if (!typeStr) return "❌ Tipe (masuk/keluar) tidak ditemukan.";
+    const type = ['masuk', 'in'].includes(typeStr) ? 'INCOME' : 'EXPENSE';
+
+    const intervalStr = parts.find((p) => ['harian', 'mingguan', 'bulanan'].includes(p));
+    if (!intervalStr) return "❌ Interval (harian/mingguan/bulanan) tidak ditemukan.";
+
+    let freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'MONTHLY';
+    if (intervalStr === 'harian') freq = 'DAILY';
+    if (intervalStr === 'mingguan') freq = 'WEEKLY';
+
+    const nameParts = parts.filter((p, i) => i > 0 && i !== amountIdx && p !== typeStr && p !== intervalStr);
+    const name = nameParts.join(' ');
+
+    const defaultCategory = await prisma.category.findFirst({ where: { userId: user.id, type: type } });
+    if (!defaultCategory) return "❌ Buat minimal satu kategori di dashboard dulu.";
+
+    const newRecurring = await prisma.recurringTransaction.create({
+        data: {
+            userId: user.id,
+            name: name || 'Rutin',
+            amount: amount,
+            type: type,
+            categoryId: defaultCategory.id,
+            frequency: freq,
+            startDate: new Date(),
+            nextRun: new Date()
+        }
+    });
+
+    await saveActionHistory(user.id, 'CREATE_RECURRING', { recurringId: newRecurring.id });
+
+    return {
+        title: 'Rutinitas Baru',
+        amount: amount,
+        category: 'Rutin',
+        note: `${name || 'Rutin'} (${intervalStr})`,
+        date: new Date()
+    };
+}
+
+const directCommandHandlers: Record<string, CommandHandler> = {
+    laporan: async (user, parts) => handleLaporan(user, parts),
+    transfer: async (user, parts) => handleTransfer(user, parts),
+    rutin: async (user, parts) => handleRutin(user, parts),
+};
+
 async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
@@ -593,6 +713,11 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
         if (checkHandler) {
             return checkHandler(user, parts, text);
         }
+    }
+
+    const directHandler = directCommandHandlers[normalizedCmd] || directCommandHandlers[cmd];
+    if (directHandler) {
+        return directHandler(user, parts, text);
     }
 
     // --- CATEGORY DELETION ---
@@ -949,11 +1074,6 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
     }
 
 
-    // --- LAPORAN ---
-    if (normalizedCmd === 'laporan') {
-        return handleLaporan(user, parts);
-    }
-
     // --- GOALS ---
     if (cmd === 'goal') {
         // goal [nama] [target]
@@ -1011,128 +1131,6 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
             amount: amount,
             category: 'Tabungan',
             note: `Berhasil nabung ke '${goal.name}'. Terkumpul: ${formatCurrency(goal.currentAmount + amount)} (${Math.round((goal.currentAmount + amount) / goal.targetAmount * 100)}%)`,
-            date: new Date()
-        };
-    }
-
-    if (cmd === 'transfer') {
-        // transfer [jml] dari @[A] ke @[B]
-        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
-        const amount = parseAmount(parts[amountIdx])!;
-
-        const fromPart = parts.find((p, i) => p.startsWith('@') && parts[i - 1] === 'dari');
-        const toPart = parts.find((p, i) => p.startsWith('@') && parts[i - 1] === 'ke');
-
-        if (!fromPart || !toPart) return "❌ Format salah. Gunakan: transfer [jml] dari @[A] ke @[B]";
-
-        const fromName = fromPart.substring(1).replace(/_/g, ' ');
-        const toName = toPart.substring(1).replace(/_/g, ' ');
-        const noteParts = parts.filter((p, i) => i > amountIdx && !p.startsWith('@') && p !== 'dari' && p !== 'ke');
-        const note = noteParts.join(' ');
-
-        const w1 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: fromName, mode: 'insensitive' } } });
-        const w2 = await prisma.wallet.findFirst({ where: { userId: user.id, name: { equals: toName, mode: 'insensitive' } } });
-
-        if (!w1 || !w2) return "❌ Salah satu wallet tidak ditemukan.";
-
-        // Check Balance of Source Wallet
-        const incomeAgg = await prisma.transaction.aggregate({
-            _sum: { amount: true },
-            where: { walletId: w1.id, type: 'INCOME' }
-        });
-        const expenseAgg = await prisma.transaction.aggregate({
-            _sum: { amount: true },
-            where: { walletId: w1.id, type: 'EXPENSE' }
-        });
-
-        const currentBalance = w1.initialBalance + (incomeAgg._sum.amount || 0) - (expenseAgg._sum.amount || 0);
-
-        if (currentBalance < amount) {
-            return `❌ Gagal: Saldo ${w1.name} tidak cukup.\nSaldo: ${formatCurrency(currentBalance)}\nTransfer: ${formatCurrency(amount)}`;
-        }
-
-        // Execute Transfer (Expense from W1, Income to W2)
-        const baseNote = note ? `- ${note}` : '';
-        const txExpense = await prisma.transaction.create({
-            data: {
-                userId: user.id,
-                amount: amount,
-                type: 'EXPENSE',
-                walletId: w1.id,
-                note: `Transfer ke ${w2.name} ${baseNote}`.trim()
-            }
-        });
-        const txIncome = await prisma.transaction.create({
-            data: {
-                userId: user.id,
-                amount: amount,
-                type: 'INCOME',
-                walletId: w2.id,
-                note: `Transfer dari ${w1.name} ${baseNote}`.trim()
-            }
-        });
-
-        await saveActionHistory(user.id, 'TRANSFER', { incomeTxId: txIncome.id, expenseTxId: txExpense.id });
-
-        return {
-            title: 'Transfer Saldo',
-            amount: amount,
-            category: 'Transfer',
-            note: `Dari ${w1.name} ke ${w2.name}`,
-            date: new Date()
-        };
-    }
-
-    // --- RECURRING (Rutinitas) ---
-    if (cmd === 'rutin') {
-        // rutin [nama] [jml] [masuk/keluar] [harian/mingguan/bulanan]
-        // Example: rutin Netflix 180k keluar bulanan
-
-        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Jumlah tidak ditemukan.";
-        const amount = parseAmount(parts[amountIdx])!;
-
-        const typeStr = parts.find(p => ['masuk', 'in', 'keluar', 'out'].includes(p));
-        if (!typeStr) return "❌ Tipe (masuk/keluar) tidak ditemukan.";
-        const type = ['masuk', 'in'].includes(typeStr) ? 'INCOME' : 'EXPENSE';
-
-        const intervalStr = parts.find(p => ['harian', 'mingguan', 'bulanan'].includes(p));
-        if (!intervalStr) return "❌ Interval (harian/mingguan/bulanan) tidak ditemukan.";
-
-        let freq = 'MONTHLY';
-        if (intervalStr === 'harian') freq = 'DAILY';
-        if (intervalStr === 'mingguan') freq = 'WEEKLY';
-
-        const nameParts = parts.filter((p, i) => i > 0 && i !== amountIdx && p !== typeStr && p !== intervalStr);
-        const name = nameParts.join(' ');
-
-        // Need category... default to General? Or ask user to use @?
-        // Let's force @ for category if we want it. Or default.
-        // Schema: RecurringTransaction needs categoryId.
-        const defaultCategory = await prisma.category.findFirst({ where: { userId: user.id, type: type } });
-        if (!defaultCategory) return "❌ Buat minimal satu kategori di dashboard dulu.";
-
-        const newRecurring = await prisma.recurringTransaction.create({
-            data: {
-                userId: user.id,
-                name: name || 'Rutin',
-                amount: amount,
-                type: type,
-                categoryId: defaultCategory.id,
-                frequency: freq as any,
-                startDate: new Date(),
-                nextRun: new Date() // Logic usually handles next run calculation
-            }
-        });
-
-        await saveActionHistory(user.id, 'CREATE_RECURRING', { recurringId: newRecurring.id });
-
-        return {
-            title: 'Rutinitas Baru',
-            amount: amount,
-            category: 'Rutin',
-            note: `${name || 'Rutin'} (${intervalStr})`,
             date: new Date()
         };
     }
