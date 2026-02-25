@@ -46,26 +46,26 @@ async function connectToWhatsApp() {
         if (m.type !== 'notify') return; // Only handle notifications
 
         for (const msg of m.messages) {
-            // If message is from ME (the owner manually chatting), update silence timer
-            if (msg.key.fromMe) {
-                const jid = msg.key.remoteJid;
-                if (jid) {
+            try {
+                if (!msg || !msg.key || !msg.key.remoteJid) continue;
+
+                // If message is from ME (the owner manually chatting), update silence timer
+                if (msg.key.fromMe) {
+                    const jid = msg.key.remoteJid;
                     lastManualChat.set(jid, Date.now());
                     console.log(`[BOT] Manual chat detected for ${jid}. Silencing auto-replies for 5m.`);
+                    continue;
                 }
-                continue;
-            }
 
-            // Check if silence is active for this sender
-            const lastManual = lastManualChat.get(msg.key.remoteJid!);
-            const isSilenceActive = lastManual ? (Date.now() - lastManual < SILENCE_DURATION) : false;
+                // Check if silence is active for this sender
+                const lastManual = lastManualChat.get(msg.key.remoteJid);
+                const isSilenceActive = lastManual ? (Date.now() - lastManual < SILENCE_DURATION) : false;
 
-            console.log(`[BOT] New message received from ${msg.key.remoteJid}${isSilenceActive ? ' (SILENCE ACTIVE)' : ''}`);
+                console.log(`[BOT] New message received from ${msg.key.remoteJid}${isSilenceActive ? ' (SILENCE ACTIVE)' : ''}`);
 
-            try {
                 await handleIncomingMessage(socket, { messages: [msg], type: m.type }, isSilenceActive);
             } catch (error: any) {
-                console.error('[BOT ERROR] Error handling message:', error.message || error);
+                console.error('[BOT ERROR] Critical error processing individual message in loop:', error.message || error);
             }
         }
     });

@@ -6,26 +6,31 @@ const IV_LENGTH = 16; // For AES, this is always 16
 const SALT_LENGTH = 64;
 const TAG_LENGTH = 16;
 
-/**
- * Encrypts text using AES-256-GCM.
- * Requires ENCRYPTION_KEY in process.env (must be 32 bytes / 64 hex chars).
- */
-export function encrypt(text: string): string {
+let cachedKeyBuffer: Buffer | null = null;
+
+function getKeyBuffer(): Buffer {
+    if (cachedKeyBuffer) return cachedKeyBuffer;
+
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
         throw new Error('ENCRYPTION_KEY not found in environment variables');
     }
 
-    // Key must be 32 bytes for aes-256
-    // We assume ENCRYPTION_KEY is a hex string or a raw string that we might need to hash if it's not 32 bytes.
-    // For safety, let's treat ENCRYPTION_KEY as a hex string representing 32 bytes.
-    // If your key is a passphrase, use a KDF (like pbkdf2) to derive a 32-byte key.
-    // Here we assume the user provides a 32-byte hex string.
-
     const keyBuffer = Buffer.from(encryptionKey, 'hex');
     if (keyBuffer.length !== 32) {
         throw new Error('ENCRYPTION_KEY must be a 64-character hex string (32 bytes)');
     }
+
+    cachedKeyBuffer = keyBuffer;
+    return cachedKeyBuffer;
+}
+
+/**
+ * Encrypts text using AES-256-GCM.
+ * Requires ENCRYPTION_KEY in process.env (must be 32 bytes / 64 hex chars).
+ */
+export function encrypt(text: string): string {
+    const keyBuffer = getKeyBuffer();
 
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGORITHM, keyBuffer, iv);
@@ -43,15 +48,7 @@ export function encrypt(text: string): string {
  * Decrypts text using AES-256-GCM.
  */
 export function decrypt(text: string): string {
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-        throw new Error('ENCRYPTION_KEY not found in environment variables');
-    }
-
-    const keyBuffer = Buffer.from(encryptionKey, 'hex');
-    if (keyBuffer.length !== 32) {
-        throw new Error('ENCRYPTION_KEY must be a 64-character hex string (32 bytes)');
-    }
+    const keyBuffer = getKeyBuffer();
 
     const parts = text.split(':');
     if (parts.length !== 3) {
@@ -91,15 +88,11 @@ export function normalizePhone(phone: string): string {
  * Uses HMAC-SHA256 with the ENCRYPTION_KEY as a salt/key.
  */
 export function generateBlindIndex(text: string): string {
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-        throw new Error('ENCRYPTION_KEY not found in environment variables');
-    }
-
+    const keyBuffer = getKeyBuffer();
     const normalized = normalizePhone(text);
 
     return crypto
-        .createHmac('sha256', Buffer.from(encryptionKey, 'hex'))
+        .createHmac('sha256', keyBuffer)
         .update(normalized)
         .digest('hex');
 }
