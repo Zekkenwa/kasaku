@@ -1,30 +1,17 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function GET() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+export const GET = withAuth(async (_req: Request, userId: string) => {
     const goals = await prisma.goal.findMany({
-        where: { userId: user.id },
+        where: { userId },
         orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(goals);
-}
+});
 
-export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+export const POST = withAuth(async (req: Request, userId: string) => {
     try {
         const body = await req.json();
         const { name, targetAmount, currentAmount, notes, deadline } = body;
@@ -35,7 +22,7 @@ export async function POST(req: Request) {
 
         const goal = await prisma.goal.create({
             data: {
-                userId: user.id,
+                userId,
                 name,
                 targetAmount: Number(targetAmount),
                 currentAmount: Number(currentAmount) || 0,
@@ -49,4 +36,4 @@ export async function POST(req: Request) {
         console.error("Error creating goal:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
-}
+});

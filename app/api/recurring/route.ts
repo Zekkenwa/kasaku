@@ -1,31 +1,18 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function GET() {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const userId = (session.user as any).id;
-    if (!userId) return NextResponse.json({ error: "User not found in session" }, { status: 401 });
-
+export const GET = withAuth(async (_req: Request, userId: string) => {
     const items = await prisma.recurringTransaction.findMany({
-        where: { userId: userId },
+        where: { userId },
         include: { category: true, wallet: true },
         orderBy: { nextRun: "asc" },
     });
 
     return NextResponse.json(items);
-}
+});
 
-export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const userId = (session.user as any).id;
-    if (!userId) return NextResponse.json({ error: "User not found in session" }, { status: 401 });
-
+export const POST = withAuth(async (req: Request, userId: string) => {
     try {
         const body = await req.json();
         const { name, amount, type, categoryId, walletId, frequency, interval, startDate, note } = body;
@@ -66,4 +53,4 @@ export async function POST(req: Request) {
         console.error("Error creating recurring:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
-}
+});

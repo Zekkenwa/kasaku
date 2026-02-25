@@ -1,33 +1,19 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function POST(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
+export const POST = withAuth(async (request: Request, userId: string) => {
     const { name, amount, dueDate, type, isNew } = await request.json();
 
     if (!name || !amount) {
         return new NextResponse("Missing required fields", { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
-    }
-
     try {
         // Create the loan
-        const loan = await (prisma.loan as any).create({
+        const loan = await prisma.loan.create({
             data: {
-                userId: user.id,
+                userId,
                 name,
                 amount: Number(amount),
                 dueDate: dueDate ? new Date(dueDate) : new Date("2099-12-31"),
@@ -45,13 +31,13 @@ export async function POST(request: Request) {
             // RECEIVABLE (piutang baru) = you lent money → EXPENSE
 
             let category = await prisma.category.findFirst({
-                where: { userId: user.id, name: categoryName },
+                where: { userId, name: categoryName },
             });
 
             if (!category) {
                 category = await prisma.category.create({
                     data: {
-                        userId: user.id,
+                        userId,
                         name: categoryName,
                         type: txType,
                     },
@@ -60,7 +46,7 @@ export async function POST(request: Request) {
 
             await prisma.transaction.create({
                 data: {
-                    userId: user.id,
+                    userId,
                     type: txType,
                     amount: Number(amount),
                     categoryId: category.id,
@@ -75,4 +61,4 @@ export async function POST(request: Request) {
         console.error("Error creating loan:", error);
         return NextResponse.json({ error: "Error creating loan" }, { status: 500 });
     }
-}
+});

@@ -1,42 +1,17 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function GET(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
-    }
-
+export const GET = withAuth(async (_request: Request, userId: string) => {
     const budgets = await prisma.budget.findMany({
-        where: { userId: user.id },
+        where: { userId },
         include: { category: true },
     });
 
     return NextResponse.json(budgets);
-}
+});
 
-export async function POST(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const userId = (session.user as any).id;
-
-    if (!userId) {
-        return new NextResponse("User not found in session", { status: 401 });
-    }
-
+export const POST = withAuth(async (request: Request, userId: string) => {
     try {
         const { categoryId, limitAmount, period, startDate, endDate, dayOfWeek, dayOfMonth, monthOfYear } = await request.json();
 
@@ -77,4 +52,4 @@ export async function POST(request: Request) {
     } catch (error) {
         return new NextResponse("Internal Server Error", { status: 500 });
     }
-}
+});

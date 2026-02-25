@@ -1,33 +1,19 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function GET(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
-    }
-
+export const GET = withAuth(async (_request: Request, userId: string) => {
     // Auto-creation / Migration logic
     // 1. Check if user has any wallets
     const walletsCount = await prisma.wallet.count({
-        where: { userId: user.id },
+        where: { userId },
     });
 
     if (walletsCount === 0) {
         // 2. Create default "Tunai" wallet
         const defaultWallet = await prisma.wallet.create({
             data: {
-                userId: user.id,
+                userId,
                 name: "Tunai",
                 type: "CASH",
                 initialBalance: 0,
@@ -37,7 +23,7 @@ export async function GET(request: Request) {
         // 3. Migrate existing transactions to this wallet
         await prisma.transaction.updateMany({
             where: {
-                userId: user.id,
+                userId,
                 walletId: null,
             },
             data: {
@@ -47,27 +33,14 @@ export async function GET(request: Request) {
     }
 
     const wallets = await prisma.wallet.findMany({
-        where: { userId: user.id },
+        where: { userId },
         orderBy: { createdAt: "asc" },
     });
 
     return NextResponse.json(wallets);
-}
+});
 
-export async function POST(request: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
-    }
-
+export const POST = withAuth(async (request: Request, userId: string) => {
     try {
         const json = await request.json();
         const { name, type, initialBalance } = json;
@@ -78,7 +51,7 @@ export async function POST(request: Request) {
 
         const wallet = await prisma.wallet.create({
             data: {
-                userId: user.id,
+                userId,
                 name,
                 type,
                 initialBalance: Number(initialBalance) || 0,
@@ -89,4 +62,4 @@ export async function POST(request: Request) {
     } catch (error) {
         return new NextResponse("Internal Server Error", { status: 500 });
     }
-}
+});
