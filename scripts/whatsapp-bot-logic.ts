@@ -202,6 +202,10 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
                 results.map(r => typeof r === 'string' ? r : `• ${r.title}: ${formatCurrency(r.amount)} (${r.category})`).join('\n') + `\n\n`;
         }
 
+        finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
+
+        finalReply += `💡 _Ketik *undo* jika ada kesalahan._\n\n`;
+
         // --- GAMIFICATION TICK ---
         try {
             const gamification = await processGamificationTick(user.id);
@@ -366,7 +370,24 @@ async function executeUndo(userId: string): Promise<string> {
 
         // Delete the history record so user can undo multiple times sequentially
         await prisma.botActionHistory.delete({ where: { id: lastAction.id } });
-        return `✅ Aksi (${lastAction.action}) berhasil dibatalkan.`;
+
+        const intentMap: Record<string, string> = {
+            'CREATE_TRANSACTIONS': 'Catat Transaksi',
+            'CREATE_CATEGORY': 'Buat Kategori',
+            'DELETE_CATEGORY': 'Hapus Kategori',
+            'CREATE_WALLET': 'Buat Dompet',
+            'CREATE_GOAL': 'Buat Tabungan Goal',
+            'CREATE_BUDGET': 'Atur Budget',
+            'CREATE_RECURRING': 'Catat Rutinitas',
+            'CREATE_DEBT': 'Catat Hutang/Piutang',
+            'PAY_DEBT': 'Bayar Hutang/Piutang',
+            'FUND_GOAL': 'Isi Saldo Goal',
+            'SET_BUDGET': 'Atur Limit Budget',
+            'TRANSFER': 'Transfer Antar Wallet'
+        };
+        const readableIntent = intentMap[lastAction.action] || lastAction.action;
+
+        return `✅ Berhasil!\n\nAksi (*${readableIntent}*) berhasil dibatalkan.`;
 
     } catch (error) {
         console.error("Undo Error:", error);
