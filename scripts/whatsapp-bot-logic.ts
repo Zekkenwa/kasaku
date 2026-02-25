@@ -460,6 +460,62 @@ const checkCommandHandlers: Record<string, CommandHandler> = {
     wallet: async (user) => handleCheckWallet(user),
 };
 
+async function handleLaporan(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const periodAlias: Record<string, 'hari' | 'minggu' | 'bulan'> = {
+        today: 'hari',
+        week: 'minggu',
+        month: 'bulan',
+    };
+    const rawPeriod = parts[1] || 'hari';
+    const period = periodAlias[rawPeriod] || rawPeriod;
+
+    const now = new Date();
+    let start: Date;
+    let end: Date;
+
+    if (period === 'hari') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    } else if (period === 'minggu') {
+        const monday = new Date(now);
+        const daysSinceMonday = (monday.getDay() + 6) % 7;
+        monday.setDate(monday.getDate() - daysSinceMonday);
+
+        start = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
+        end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59);
+    } else if (period === 'bulan') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    } else {
+        return "❌ Periode tidak valid. Gunakan: hari, minggu, bulan.";
+    }
+
+    const grouped = await prisma.transaction.groupBy({
+        by: ['type'],
+        where: {
+            userId: user.id,
+            createdAt: { gte: start, lte: end }
+        },
+        _sum: { amount: true }
+    });
+
+    const income = grouped.find((t) => t.type === 'INCOME')?._sum.amount || 0;
+    const expense = grouped.find((t) => t.type === 'EXPENSE')?._sum.amount || 0;
+    const periodTitle: Record<'hari' | 'minggu' | 'bulan', string> = {
+        hari: 'Hari',
+        minggu: 'Minggu',
+        bulan: 'Bulan',
+    };
+
+    return {
+        title: `Laporan ${periodTitle[period as 'hari' | 'minggu' | 'bulan']}`,
+        amount: income - expense,
+        category: 'Financial Report',
+        note: `📈 Masuk: ${formatCurrency(income)}\n📉 Keluar: ${formatCurrency(expense)}`,
+        date: new Date()
+    };
+}
+
 async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
@@ -895,42 +951,7 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
 
     // --- LAPORAN ---
     if (normalizedCmd === 'laporan') {
-        const period = parts[1] || 'hari'; // default hari
-        const now = new Date();
-        let start, end;
-
-        if (period === 'hari' || period === 'today') {
-            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-        } else if (period === 'minggu' || period === 'week') {
-            const day = now.getDay() || 7; // Get current day number, make Sunday 7
-            if (day !== 1) now.setHours(-24 * (day - 1)); // Go back to Monday
-            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6, 23, 59, 59);
-        } else if (period === 'bulan' || period === 'month') {
-            start = new Date(now.getFullYear(), now.getMonth(), 1);
-            end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-        } else {
-            return "❌ Periode tidak valid. Gunakan: hari, minggu, bulan.";
-        }
-
-        const txs = await prisma.transaction.findMany({
-            where: {
-                userId: user.id,
-                createdAt: { gte: start, lte: end }
-            }
-        });
-
-        const income = txs.filter((t: any) => t.type === 'INCOME').reduce((acc: number, t: any) => acc + t.amount, 0);
-        const expense = txs.filter((t: any) => t.type === 'EXPENSE').reduce((acc: number, t: any) => acc + t.amount, 0);
-
-        return {
-            title: `Laporan ${period.charAt(0).toUpperCase() + period.slice(1)}`,
-            amount: income - expense,
-            category: 'Financial Report',
-            note: `📈 Masuk: ${formatCurrency(income)}\n📉 Keluar: ${formatCurrency(expense)}`,
-            date: new Date()
-        };
+        return handleLaporan(user, parts);
     }
 
     // --- GOALS ---
