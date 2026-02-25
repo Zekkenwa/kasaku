@@ -1,6 +1,8 @@
 import { WASocket } from '@whiskeysockets/baileys';
 import { prisma } from '../lib/prisma';
 import { generateBlindIndex } from '../lib/encryption';
+import { parseTransactionText } from '../lib/ai';
+import Fuse from 'fuse.js';
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
@@ -205,7 +207,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceA
         // If NO command recognized in single line, send hint
         if (lines.length === 1) {
             if (isSilenceActive) return; // SKIP HINT IF SILENCE ACTIVE
-            await sock.sendMessage(remoteJid, { text: "Maaf, saya tidak mengerti perintah tersebut. Ketik *help* untuk bantuan." });
+            await sock.sendMessage(remoteJid, { text: "Maaf, saya tidak mengerti maksud Anda. Ketik *help* untuk bantuan." });
         }
     }
 }
@@ -302,35 +304,15 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         const type = ['masuk', 'in', 'income'].includes(cmd) ? 'INCOME' : 'EXPENSE';
 
         // Find amount (first string that looks like number)
-        // Find amount: could be one word (15k) or multiple (seratus ribu)
-        // We try to join parts and parse? Or iterate?
-        // Simple strategy: Try to parse each part. If fail, try to join 2 parts, 3 parts...
-        // But natural language is hard to identify boundaries. 
-        // "keluar seratus ribu makan" -> "seratus ribu" is amount.
-        // "keluar 15k makan" -> "15k" is amount.
-
         let amount = 0;
         let amountStartIndex = -1;
         let amountEndIndex = -1;
 
-        // Try single token match first (numeric or simple shortcuts)
-        const simpleAmountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null && !isNaN(parseFloat(p.replace(/[^0-9]/g, ''))));
-        // logic above is flawed for 'seratus'. parseFloat('seratus') is NaN.
-
-        // Better: Scan for number words or digits
-        // find longest sequence of "amount-like" words?
-
         for (let i = 1; i < parts.length; i++) {
-            // Check if parts[i] starts a number
-            // Try increasing window size
             for (let j = parts.length; j > i; j--) {
                 const sub = parts.slice(i, j).join(' ');
                 const val = parseAmount(sub);
                 if (val !== null && val > 0) {
-                    // Found a match!
-                    // But check if it's just a common word? 'satu' might be 'jam satu'.
-                    // Usually user puts amount early or clearly. 
-                    // Let's assume longest match is amount.
                     amount = val;
                     amountStartIndex = i;
                     amountEndIndex = j;
@@ -342,20 +324,15 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
         if (amount === 0) return "❌ Gagal: Jumlah tidak ditemukan (cth: 15k, seratus ribu)";
 
-        // Description is everything else NOT in the amount range
-        // And not category part
         const categoryIdx = parts.findIndex(p => p.startsWith('@'));
 
         let descParts = [];
         for (let i = 1; i < parts.length; i++) {
             if (i >= amountStartIndex && i < amountEndIndex) continue;
             if (categoryIdx !== -1 && i === categoryIdx) continue;
-            // Also skip if part is "masuk"/"keluar" command itself (index 0)
             descParts.push(parts[i]);
         }
 
-        // ... rest of logic uses `amount` and `descParts`
-        // Category logic
         let categoryName = "Umum";
         const categoryPart = parts.find(p => p.startsWith('@'));
         if (categoryPart) {
@@ -364,75 +341,7 @@ async function processCommand(user: any, text: string): Promise<string | any | n
 
         const description = descParts.join(' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        // Handle Category (Find or Create)
-        let category = await prisma.category.findFirst({
-            where: {
-                userId: user.id,
-                name: { equals: categoryName, mode: 'insensitive' },
-                type: type
-            }
-        });
-
-        if (!category) {
-            try {
-                // Ensure unique name per user+type
-                // If name exists but different type, we might want to distinguish.
-                // For simplicity, just create. Prisma @@unique([userId, name, type]) handles duplicate check.
-                category = await prisma.category.create({
-                    data: {
-                        userId: user.id,
-                        name: categoryName.charAt(0).toUpperCase() + categoryName.slice(1),
-                        type: type
-                    }
-                });
-            } catch (e) {
-                // If collision (race condition or existing), just refetch
-                category = await prisma.category.findFirst({ where: { userId: user.id, name: categoryName, type } });
-            }
-        }
-
-        // Wallet (Default to first)
-        const wallet = await prisma.wallet.findFirst({
-            where: { userId: user.id },
-            select: { id: true }
-        });
-
-        if (!category) return "❌ Gagal: Kategori tidak ditemukan atau tidak dapat dibuat.";
-
-        // Execute Transaction
-        const tx = await prisma.transaction.create({
-            data: {
-                userId: user.id,
-                amount: amount,
-                type: type,
-                categoryId: category.id,
-                walletId: wallet?.id,
-                note: description || (type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
-                createdAt: new Date()
-            }
-        });
-
-        // Update Wallet Balance (Optional if backend relies on sum queries, but good if we tracking balance field)
-        // Kasaku seems to use sum queries on fly? DashboardClient calculates totals from transactions prop.
-        // Wait, DashboardClient props: totals: { balance... }. 
-        // Dashboard server component likely calculates it.
-        // If we want real-time balance update in wallet table (if it exists):
-        if (wallet) {
-            // Check if wallet model has balance field? Wallet model: initialBalance int.
-            // Balance is calculated dynamically. So no update needed on Wallet table.
-        }
-
-        if (category) {
-            return {
-                title: type === 'INCOME' ? 'Pemasukan Baru' : 'Pengeluaran Baru',
-                amount: amount,
-                category: category.name,
-                note: description || (type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
-                date: new Date()
-            };
-        } else {
-            return "❌ Gagal: Kategori tidak dapat diproses.";
-        }
+        return await executeTransaction(user, type, amount, categoryName, description);
     }
 
     // --- DEBT (hutang/piutang) ---
@@ -950,5 +859,84 @@ async function processCommand(user: any, text: string): Promise<string | any | n
         };
     }
 
+    // --- AI FALLBACK (Natural Language Parsing) ---
+    const parsed = await parseTransactionText(text);
+    if (parsed && parsed.isTransaction && parsed.type && parsed.amount && parsed.amount > 0) {
+        let categoryName = parsed.categoryName || "Umum";
+
+        // Try fuzzy matching the AI category to an existing user category to avoid duplicates
+        const userCategories = await prisma.category.findMany({
+            where: { userId: user.id, type: parsed.type }
+        });
+
+        if (userCategories.length > 0) {
+            const fuse = new Fuse(userCategories, { keys: ['name'], threshold: 0.4 });
+            const result = fuse.search(categoryName);
+            if (result.length > 0) {
+                categoryName = result[0].item.name;
+            }
+        }
+
+        const description = parsed.note || (parsed.type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran');
+
+        const txResult = await executeTransaction(user, parsed.type, parsed.amount, categoryName, description);
+        if (typeof txResult === 'object') {
+            txResult.title = `🤖 AI: ${txResult.title}`;
+        }
+        return txResult;
+    }
+
     return null;
+}
+
+// Helper function to execute transaction logic internally
+async function executeTransaction(user: any, type: 'INCOME' | 'EXPENSE', amount: number, categoryName: string, description: string) {
+    let category = await prisma.category.findFirst({
+        where: {
+            userId: user.id,
+            name: { equals: categoryName, mode: 'insensitive' },
+            type: type
+        }
+    });
+
+    if (!category) {
+        try {
+            category = await prisma.category.create({
+                data: {
+                    userId: user.id,
+                    name: categoryName.charAt(0).toUpperCase() + categoryName.slice(1),
+                    type: type
+                }
+            });
+        } catch (e) {
+            category = await prisma.category.findFirst({ where: { userId: user.id, name: categoryName, type } });
+        }
+    }
+
+    const wallet = await prisma.wallet.findFirst({
+        where: { userId: user.id },
+        select: { id: true }
+    });
+
+    if (!category) return "❌ Gagal: Kategori tidak ditemukan atau tidak dapat dibuat.";
+
+    await prisma.transaction.create({
+        data: {
+            userId: user.id,
+            amount: amount,
+            type: type,
+            categoryId: category.id,
+            walletId: wallet?.id,
+            note: description,
+            createdAt: new Date()
+        }
+    });
+
+    return {
+        title: type === 'INCOME' ? 'Pemasukan Baru' : 'Pengeluaran Baru',
+        amount: amount,
+        category: category.name,
+        note: description,
+        date: new Date()
+    };
 }
