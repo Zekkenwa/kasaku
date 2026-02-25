@@ -1,20 +1,14 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
+import { Prisma, RecurringFrequency, TransactionType } from "@prisma/client";
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+export const PUT = withAuth(async (req: Request, userId: string, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
     // Verify ownership
     const existing = await prisma.recurringTransaction.findUnique({ where: { id } });
-    if (!existing || existing.userId !== user.id) {
+    if (!existing || existing.userId !== userId) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
@@ -22,13 +16,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const body = await req.json();
         const { name, amount, type, categoryId, walletId, frequency, interval, startDate, note } = body;
 
-        const data: any = {
+        const data: Prisma.RecurringTransactionUncheckedUpdateInput = {
             name,
             amount: Number(amount),
-            type,
+            type: type as TransactionType,
             categoryId,
             walletId: walletId || null,
-            frequency,
+            frequency: frequency as RecurringFrequency,
             interval: Number(interval) || 1,
             note,
         };
@@ -51,23 +45,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     } catch (error) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
-}
+});
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+export const DELETE = withAuth(async (req: Request, userId: string, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const existing = await prisma.recurringTransaction.findUnique({ where: { id } });
 
-    if (!existing || existing.userId !== user.id) {
+    if (!existing || existing.userId !== userId) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     await prisma.recurringTransaction.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
-}
+});

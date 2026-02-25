@@ -1,15 +1,13 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function PUT(
+export const PUT = withAuth(async (
     req: Request,
+    _userId: string,
     props: { params: Promise<{ id: string }> }
-) {
+) => {
     const params = await props.params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
         const body = await req.json();
@@ -30,15 +28,14 @@ export async function PUT(
     } catch (error) {
         return NextResponse.json({ error: "Error updating" }, { status: 500 });
     }
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuth(async (
     req: Request,
+    _userId: string,
     props: { params: Promise<{ id: string }> }
-) {
+) => {
     const params = await props.params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
         await prisma.goal.delete({
@@ -48,4 +45,4 @@ export async function DELETE(
     } catch (error) {
         return NextResponse.json({ error: "Error deleting" }, { status: 500 });
     }
-}
+});

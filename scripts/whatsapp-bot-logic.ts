@@ -12,8 +12,23 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
 };
 
+type IncomingMessagePayload = {
+    messages?: Array<{
+        message?: {
+            conversation?: string | null;
+            extendedTextMessage?: { text?: string | null } | null;
+        } | null;
+        key: {
+            fromMe?: boolean | null;
+            remoteJid?: string | null;
+            remoteJidAlt?: string | null;
+        };
+    }>;
+    type?: string;
+};
+
 // Start logic
-export async function handleIncomingMessage(sock: WASocket, msg: any, isSilenceActive: boolean = false) {
+export async function handleIncomingMessage(sock: WASocket, msg: IncomingMessagePayload, isSilenceActive: boolean = false) {
     if (!msg.messages || msg.messages.length === 0) return;
 
     const message = msg.messages[0];
@@ -206,7 +221,7 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
 
 // --- UNIVERSAL UNDO HELPERS ---
 
-async function saveActionHistory(userId: string, action: string, payloadObj: any) {
+async function saveActionHistory(userId: string, action: string, payloadObj: unknown) {
     await prisma.botActionHistory.create({
         data: {
             userId,

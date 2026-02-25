@@ -1,25 +1,12 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function DELETE(
+export const DELETE = withAuth(async (
     request: Request,
+    userId: string,
     { params }: { params: Promise<{ id: string }> }
-) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
+) => {
     const { id } = await params;
 
     // Verify wallet belongs to user
@@ -27,7 +14,7 @@ export async function DELETE(
         where: { id },
     });
 
-    if (!wallet || wallet.userId !== user.id) {
+    if (!wallet || wallet.userId !== userId) {
         return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
     }
 
@@ -57,20 +44,14 @@ export async function DELETE(
             { status: 500 }
         );
     }
-}
+});
 
-export async function PUT(
+export const PUT = withAuth(async (
     request: Request,
+    userId: string,
     { params }: { params: Promise<{ id: string }> }
-) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+) => {
     const { id } = await params;
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     try {
         const json = await request.json();
@@ -78,7 +59,7 @@ export async function PUT(
 
         // Verify wallet ownership
         const wallet = await prisma.wallet.findUnique({ where: { id } });
-        if (!wallet || wallet.userId !== user.id) {
+        if (!wallet || wallet.userId !== userId) {
             return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
         }
 
@@ -96,4 +77,4 @@ export async function PUT(
         console.error("Error updating wallet:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
-}
+});

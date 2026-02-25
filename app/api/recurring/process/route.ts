@@ -1,20 +1,13 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function POST() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+export const POST = withAuth(async (_req: Request, userId: string) => {
     try {
         const now = new Date();
         const dueTransactions = await prisma.recurringTransaction.findMany({
             where: {
-                userId: user.id,
+                userId,
                 nextRun: { lte: now },
             },
         });
@@ -45,7 +38,7 @@ export async function POST() {
             operations.push(
                 prisma.transaction.create({
                     data: {
-                        userId: user.id,
+                        userId,
                         amount: recurring.amount,
                         type: recurring.type,
                         categoryId: recurring.categoryId,
@@ -79,4 +72,4 @@ export async function POST() {
         console.error("Error processing recurring:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
-}
+});

@@ -13,10 +13,10 @@ export async function getAuthenticatedUserId(): Promise<string | null> {
     return user?.id ?? null;
 }
 
-export function withAuth(
-    handler: (req: Request, userId: string) => Promise<NextResponse>
+export function withAuth<TArgs extends unknown[]>(
+    handler: (req: Request, userId: string, ...args: TArgs) => Promise<NextResponse>
 ) {
-    return async (req: Request) => {
+    return async (req: Request, ...args: TArgs) => {
         try {
             const userId = await getAuthenticatedUserId();
 
@@ -24,7 +24,7 @@ export function withAuth(
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
 
-            return await handler(req, userId);
+            return await handler(req, userId, ...args);
         } catch (error) {
             console.error("API Error:", error);
             return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

@@ -1,20 +1,13 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function POST(
+export const POST = withAuth(async (
     request: Request,
+    userId: string,
     props: { params: Promise<{ id: string }> }
-) {
+) => {
     const params = await props.params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const { amount, note, date, loanType } = await request.json();
     const loanId = params.id;
@@ -54,13 +47,13 @@ export async function POST(
         const categoryName = resolvedType === "PAYABLE" ? "Bayar Hutang" : "Terima Piutang";
 
         let category = await prisma.category.findFirst({
-            where: { userId: user.id, name: categoryName },
+            where: { userId, name: categoryName },
         });
 
         if (!category) {
             category = await prisma.category.create({
                 data: {
-                    userId: user.id,
+                    userId,
                     name: categoryName,
                     type: txType,
                 },
@@ -69,7 +62,7 @@ export async function POST(
 
         await prisma.transaction.create({
             data: {
-                userId: user.id,
+                userId,
                 type: txType,
                 amount: Number(amount),
                 categoryId: category.id,
@@ -83,4 +76,4 @@ export async function POST(
         console.error("Error creating payment:", error);
         return NextResponse.json({ error: "Error creating payment" }, { status: 500 });
     }
-}
+});

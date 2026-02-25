@@ -1,34 +1,21 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/api-handler";
 
-export async function DELETE(
+export const DELETE = withAuth(async (
     request: Request,
+    userId: string,
     { params }: { params: Promise<{ id: string }> }
-) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
+) => {
     const { id } = await params;
 
     if (!id) {
         return new NextResponse("Missing id", { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
-    }
-
     // Ensure transaction belongs to user
     const transaction = await prisma.transaction.findFirst({
-        where: { id, userId: user.id },
+        where: { id, userId },
     });
 
     if (!transaction) {
@@ -40,30 +27,18 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-}
+});
 
-export async function PUT(
+export const PUT = withAuth(async (
     request: Request,
+    userId: string,
     { params }: { params: Promise<{ id: string }> }
-) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
+) => {
     const { id } = await params;
     const { amount, type, categoryId, note, date } = await request.json();
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-    });
-
-    if (!user) {
-        return new NextResponse("User not found", { status: 404 });
-    }
-
     const transaction = await prisma.transaction.findFirst({
-        where: { id, userId: user.id },
+        where: { id, userId },
     });
 
     if (!transaction) {
@@ -82,4 +57,4 @@ export async function PUT(
     });
 
     return NextResponse.json(updated);
-}
+});
