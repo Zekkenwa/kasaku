@@ -142,13 +142,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "OTP salah atau kadaluarsa" }, { status: 400 });
         }
 
-        const { encrypt } = require("@/lib/encryption");
-        const encryptedPhone = encrypt(user.tempPhone);
-
+        // Prisma middleware automatically encrypts `phone` and generates `phoneHash` on write.
+        // Do NOT manually encrypt here — that would cause double-encryption.
         await prisma.user.update({
             where: { id: user.id },
             data: {
-                phone: encryptedPhone,
+                phone: user.tempPhone,
                 tempPhone: null,
                 otpCode: null,
                 otpExpiresAt: null,

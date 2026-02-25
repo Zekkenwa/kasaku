@@ -12,28 +12,9 @@ export async function POST(req: Request) {
     const cleanPhone = phone.replace(/\D/g, "");
     const phoneHash = generateBlindIndex(cleanPhone);
 
-    // 1. Find User by PhoneHash with fallback
-    let user = await prisma.user.findFirst({ where: { phoneHash } });
-
-    if (!user) {
-        // Fallback: Check if user exists with plain phone (Self-healing for legacy/broken records)
-        // Since the 'phone' field is encrypted by middleware on write, we need to encrypt it for search
-        // BUT wait: our middleware doesn't encrypt for searches. We must manually encrypt for the fallback.
-        const { encrypt } = require("@/lib/encryption");
-        const encryptedPhone = encrypt(cleanPhone);
-
-        console.log(`[AUTH] Searching by encrypted phone fallback: ${encryptedPhone}`);
-        user = await prisma.user.findFirst({ where: { phone: encryptedPhone } });
-
-        if (user) {
-            console.log(`[AUTH] Healing user ${user.id}: creating missing phoneHash`);
-            // Middleware will handle re-encryption and hash generation
-            user = await prisma.user.update({
-                where: { id: user.id },
-                data: { phone: cleanPhone, phoneHash }
-            });
-        }
-    }
+    // 1. Find User by PhoneHash (the ONLY reliable way to search encrypted phone data)
+    // Note: AES-256-GCM uses random IVs, so direct encrypted phone comparison is impossible.
+    const user = await prisma.user.findFirst({ where: { phoneHash } });
 
     if (!user) {
         return NextResponse.json({ error: "Nomor ini belum terdaftar." }, { status: 404 });

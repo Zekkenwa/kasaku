@@ -42,19 +42,10 @@ export async function POST(req: Request) {
         await updateOtpRateLimit(user.id, "REGISTER");
 
         // Send OTP via WhatsApp
+        // Prisma middleware already decrypts phone/tempPhone on reads, so no manual decrypt needed.
         let phoneToSend = user.tempPhone || user.phone;
         if (!phoneToSend) {
             return NextResponse.json({ error: "Nomor WhatsApp tidak ditemukan pada akun ini." }, { status: 400 });
-        }
-
-        // Decrypt if necessary. If it starts with 62 or 08 it's probably unencrypted.
-        if (phoneToSend.length > 20) {
-            try {
-                const { decrypt } = require("@/lib/encryption");
-                phoneToSend = decrypt(phoneToSend);
-            } catch (e) {
-                // Ignore decryption error, fallback to raw
-            }
         }
 
         const sent = await sendWhatsAppOTP(phoneToSend as string, otpCode);
