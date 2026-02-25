@@ -733,12 +733,126 @@ async function handleGoalFund(user: BotUser, parts: string[]): Promise<ProcessCo
     };
 }
 
+async function handleDebtCreate(user: BotUser, normalizedCmd: string, parts: string[]): Promise<ProcessCommandResult> {
+    const type = normalizedCmd === 'piutang' ? 'RECEIVABLE' : 'PAYABLE';
+
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Gagal: Jumlah tidak ditemukan";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const personPart = parts.find((p) => p.startsWith('@'));
+    if (!personPart) return "❌ Gagal: Nama orang wajib pakai @ (cth: @Budi)";
+    const personName = personPart.substring(1).replace(/_/g, ' ');
+
+    const descParts = parts.filter((p, i) => i !== 0 && i !== amountIdx && !p.startsWith('@'));
+    const note = descParts.join(' ');
+
+    const loan = await prisma.loan.create({
+        data: {
+            userId: user.id,
+            name: personName,
+            amount: amount,
+            type: type,
+            status: 'ONGOING',
+            createdAt: new Date()
+        }
+    });
+
+    await saveActionHistory(user.id, 'CREATE_DEBT', { loanId: loan.id });
+
+    return {
+        title: `Pencatatan ${type === 'PAYABLE' ? 'Hutang' : 'Piutang'}`,
+        amount: amount,
+        category: type === 'PAYABLE' ? 'Hutang (Kita Pinjam)' : 'Piutang (Kita Pinjamkan)',
+        note: `Ke/Dari ${personName} ${note ? `- ${note}` : ''}`,
+        date: new Date()
+    };
+}
+
+async function handleDebtSettle(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const personPart = parts.find((p) => p.startsWith('@'));
+    if (!personPart) return "❌ Gagal: Nama orang wajib pakai @ (cth: @Budi)";
+    const personName = personPart.substring(1).replace(/_/g, ' ');
+
+    const loan = await prisma.loan.findFirst({
+        where: {
+            userId: user.id,
+            name: { equals: personName, mode: 'insensitive' },
+            status: 'ONGOING'
+        }
+    });
+
+    if (!loan) return `❌ Tidak ada hutang/piutang aktif dengan ${personName}.`;
+
+    await prisma.loan.update({
+        where: { id: loan.id },
+        data: { status: 'PAID' }
+    });
+
+    await saveActionHistory(user.id, 'PAY_DEBT', { loanId: loan.id, oldStatus: loan.status });
+
+    return {
+        title: 'Hutang/Piutang Lunas',
+        amount: loan.amount,
+        category: 'Hutang/Piutang',
+        note: `Lunas dengan ${personName}`,
+        date: new Date()
+    };
+}
+
+async function handleDebtPayment(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Gagal: Jumlah pembayaran tidak ditemukan.";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const personPart = parts.find((p) => p.startsWith('@'));
+    if (!personPart) return "❌ Gagal: Nama wajib pakai @ (cth: @Budi)";
+    const personName = personPart.substring(1).replace(/_/g, ' ');
+
+    const loan = await prisma.loan.findFirst({
+        where: { userId: user.id, name: { equals: personName, mode: 'insensitive' }, status: 'ONGOING' }
+    });
+
+    if (!loan) return `❌ Tidak ada hutang aktif dengan ${personName}.`;
+
+    if (amount > loan.amount) return `⚠️ Pembayaran (${formatCurrency(amount)}) melebihi sisa hutang (${formatCurrency(loan.amount)}).`;
+
+    const newAmount = loan.amount - amount;
+    await prisma.loan.update({
+        where: { id: loan.id },
+        data: {
+            amount: newAmount,
+            status: newAmount === 0 ? 'PAID' : 'ONGOING'
+        }
+    });
+
+    await prisma.paymentHistory.create({
+        data: {
+            loanId: loan.id,
+            amount: amount,
+            note: 'Pembayaran via WA'
+        }
+    });
+
+    return {
+        title: 'Cicilan Hutang/Piutang',
+        amount: amount,
+        category: 'Pembayaran',
+        note: `Diterima dari/untuk ${personName}. Sisa: ${formatCurrency(newAmount)}`,
+        date: new Date()
+    };
+}
+
 const directCommandHandlers: Record<string, CommandHandler> = {
     laporan: async (user, parts) => handleLaporan(user, parts),
     transfer: async (user, parts) => handleTransfer(user, parts),
     rutin: async (user, parts) => handleRutin(user, parts),
     budget: async (user, parts) => handleBudget(user, parts),
     goal: async (user, parts) => handleGoalCreate(user, parts),
+    hutang: async (user, parts) => handleDebtCreate(user, 'hutang', parts),
+    piutang: async (user, parts) => handleDebtCreate(user, 'piutang', parts),
+    lunas: async (user, parts) => handleDebtSettle(user, parts),
+    bayar: async (user, parts) => handleDebtPayment(user, parts),
 };
 
 const compoundCommandHandlers: Record<string, CommandHandler> = {
@@ -1005,133 +1119,9 @@ async function processCommand(user: BotUser, text: string): Promise<ProcessComma
         return txResult;
     }
 
-    // --- DEBT (hutang/piutang) ---
-    if (['hutang', 'piutang'].includes(normalizedCmd)) {
-        const type = normalizedCmd === 'piutang' ? 'RECEIVABLE' : 'PAYABLE'; // Piutang = Orang hutang ke kita (Receivable)
-        // Hutang = Kita hutang ke orang (Payable)
-
-        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Gagal: Jumlah tidak ditemukan";
-        const amount = parseAmount(parts[amountIdx])!;
-
-        const personPart = parts.find(p => p.startsWith('@'));
-        if (!personPart) return "❌ Gagal: Nama orang wajib pakai @ (cth: @Budi)";
-        const personName = personPart.substring(1).replace(/_/g, ' ');
-
-        const descParts = parts.filter((p, i) => i !== 0 && i !== amountIdx && !p.startsWith('@'));
-        const note = descParts.join(' ');
-
-        const loan = await prisma.loan.create({
-            data: {
-                userId: user.id,
-                name: personName,
-                amount: amount,
-                type: type,
-                status: 'ONGOING',
-                createdAt: new Date()
-            }
-        });
-
-        await saveActionHistory(user.id, 'CREATE_DEBT', { loanId: loan.id });
-
-        return {
-            title: `Pencatatan ${type === 'PAYABLE' ? 'Hutang' : 'Piutang'}`,
-            amount: amount,
-            category: type === 'PAYABLE' ? 'Hutang (Kita Pinjam)' : 'Piutang (Kita Pinjamkan)',
-            note: `Ke/Dari ${personName} ${note ? `- ${note}` : ''}`,
-            date: new Date()
-        };
-    }
-
-    // --- LUNAS (Mark as paid) ---
-    if (cmd === 'lunas') {
-        const personPart = parts.find(p => p.startsWith('@'));
-        if (!personPart) return "❌ Gagal: Nama orang wajib pakai @ (cth: @Budi)";
-        const personName = personPart.substring(1).replace(/_/g, ' ');
-
-        // Find active loan
-        const loan = await prisma.loan.findFirst({
-            where: {
-                userId: user.id,
-                name: { equals: personName, mode: 'insensitive' },
-                status: 'ONGOING'
-            }
-        });
-
-        if (!loan) return `❌ Tidak ada hutang/piutang aktif dengan ${personName}.`;
-
-        await prisma.loan.update({
-            where: { id: loan.id },
-            data: { status: 'PAID' }
-        });
-
-        await saveActionHistory(user.id, 'PAY_DEBT', { loanId: loan.id, oldStatus: loan.status });
-
-        return {
-            title: 'Hutang/Piutang Lunas',
-            amount: loan.amount,
-            category: 'Hutang/Piutang',
-            note: `Lunas dengan ${personName}`,
-            date: new Date()
-        };
-    }
-
-
     // --- UNDO (Universal Multi-step) ---
     if (cmd === 'undo' || normalizedCmd === 'batal') {
         return await executeUndo(user.id);
-    }
-
-    // --- LOAN PAYMENT (Cicil) ---
-    if (cmd === 'bayar') {
-        const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
-        if (amountIdx === -1) return "❌ Gagal: Jumlah pembayaran tidak ditemukan.";
-        const amount = parseAmount(parts[amountIdx])!;
-
-        const personPart = parts.find(p => p.startsWith('@'));
-        if (!personPart) return "❌ Gagal: Nama wajib pakai @ (cth: @Budi)";
-        const personName = personPart.substring(1).replace(/_/g, ' ');
-
-        const loan = await prisma.loan.findFirst({
-            where: { userId: user.id, name: { equals: personName, mode: 'insensitive' }, status: 'ONGOING' }
-        });
-
-        if (!loan) return `❌ Tidak ada hutang aktif dengan ${personName}.`;
-
-        // Update amount (decrease debt amount? or keep original and track processed? 
-        // Schema has 'amount'. Usually means remaining or total. 
-        // PaymentHistory table exists. Let's use it.
-        // And we should decrease loan amount? Or does loan amount represent Initial Principal?
-        // If create loan = 100k. Pay 50k. If we decrease amount to 50k, we lose history of original.
-        // But for simple "Hutang" tracking, usually 'amount' = 'how much is owed'.
-        // Let's assume 'amount' is remaining balance. 
-
-        if (amount > loan.amount) return `⚠️ Pembayaran (${formatCurrency(amount)}) melebihi sisa hutang (${formatCurrency(loan.amount)}).`;
-
-        const newAmount = loan.amount - amount;
-        await prisma.loan.update({
-            where: { id: loan.id },
-            data: {
-                amount: newAmount,
-                status: newAmount === 0 ? 'PAID' : 'ONGOING'
-            }
-        });
-
-        await prisma.paymentHistory.create({
-            data: {
-                loanId: loan.id,
-                amount: amount,
-                note: 'Pembayaran via WA'
-            }
-        });
-
-        return {
-            title: 'Cicilan Hutang/Piutang',
-            amount: amount,
-            category: 'Pembayaran',
-            note: `Diterima dari/untuk ${personName}. Sisa: ${formatCurrency(newAmount)}`,
-            date: new Date()
-        };
     }
 
 
