@@ -201,13 +201,52 @@ async function evaluateBadges(userId: string, context: any): Promise<string[]> {
     await checkBadge('HABIT_BUILDER', context.newStreak);
     await checkBadge('UNSTOPPABLE', context.newStreak);
 
+    // 5-7. WEALTH (SAVERS_CLUB, MILLIONAIRE_MINDSET, WHALE)
+    const allWallets = await prisma.wallet.findMany({ where: { userId } });
+    const totalBalance = allWallets.reduce((sum, w) => sum + w.initialBalance, 0); // Assuming initialBalance acts as current balance for simplicity here, though actual balance needs tx calculation. For badges, we use the engagement's context if possible, but calculating full net worth here is heavy. Let's use total income as of this month for a proxy, or just wallet balances if tracked. Wait, let's just use `context.income - context.expense` for the month as progress, or a lifetime sum.
+    // Better: sum of all INCOME txs - sum of all EXPENSE txs
+    const lifetimeIncome = await prisma.transaction.aggregate({ where: { userId, type: 'INCOME' }, _sum: { amount: true } });
+    const lifetimeExpense = await prisma.transaction.aggregate({ where: { userId, type: 'EXPENSE' }, _sum: { amount: true } });
+    const netWealth = (lifetimeIncome._sum.amount || 0) - (lifetimeExpense._sum.amount || 0);
+    await checkBadge('SAVERS_CLUB', netWealth);
+    await checkBadge('MILLIONAIRE_MINDSET', netWealth);
+    await checkBadge('WHALE', netWealth);
+
+    // 8-9. BUDGETS
+    const budgetCount = await prisma.budget.count({ where: { userId } });
+    await checkBadge('BUDGET_MASTER', budgetCount > 0 ? 1 : 0); // Simplified
+    await checkBadge('BUDGET_GOD', budgetCount >= 3 ? 3 : budgetCount); // Simplified
+    await checkBadge('THE_PLANNER', budgetCount);
+
+    // 10-11. DEBT & TRUST
+    const receivableCount = await prisma.loan.count({ where: { userId, type: 'RECEIVABLE' } });
+    await checkBadge('TRUSTWORTHY', receivableCount);
+
+    const payableCount = await prisma.loan.count({ where: { userId, type: 'PAYABLE', status: 'ONGOING' } });
+    await checkBadge('DEBT_FREE', (payableCount === 0 && txCount > 0) ? 1 : 0);
+
+    // 12-13. GOALS
+    const goalCount = await prisma.goal.count({ where: { userId } });
+    await checkBadge('GOAL_SETTER', goalCount);
+    const achievedGoal = await prisma.goal.findFirst({ where: { userId, currentAmount: { gte: 1 /* simplified check */ } } }); // Need raw query to compare columns, but let's just check if any goal exists and has currentAmount > 0 for now, or fetch all and check.
+    const allGoals = await prisma.goal.findMany({ where: { userId } });
+    const hasAchievedGoal = allGoals.some((g: any) => g.currentAmount >= g.targetAmount);
+    await checkBadge('GOAL_ACHIEVER', hasAchievedGoal ? 1 : 0);
+
+    // 14. ROUTINE
+    const routineCount = await prisma.recurringTransaction.count({ where: { userId } });
+    await checkBadge('CONSISTENT_AUTOMATOR', routineCount);
+
+    // 17. GENEROUS
+    const generousTxs = await prisma.transaction.count({ where: { userId, type: 'EXPENSE', category: { name: { contains: 'Transfer', mode: 'insensitive' } } } });
+    await checkBadge('GENEROUS', generousTxs);
+
     // 19. RESILIENT
     if (context.usedFreeze) await checkBadge('RESILIENT', 1);
 
     // 20. FINANCIAL GURU
     await checkBadge('FINANCIAL_GURU', context.score);
 
-    // More complex badges...
     // AI Whisperer
     const aiTx = await prisma.botActionHistory.count({ where: { userId, action: 'CREATE_TRANSACTIONS' } });
     await checkBadge('AI_WHISPERER', aiTx);
