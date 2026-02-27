@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendWhatsAppOTP } from "@/lib/whatsapp";
+import { sendWhatsAppOTP, sendWhatsAppMessage } from "@/lib/whatsapp";
 import { checkOtpRateLimit, updateOtpRateLimit } from "@/lib/otp-rate-limit";
 import { generateSecureOTP } from "@/lib/otp";
 
@@ -154,6 +154,14 @@ export async function POST(request: Request) {
                 otpBlockedUntil: null
             }
         });
+
+        // Send Welcome Message & Onboarding
+        try {
+            const welcomeText = `👋 *Selamat datang di Bot Kasaku!*\n\nNomor Anda telah berhasil dihubungkan.\n\n⚠️ *PENTING:*\nSaldo Anda saat ini masih 0. Mohon masukkan *Saldo Awal* Anda agar dapat mulai mencatat pengeluaran.\n\n💡 *Contoh:*\n\`saldo awal 500k\`\n\`saldo awal 10jt\`\n\nKetik *help* kapan saja untuk bantuan lebih lanjut.`;
+            await sendWhatsAppMessage(user.tempPhone, welcomeText);
+        } catch (error) {
+            console.error("Failed to send welcome message after phone change", error);
+        }
 
         return NextResponse.json({ success: true });
     }

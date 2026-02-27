@@ -972,7 +972,15 @@ async function handleManualTransaction(user: BotUser, normalizedCmd: 'keluar' | 
                 })
             ]);
 
-            const currentBalance = targetWalletToCheck.initialBalance + (incomeSum._sum.amount || 0) - (expenseSum._sum.amount || 0);
+            const totalIncome = incomeSum._sum.amount || 0;
+            const totalExpense = expenseSum._sum.amount || 0;
+
+            // ONBOARDING CHECK
+            if (targetWalletToCheck.initialBalance === 0 && totalIncome === 0) {
+                return `⚠️ *Tidak Dapat Mencatat Pengeluaran*\n\nSaldo dompet Anda saat ini masih 0.\n\nMohon masukkan *Saldo Awal* Anda terlebih dahulu sebelum mencatat pengeluaran.\n\n💡 *Contoh:*\n\`saldo awal 500k\`\n\`saldo awal 10jt\``;
+            }
+
+            const currentBalance = targetWalletToCheck.initialBalance + totalIncome - totalExpense;
             if (amount > currentBalance) {
                 return `⚠️ *Saldo Tidak Mencukupi!*\n\n💰 Saldo ${targetWalletToCheck.name}: ${formatCurrency(currentBalance)}\n💸 Pengeluaran diminta: ${formatCurrency(amount)}\n❌ Kurang: ${formatCurrency(amount - currentBalance)}\n\n💡 _Silakan isi ulang dompet ini atau ubah jumlah transaksi._`;
             }
@@ -1011,6 +1019,32 @@ async function handleManualTransaction(user: BotUser, normalizedCmd: 'keluar' | 
     return txResult;
 }
 
+async function handleSetSaldoAwal(user: BotUser, parts: string[]): Promise<ProcessCommandResult> {
+    const amountIdx = parts.findIndex((p, i) => i > 0 && parseAmount(p) !== null);
+    if (amountIdx === -1) return "❌ Gagal: Jumlah saldo tidak ditemukan.";
+    const amount = parseAmount(parts[amountIdx])!;
+
+    const firstWallet = await prisma.wallet.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'asc' }
+    });
+
+    if (!firstWallet) return "❌ Gagal: Dompet utama tidak ditemukan.";
+
+    await prisma.wallet.update({
+        where: { id: firstWallet.id },
+        data: { initialBalance: amount }
+    });
+
+    return {
+        title: 'Saldo Awal Diatur',
+        amount: amount,
+        category: 'Pengaturan Saldo',
+        note: `Saldo untuk dompet '${firstWallet.name}' telah diperbarui.`,
+        date: new Date()
+    };
+}
+
 const directCommandHandlers: Record<string, CommandHandler> = {
     laporan: async (user, parts) => handleLaporan(user, parts),
     transfer: async (user, parts) => handleTransfer(user, parts),
@@ -1023,11 +1057,13 @@ const directCommandHandlers: Record<string, CommandHandler> = {
     bayar: async (user, parts) => handleDebtPayment(user, parts),
     keluar: async (user, parts) => handleManualTransaction(user, 'keluar', parts),
     masuk: async (user, parts) => handleManualTransaction(user, 'masuk', parts),
+    saldo: async (user, parts) => handleSetSaldoAwal(user, parts),
 };
 
 const compoundCommandHandlers: Record<string, CommandHandler> = {
     'isi goal': async (user, parts) => handleGoalFund(user, parts),
     'hapus kategori': async (user, parts) => handleDeleteCategory(user, parts),
+    'saldo awal': async (user, parts) => handleSetSaldoAwal(user, parts),
 };
 
 export async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export async function POST(req: Request) {
     try {
@@ -43,6 +44,14 @@ export async function POST(req: Request) {
                 emailVerified: new Date(), // Consider email verified if they verified phone during reg? Optional.
             },
         });
+
+        // Send Welcome Message & Onboarding
+        try {
+            const welcomeText = `👋 *Selamat datang di Bot Kasaku!*\n\nNomor Anda telah berhasil diverifikasi.\n\n⚠️ *PENTING:*\nSaldo Anda saat ini masih 0. Mohon masukkan *Saldo Awal* Anda agar dapat mulai mencatat pengeluaran.\n\n💡 *Contoh:*\n\`saldo awal 500k\`\n\`saldo awal 10jt\`\n\nKetik *help* kapan saja untuk bantuan lebih lanjut.`;
+            await sendWhatsAppMessage(phone, welcomeText);
+        } catch (error) {
+            console.error("Failed to send welcome message after registration", error);
+        }
 
         return NextResponse.json({ success: true });
 

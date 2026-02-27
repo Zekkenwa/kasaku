@@ -228,6 +228,41 @@ const server = http.createServer(async (req, res) => {
                 res.end(JSON.stringify({ error: 'Failed to send message: ' + (err.message || 'Unknown error') }));
             }
         });
+    } else if (req.url === '/send-message' && req.method === 'POST') {
+        console.log(`[SERVER] Incoming /send-message request | Origin: ${req.headers.origin || 'N/A'} | UA: ${req.headers['user-agent']}`);
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', async () => {
+            try {
+                if (!sock) {
+                    throw new Error('WhatsApp not connected yet');
+                }
+
+                const { phone, text } = JSON.parse(body);
+
+                if (!phone || !text) {
+                    res.writeHead(400, { 'Content-Type': 'application/json', ...headers });
+                    res.end(JSON.stringify({ error: 'Missing phone or text' }));
+                    return;
+                }
+
+                const cleanPhone = normalizePhone(phone);
+                const jid = cleanPhone + '@s.whatsapp.net';
+
+                await sock.sendMessage(jid, { text });
+
+                console.log(`Sent message to ${phone}`);
+
+                res.writeHead(200, { 'Content-Type': 'application/json', ...headers });
+                res.end(JSON.stringify({ success: true }));
+            } catch (err: any) {
+                console.error('Error sending message:', err.message || err);
+                res.writeHead(500, { 'Content-Type': 'application/json', ...headers });
+                res.end(JSON.stringify({ error: 'Failed to send message: ' + (err.message || 'Unknown error') }));
+            }
+        });
     } else if (req.url?.startsWith('/qr') && req.method === 'GET') {
         if (secret !== adminSecret) {
             res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8', ...headers });
