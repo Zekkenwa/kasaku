@@ -344,3 +344,10 @@ model PendingBotTransaction {
   
   @@unique([userId])
 }
+
+model BotBlockList {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  label     String?
+  createdAt DateTime @default(now())
+}
