@@ -54,6 +54,10 @@ const botActionItemSchema = {
             type: Type.STRING,
             description: "ISO 8601 date string. If the user specifies a time (e.g. 04:15 pagi/jam 4 lewat 15), include it in the ISO string (Asia/Jakarta timezone). If NO time is specified, default to 07:00:00 local time. Example: 2026-02-25T07:00:00+07:00 or 2026-02-25T04:15:00+07:00.",
         },
+        deadline: {
+            type: Type.STRING,
+            description: "ISO 8601 date string for goal deadlines. Calculate from relative phrases like '30 hari dari sekarang', '3 bulan lagi'. Use Asia/Jakarta timezone.",
+        },
         interval: {
             type: Type.STRING,
             enum: ["DAILY", "WEEKLY", "MONTHLY"],
@@ -89,6 +93,7 @@ export type ParsedBotActionItem = {
     walletName?: string;
     note?: string;
     date?: string;
+    deadline?: string;
     interval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
 };
 
@@ -120,7 +125,7 @@ export async function parseTransactionText(text: string): Promise<ParsedBotActio
           - CREATE_DEBT: Loaning money to someone (piutang / RECEIVABLE / type: EXPENSE context) or borrowing from someone (hutang / PAYABLE / type: INCOME context). targetName is the person. amount required.
           - PAY_DEBT: Paying off a debt / someone paying you back. targetName is the person. amount required.
           - TRANSFER: Moving money between accounts. amount, fromWallet, targetName (to wallet) required.
-          - CREATE_GOAL: Setting a new savings goal. targetName is goal name, amount is the target targetAmount.
+          - CREATE_GOAL: Setting a new savings goal. targetName is goal name, amount is the target targetAmount. If user specifies a deadline (e.g. "30 hari dari sekarang", "3 bulan lagi"), calculate it as an ISO 8601 date and put it in the 'deadline' field.
           - FUND_GOAL: Adding money to a goal. targetName is goal name, amount required.
           - CREATE_RECURRING: Setting up a routine transaction. targetName is routine name, amount, type, and interval (DAILY/WEEKLY/MONTHLY) required.
           - SET_BUDGET: Setting a budget limit. amount, categoryName required.

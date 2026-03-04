@@ -26,6 +26,12 @@ const lastManualChat = new Map<string, number>();
 const SILENCE_DURATION = 5 * 60 * 1000; // 5 minutes
 const SILENCE_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
+// Per-user message rate limiter (JID -> array of timestamps)
+const messageRateMap = new Map<string, number[]>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 1000; // 10 seconds
+const RATE_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
 const ALLOWED_ORIGINS = [
     'https://kasaku.vercel.app',
     process.env.NEXT_PUBLIC_APP_URL,
@@ -37,7 +43,7 @@ const createCorsHeaders = (req: http.IncomingMessage) => {
 
     return {
         'Access-Control-Allow-Origin': allowOrigin,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Vary': 'Origin',
     };
@@ -51,6 +57,18 @@ setInterval(() => {
         }
     }
 }, SILENCE_CLEANUP_INTERVAL).unref();
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [jid, timestamps] of messageRateMap.entries()) {
+        const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+        if (recent.length === 0) {
+            messageRateMap.delete(jid);
+        } else {
+            messageRateMap.set(jid, recent);
+        }
+    }
+}, RATE_CLEANUP_INTERVAL).unref();
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await usePrismaAuthState(prisma);
@@ -101,6 +119,18 @@ async function connectToWhatsApp() {
                 // Check if silence is active for this sender
                 const lastManual = lastManualChat.get(msg.key.remoteJid);
                 const isSilenceActive = lastManual ? (Date.now() - lastManual < SILENCE_DURATION) : false;
+
+                // Per-user rate limit check
+                const jid = msg.key.remoteJid;
+                const now = Date.now();
+                const timestamps = messageRateMap.get(jid) || [];
+                const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+                if (recent.length >= RATE_LIMIT_MAX) {
+                    console.log(`[BOT] Rate limit hit for ${jid}. Dropping message.`);
+                    continue;
+                }
+                recent.push(now);
+                messageRateMap.set(jid, recent);
 
                 console.log(`[BOT] New message received from ${msg.key.remoteJid}${isSilenceActive ? ' (SILENCE ACTIVE)' : ''}`);
 
