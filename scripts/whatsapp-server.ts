@@ -84,8 +84,11 @@ async function connectToWhatsApp() {
                     continue;
                 }
 
-                // Check if sender is in the block list
-                const senderPhone = msg.key.remoteJid.split('@')[0];
+                // Check if sender is in the block list (resolve LID if needed)
+                let senderPhone = msg.key.remoteJid!.split('@')[0];
+                if (msg.key.remoteJid!.endsWith('@lid') && (msg.key as any).remoteJidAlt) {
+                    senderPhone = (msg.key as any).remoteJidAlt.split('@')[0];
+                }
                 const isBlocked = await prisma.botBlockList.findUnique({
                     where: { phone: senderPhone }
                 });
