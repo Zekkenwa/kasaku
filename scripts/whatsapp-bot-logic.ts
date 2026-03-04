@@ -12,6 +12,10 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
 };
 
+// Anti-spam limits
+const MAX_MESSAGE_LENGTH = 2000;
+const MAX_LINES = 10;
+
 type IncomingMessagePayload = {
     messages?: Array<{
         message?: {
@@ -38,6 +42,12 @@ export async function handleIncomingMessage(sock: WASocket, msg: IncomingMessage
     const text = message.message.conversation || message.message.extendedTextMessage?.text || "";
 
     if (!text) return;
+
+    // Anti-spam: message length limit
+    if (text.length > MAX_MESSAGE_LENGTH) {
+        await sock.sendMessage(remoteJid, { text: "⚠️ Pesan terlalu panjang. Maksimal 2000 karakter." });
+        return;
+    }
 
     console.log(`Received message from ${remoteJid}: ${text}`);
 
@@ -76,7 +86,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: IncomingMessage
     }
 
     // 3. Process Line by Line (Support multi-line)
-    const lines = text.split('\n').filter((line: string) => line.trim().length > 0);
+    const lines = text.split('\n').filter((line: string) => line.trim().length > 0).slice(0, MAX_LINES);
     let reply = "";
 
     if (lines.length === 1 && (lines[0].toLowerCase() === 'help' || lines[0].toLowerCase() === 'bantuan')) {
@@ -1165,7 +1175,17 @@ export async function processCommand(user: BotUser, text: string): Promise<Proce
     return handleAIFallback(user, text);
 }
 
+const aiCooldownMap = new Map<string, number>();
+const AI_COOLDOWN_MS = 3000;
+
 async function handleAIFallback(user: BotUser, text: string): Promise<ProcessCommandResult> {
+    const now = Date.now();
+    const lastCall = aiCooldownMap.get(user.id);
+    if (lastCall && now - lastCall < AI_COOLDOWN_MS) {
+        return "⏳ Mohon tunggu sebentar sebelum mengirim pesan lagi.";
+    }
+    aiCooldownMap.set(user.id, now);
+
     const parsed = await parseTransactionText(text);
     if (!(parsed && parsed.isValidCommand && parsed.actions && parsed.actions.length > 0)) {
         return null;
@@ -1323,9 +1343,15 @@ async function handleAIFallback(user: BotUser, text: string): Promise<ProcessCom
                     break;
                 case 'CREATE_GOAL':
                     if (item.targetName && item.amount) {
-                        const ng = await prisma.goal.create({ data: { userId: user.id, name: item.targetName, targetAmount: item.amount, currentAmount: 0 } });
+                        let goalDeadline: Date | null = null;
+                        if (item.deadline && typeof item.deadline === 'string') {
+                            const parsedDeadline = new Date(item.deadline);
+                            if (!isNaN(parsedDeadline.getTime())) goalDeadline = parsedDeadline;
+                        }
+                        const ng = await prisma.goal.create({ data: { userId: user.id, name: item.targetName, targetAmount: item.amount, currentAmount: 0, deadline: goalDeadline } });
                         await saveActionHistory(user.id, 'CREATE_GOAL', { goalId: ng.id });
-                        results.push(`🤖 AI: ✅ Goal Baru '${item.targetName}' dibuat.`);
+                        const deadlineStr = goalDeadline ? `\n📅 Deadline: ${goalDeadline.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
+                        results.push(`🤖 AI: ✅ Goal Baru '${item.targetName}' dibuat.${deadlineStr}`);
                     }
                     break;
                 case 'FUND_GOAL':
