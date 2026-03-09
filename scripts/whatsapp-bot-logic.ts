@@ -7,6 +7,10 @@ import { parseAmount } from '../lib/amount-parser';
 import type { BotCommandResult, BotUser, ProcessCommandResult } from '../types/bot';
 import Fuse from 'fuse.js';
 
+// Donation info
+const DONATION_LINK = "https://trakteer.id/zekkenwa";
+const DONATION_MESSAGE = `☕ Suka pakai Kasaku? Dukung developer: ${DONATION_LINK}`;
+
 // Helper to format currency
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
@@ -103,7 +107,17 @@ export async function handleIncomingMessage(sock: WASocket, msg: IncomingMessage
     const greetings = ['hi', 'halo', 'hallo', 'hello', 'pagi', 'siang', 'sore', 'malam', 'tes', 'ping'];
     if (lines.length === 1 && greetings.includes(lines[0].toLowerCase())) {
         if (isSilenceActive) return; // Skip greeting if silence active
-        await sock.sendMessage(remoteJid, { text: `Hallo ${user.name}! 👋\nSaya siap membantu mencatat keuanganmu.\n\nKetik *help* untuk melihat cara penggunaan.` });
+        await sock.sendMessage(remoteJid, {
+            text: `Hallo ${user.name}! 👋\n\nSaya siap membantu mencatat keuanganmu! 💰\n\n` +
+                `Beberapa hal yang bisa saya lakukan:\n` +
+                `• Catat pengeluaran & pemasukan\n` +
+                `• Cek saldo & laporan keuangan\n` +
+                `• Pantau hutang/piutang\n` +
+                `• Atur budget & goals tabungan\n\n` +
+                `Tanya apa saja! Misalnya: _"kamu bisa apa?"_ atau _"gimana cara cek saldo?"_\n\n` +
+                `Ketik *help* untuk panduan lengkap.\n\n` +
+                DONATION_MESSAGE
+        });
         return;
     }
 
@@ -169,6 +183,11 @@ export async function handleIncomingMessage(sock: WASocket, msg: IncomingMessage
 
         finalReply += `_Terima kasih sudah menggunakan Kasaku!_`;
 
+        // Occasionally show donation message (~20% chance) on successful transactions
+        if (hasTransaction && Math.random() < 0.2) {
+            finalReply += `\n\n${DONATION_MESSAGE}`;
+        }
+
         await sock.sendMessage(remoteJid, { text: finalReply });
     } else {
         // If NO command recognized in single line, send hint
@@ -191,7 +210,9 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
         text += `• *Cek Saldo:*\n`;
         text += `  \`cek saldo\`\n\n`;
         text += `ℹ️ Ketik *help lengkap* untuk fitur hutang, budget, goal, dll.\n`;
-        text += `💡 Bot juga bisa menebak jika ada typo! Misalnya: *kelaur* → *keluar*, *msuk* → *masuk*`;
+        text += `💡 Bot juga bisa menebak jika ada typo! Misalnya: *kelaur* → *keluar*, *msuk* → *masuk*\n`;
+        text += `💬 Kamu juga bisa langsung tanya, misal: _"gimana cara cek saldo?"_ atau _"kamu bisa apa?"_\n\n`;
+        text += DONATION_MESSAGE;
     } else {
         text += `📋 *DAFTAR PERINTAH LENGKAP*\n\n`;
 
@@ -224,7 +245,19 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
         text += `• \`transfer [jml] dari @[A] ke @[B]\`\n`;
         text += `• \`undo\` (Batalkan aksi terakhir)\n\n`;
 
-        text += `💡 *Tips:* Gunakan singkatan *k* (ribu), *jt* (juta), *m*/*mlr* (miliar), *t*/*tr* (triliun). Cth: *50k*, *1.5jt*, *2m*, *1t*`;
+        text += `6️⃣ *FORMAT ANGKA*\n`;
+        text += `• *k / rb / ribu*: ribuan → \`15k\` = 15.000\n`;
+        text += `• *jt / juta*: jutaan → \`1.5jt\` = 1.500.000\n`;
+        text += `• *m / miliar / milyar / mlr*: miliar → \`2m\` = 2.000.000.000\n`;
+        text += `• *t / tr / triliun*: triliun → \`1t\` = 1.000.000.000.000\n`;
+        text += `• *b / bio / biliun*: miliar → \`3b\` = 3.000.000.000\n`;
+        text += `• Atau tulis kata: \`seratus ribu\`, \`dua juta\`\n\n`;
+
+        text += `⚠️ *TENTANG SALDO AWAL*\n`;
+        text += `• \`saldo awal [jumlah]\`\n`;
+        text += `⚠️ *PENTING:* Perintah \`saldo awal\` hanya untuk *MENCATAT* saldo dompetmu yang sudah ada. Ini *BUKAN* transfer uang sungguhan. Gunakan saat pertama kali setup agar bot tahu berapa uangmu saat ini.\n\n`;
+
+        text += DONATION_MESSAGE;
     }
 
     await sock.sendMessage(jid, { text });
@@ -1113,7 +1146,152 @@ const allCommands = [
     'help', 'bantuan', 'undo',
 ];
 const uniqueCommands = [...new Set(allCommands)];
-const commandsFuse = new Fuse(uniqueCommands, { threshold: 0.3, includeScore: true });
+const commandsFuse = new Fuse(uniqueCommands, { threshold: 0.5, includeScore: true });
+
+// --- FAQ SYSTEM ---
+
+type FAQEntry = {
+    patterns: string[];
+    answer: string;
+};
+
+const faqDatabase: FAQEntry[] = [
+    {
+        patterns: ["kamu bisa apa", "fitur apa aja", "bisa ngapain", "apa yang bisa kamu lakukan", "fitur bot", "bot ini bisa apa", "kamu bisa ngapain"],
+        answer: `🤖 *Apa yang bisa saya lakukan?*\n\n` +
+            `Saya adalah asisten pencatatan keuangan pribadi!\n\n` +
+            `💰 *Transaksi*: catat pengeluaran & pemasukan\n` +
+            `💳 *Multi-wallet*: kelola beberapa dompet\n` +
+            `📊 *Laporan*: cek ringkasan harian/mingguan/bulanan\n` +
+            `💸 *Hutang/Piutang*: catat dan pantau hutang\n` +
+            `🎯 *Goal*: tabungan dengan target\n` +
+            `📋 *Budget*: atur batas pengeluaran per kategori\n` +
+            `🔄 *Rutin*: catat transaksi berulang otomatis\n` +
+            `↩️ *Undo*: batalkan aksi terakhir\n\n` +
+            `Ketik *help lengkap* untuk panduan detail.\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara catat pengeluaran", "gimana catat keluar", "cara keluar", "cara mencatat pengeluaran", "catat pengeluaran gimana"],
+        answer: `📝 *Cara Catat Pengeluaran:*\n\n` +
+            `Format: \`keluar [jumlah] [keterangan] @[kategori]\`\n\n` +
+            `Contoh:\n` +
+            `• \`keluar 15k kopi pagi @jajan\`\n` +
+            `• \`keluar 50rb makan siang @makan\`\n` +
+            `• \`keluar 200k bensin @transport via gopay\`\n\n` +
+            `💡 Gunakan *via [dompet]* untuk memilih dompet.\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara cek saldo", "lihat saldo", "cek saldo gimana", "cara lihat saldo", "mau cek saldo"],
+        answer: `💰 *Cara Cek Saldo:*\n\n` +
+            `Ketik: \`cek saldo\`\n\n` +
+            `Ini akan menampilkan total saldo dari semua dompet kamu.\n` +
+            `Untuk saldo per dompet, ketik: \`cek wallet\`\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara hutang", "catat hutang gimana", "cara catat hutang", "cara piutang", "catat piutang gimana"],
+        answer: `💸 *Cara Catat Hutang/Piutang:*\n\n` +
+            `• *Kamu hutang ke orang*: \`hutang [jml] @[nama] [ket]\`\n` +
+            `  Cth: \`hutang 200k @Budi minjem bensin\`\n\n` +
+            `• *Orang hutang ke kamu*: \`piutang [jml] @[nama] [ket]\`\n` +
+            `  Cth: \`piutang 500k @Ani utang bulan lalu\`\n\n` +
+            `• *Bayar sebagian*: \`bayar [jml] @[nama]\`\n` +
+            `• *Lunas semua*: \`lunas @[nama]\`\n` +
+            `• *Cek hutang*: \`cek hutang\`\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara budget", "atur budget", "cara set budget", "cara buat budget", "set budget gimana"],
+        answer: `📋 *Cara Atur Budget:*\n\n` +
+            `Format: \`budget [jml] @[kategori]\`\n` +
+            `Cth: \`budget 500k @makan\`\n\n` +
+            `Ini mengatur batas pengeluaran bulanan untuk kategori tersebut.\n` +
+            `Cek status: \`cek budget\`\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara goal", "tabungan gimana", "cara celengan", "cara buat goal", "cara menabung", "buat tabungan"],
+        answer: `🎯 *Cara Pakai Goal (Tabungan):*\n\n` +
+            `• *Buat goal baru*: \`goal [nama] [target]\`\n` +
+            `  Cth: \`goal liburan bali 5jt\`\n\n` +
+            `• *Isi tabungan*: \`isi goal [jml] @[nama]\`\n` +
+            `  Cth: \`isi goal 200k @liburan_bali\`\n\n` +
+            `• *Cek progress*: \`cek goal\`\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara transfer", "transfer antar dompet", "cara pindah saldo", "pindah dompet gimana"],
+        answer: `🔄 *Cara Transfer Antar Dompet:*\n\n` +
+            `Format: \`transfer [jml] dari @[A] ke @[B]\`\n` +
+            `Cth: \`transfer 100k dari @cash ke @gopay\`\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara undo", "batalkan transaksi", "undo gimana", "cara membatalkan", "hapus transaksi terakhir"],
+        answer: `↩️ *Cara Undo/Batalkan Aksi:*\n\n` +
+            `Ketik: \`undo\`\n\n` +
+            `Ini akan membatalkan aksi TERAKHIR yang kamu lakukan (maks 7 hari lalu).\n` +
+            `Bisa undo transaksi, goal, budget, hutang, dll.\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["apa itu saldo awal", "saldo awal itu apa", "cara saldo awal", "kenapa saldo awal", "saldo awal gimana"],
+        answer: `⚠️ *Tentang Saldo Awal:*\n\n` +
+            `⚠️ *PENTING:* Perintah \`saldo awal\` hanya untuk *MENCATAT* saldo dompetmu yang sudah ada. Ini *BUKAN* transfer uang sungguhan.\n\n` +
+            `Gunakan ini saat pertama kali setup, untuk memberitahu bot berapa uang yang kamu punya saat ini.\n\n` +
+            `Format: \`saldo awal [jumlah]\`\n` +
+            `Cth: \`saldo awal 500k\`\n\n` +
+            `Setelah ini, bot akan mulai menghitung saldo kamu dari angka tersebut.\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["singkatan angka", "cara tulis angka", "apa itu k jt", "format angka", "singkatan uang", "cara nulis angka"],
+        answer: `🔢 *Format Penulisan Angka:*\n\n` +
+            `• *k / rb / ribu*: ribuan → \`15k\` = 15.000\n` +
+            `• *jt / juta*: jutaan → \`1.5jt\` = 1.500.000\n` +
+            `• *m / miliar / milyar / mlr*: miliar → \`2m\` = 2.000.000.000\n` +
+            `• *t / tr / triliun*: triliun → \`1t\` = 1.000.000.000.000\n` +
+            `• *b / bio / biliun*: miliar → \`3b\` = 3.000.000.000\n\n` +
+            `Atau tulis angka kata: \`seratus ribu\`, \`dua juta\`\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["cara pakai via", "pilih wallet", "cara pilih dompet", "via itu apa", "via wallet gimana"],
+        answer: `💳 *Cara Pilih Dompet dengan "via":*\n\n` +
+            `Tambahkan \`via [nama_dompet]\` di akhir perintah transaksi:\n\n` +
+            `Cth: \`keluar 50k makan @makan via gopay\`\n\n` +
+            `Jika kamu punya banyak dompet dan tidak pakai "via", bot akan menanyakan dompet mana yang akan digunakan.\n\n` +
+            DONATION_MESSAGE,
+    },
+    {
+        patterns: ["siapa developer", "siapa pembuat", "siapa yang buat bot ini", "siapa yang buat kasaku", "siapa developer kasaku"],
+        answer: `👨‍💻 *Tentang Kasaku Bot:*\n\n` +
+            `Kasaku dibuat dengan ❤️ oleh developer Indonesia.\n\n` +
+            `Bot ini gratis dan terus dikembangkan.\n\n` +
+            `☕ *Dukung developer:*\n${DONATION_LINK}\n\n` +
+            `Terima kasih sudah menggunakan Kasaku!`,
+    },
+];
+
+// Build flat Fuse index from all FAQ patterns
+const faqIndex: Array<{ pattern: string; answerIndex: number }> = [];
+faqDatabase.forEach((entry, answerIndex) => {
+    for (const pattern of entry.patterns) {
+        faqIndex.push({ pattern, answerIndex });
+    }
+});
+const faqFuse = new Fuse(faqIndex, { keys: ['pattern'], threshold: 0.45, includeScore: true });
+
+function checkFAQ(text: string): string | null {
+    const results = faqFuse.search(text.toLowerCase().trim());
+    if (results.length > 0) {
+        const best = results[0];
+        return faqDatabase[best.item.answerIndex].answer;
+    }
+    return null;
+}
 
 export async function processCommand(user: BotUser, text: string, isRetry: boolean = false): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
@@ -1201,21 +1379,45 @@ export async function processCommand(user: BotUser, text: string, isRetry: boole
     }
 
     // --- FUZZY TYPO CORRECTION ---
+    // Only apply fuzzy correction when the input looks like a command invocation
+    // (single word, or followed by amounts / @mentions) to avoid accidentally
+    // matching FAQ phrases whose first word resembles a command alias.
     if (!isRetry) {
-        const results = commandsFuse.search(cmd);
+        const hasCommandIndicators = parts.length === 1 ||
+            parts.slice(1).some(p => p.startsWith('@') || parseAmount(p) !== null);
 
-        if (results.length > 0) {
-            const corrected = results[0].item;
-            const rest = parts.length > 1 ? ` ${parts.slice(1).join(' ')}` : '';
-            return processCommand(user, `${corrected}${rest}`, true);
+        if (hasCommandIndicators) {
+            const fuseResults = commandsFuse.search(cmd);
+
+            if (fuseResults.length > 0) {
+                const best = fuseResults[0];
+                const score = best.score ?? 1;
+                const corrected = best.item;
+                const rest = parts.length > 1 ? ` ${parts.slice(1).join(' ')}` : '';
+
+                if (score < 0.3) {
+                    // Very close match — auto-correct and process
+                    return processCommand(user, `${corrected}${rest}`, true);
+                } else if (score < 0.5) {
+                    // Moderate match — suggest the command but don't auto-process
+                    return `❓ Mungkin maksud kamu *${corrected}*? Ketik ulang atau ketik *help* untuk bantuan.`;
+                }
+                // score >= 0.5: fall through to FAQ/AI
+            }
         }
+    }
+
+    // --- FAQ DETECTION ---
+    const faqAnswer = checkFAQ(text);
+    if (faqAnswer) {
+        return faqAnswer;
     }
 
     return handleAIFallback(user, text);
 }
 
 const aiCooldownMap = new Map<string, number>();
-const AI_COOLDOWN_MS = 3000;
+const AI_COOLDOWN_MS = 1000;
 
 async function handleAIFallback(user: BotUser, text: string): Promise<ProcessCommandResult> {
     const now = Date.now();

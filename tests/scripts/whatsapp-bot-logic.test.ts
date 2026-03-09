@@ -107,4 +107,55 @@ describe("processCommand", () => {
         // The exact result depends on wallet setup, but it should NOT be null (i.e., should not fall through to AI)
         expect(result).not.toBeNull();
     });
+
+    it("corrects typo 'kluear' to 'keluar' via fuzzy matching", async () => {
+        prismaMock.wallet.findMany.mockResolvedValue([]);
+        prismaMock.wallet.findFirst.mockResolvedValue(null);
+        prismaMock.category.findFirst.mockResolvedValue(null);
+        prismaMock.category.create.mockResolvedValue({ id: "cat-1", name: "Makan", type: "EXPENSE", userId: user.id });
+        prismaMock.transaction.create.mockResolvedValue({ id: "tx-2" });
+        prismaMock.botActionHistory.create.mockResolvedValue({ id: "history-2" });
+
+        const result = await processCommand(user, "kluear 20k nasi @makan");
+
+        // Should auto-correct and process as "keluar 20k nasi @makan"
+        expect(result).not.toBeNull();
+        // Should NOT have called AI fallback since typo was corrected
+        expect(parseTransactionText).not.toHaveBeenCalled();
+    });
+
+    it("returns FAQ answer for 'kamu bisa apa'", async () => {
+        const result = await processCommand(user, "kamu bisa apa");
+
+        expect(typeof result).toBe("string");
+        expect(result as string).toContain("Transaksi");
+        // Should NOT call AI since FAQ matched
+        expect(parseTransactionText).not.toHaveBeenCalled();
+    });
+
+    it("returns FAQ answer for question about saldo", async () => {
+        const result = await processCommand(user, "cara cek saldo");
+
+        expect(typeof result).toBe("string");
+        expect(result as string).toContain("cek saldo");
+        expect(parseTransactionText).not.toHaveBeenCalled();
+    });
+
+    it("returns FAQ answer explaining saldo awal is not real transfer", async () => {
+        const result = await processCommand(user, "apa itu saldo awal");
+
+        expect(typeof result).toBe("string");
+        expect(result as string).toContain("BUKAN");
+        expect(parseTransactionText).not.toHaveBeenCalled();
+    });
+
+    it("returns FAQ answer for question about amount suffixes", async () => {
+        const result = await processCommand(user, "singkatan angka");
+
+        expect(typeof result).toBe("string");
+        expect(result as string).toContain("ribu");
+        expect(result as string).toContain("juta");
+        expect(parseTransactionText).not.toHaveBeenCalled();
+    });
 });
+
