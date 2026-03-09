@@ -32,7 +32,7 @@ const SCORE_FLOOD = 20;                // Per message while in flood
 const SCORE_RAPID_IDENTICAL = 30;      // Bonus for 3 identical in 3s
 const SCORE_FORWARD_BOMB = 15;         // Bonus for >70% duplicate in recent msgs
 
-function simpleHash(str: string): string {
+function messageContentHash(str: string): string {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         const c = str.charCodeAt(i);
@@ -78,7 +78,7 @@ export function checkSpam(jid: string, text: string): SpamVerdict {
     state.timestamps = state.timestamps.filter(t => now - t <= WINDOW_MS);
 
     // Track recent message hashes for duplicate detection
-    const hash = simpleHash(text.toLowerCase().trim());
+    const hash = messageContentHash(text.toLowerCase().trim());
     state.recentMessages.push(hash);
     if (state.recentMessages.length > DUPLICATE_WINDOW_SIZE) {
         state.recentMessages.shift();

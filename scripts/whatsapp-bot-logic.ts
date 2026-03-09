@@ -1383,10 +1383,10 @@ export async function processCommand(user: BotUser, text: string, isRetry: boole
     // (single word, or followed by amounts / @mentions) to avoid accidentally
     // matching FAQ phrases whose first word resembles a command alias.
     if (!isRetry) {
-        const hasCommandIndicators = parts.length === 1 ||
+        const hasCommandStructure = parts.length === 1 ||
             parts.slice(1).some(p => p.startsWith('@') || parseAmount(p) !== null);
 
-        if (hasCommandIndicators) {
+        if (hasCommandStructure) {
             const fuseResults = commandsFuse.search(cmd);
 
             if (fuseResults.length > 0) {
