@@ -361,6 +361,7 @@ export default function DashboardClient({
               </Link>
               <button onClick={() => setIsCategoryModalOpen(true)} className="p-3 rounded-xl hover:bg-white/5 transition-all text-xl grayscale hover:grayscale-0" title="Kategori">📁</button>
               <button onClick={() => setIsImportModalOpen(true)} className="p-3 rounded-xl hover:bg-white/5 transition-all text-xl grayscale hover:grayscale-0" title="Import">📥</button>
+              <Link href='/dashboard/faq' className="p-3 rounded-xl hover:bg-white/5 transition-all text-xl grayscale hover:grayscale-0" title="Bantuan & FAQ">❓</Link>
               <Link href='/donasi' className="p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 transition-all text-xl" title="Donasi">🎁</Link>
             </div>
             <div className="w-[1px] h-8 bg-white/10 mx-2" />

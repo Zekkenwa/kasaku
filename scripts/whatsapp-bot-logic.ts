@@ -1151,12 +1151,14 @@ const commandsFuse = new Fuse(uniqueCommands, { threshold: 0.5, includeScore: tr
 // --- FAQ SYSTEM ---
 
 type FAQEntry = {
+    title: string;
     patterns: string[];
     answer: string;
 };
 
 const faqDatabase: FAQEntry[] = [
     {
+        title: "Apa yang bisa Kasaku lakukan?",
         patterns: ["kamu bisa apa", "fitur apa aja", "bisa ngapain", "apa yang bisa kamu lakukan", "fitur bot", "bot ini bisa apa", "kamu bisa ngapain"],
         answer: `🤖 *Apa yang bisa saya lakukan?*\n\n` +
             `Saya adalah asisten pencatatan keuangan pribadi!\n\n` +
@@ -1172,6 +1174,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara mencatat pengeluaran",
         patterns: ["cara catat pengeluaran", "gimana catat keluar", "cara keluar", "cara mencatat pengeluaran", "catat pengeluaran gimana"],
         answer: `📝 *Cara Catat Pengeluaran:*\n\n` +
             `Format: \`keluar [jumlah] [keterangan] @[kategori]\`\n\n` +
@@ -1183,6 +1186,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara mengecek saldo",
         patterns: ["cara cek saldo", "lihat saldo", "cek saldo gimana", "cara lihat saldo", "mau cek saldo"],
         answer: `💰 *Cara Cek Saldo:*\n\n` +
             `Ketik: \`cek saldo\`\n\n` +
@@ -1191,6 +1195,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara mencatat hutang atau piutang",
         patterns: ["cara hutang", "catat hutang gimana", "cara catat hutang", "cara piutang", "catat piutang gimana"],
         answer: `💸 *Cara Catat Hutang/Piutang:*\n\n` +
             `• *Kamu hutang ke orang*: \`hutang [jml] @[nama] [ket]\`\n` +
@@ -1203,6 +1208,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara mengatur batas budget",
         patterns: ["cara budget", "atur budget", "cara set budget", "cara buat budget", "set budget gimana"],
         answer: `📋 *Cara Atur Budget:*\n\n` +
             `Format: \`budget [jml] @[kategori]\`\n` +
@@ -1212,6 +1218,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara memakai goal / tabungan",
         patterns: ["cara goal", "tabungan gimana", "cara celengan", "cara buat goal", "cara menabung", "buat tabungan"],
         answer: `🎯 *Cara Pakai Goal (Tabungan):*\n\n` +
             `• *Buat goal baru*: \`goal [nama] [target]\`\n` +
@@ -1222,6 +1229,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara transfer antar dompet",
         patterns: ["cara transfer", "transfer antar dompet", "cara pindah saldo", "pindah dompet gimana"],
         answer: `🔄 *Cara Transfer Antar Dompet:*\n\n` +
             `Format: \`transfer [jml] dari @[A] ke @[B]\`\n` +
@@ -1229,6 +1237,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara membatalkan transaksi / undo",
         patterns: ["cara undo", "batalkan transaksi", "undo gimana", "cara membatalkan", "hapus transaksi terakhir"],
         answer: `↩️ *Cara Undo/Batalkan Aksi:*\n\n` +
             `Ketik: \`undo\`\n\n` +
@@ -1237,6 +1246,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Fungsi perintah 'Saldo Awal'",
         patterns: ["apa itu saldo awal", "saldo awal itu apa", "cara saldo awal", "kenapa saldo awal", "saldo awal gimana"],
         answer: `⚠️ *Tentang Saldo Awal:*\n\n` +
             `⚠️ *PENTING:* Perintah \`saldo awal\` hanya untuk *MENCATAT* saldo dompetmu yang sudah ada. Ini *BUKAN* transfer uang sungguhan.\n\n` +
@@ -1247,6 +1257,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Singkatan angka yang valid",
         patterns: ["singkatan angka", "cara tulis angka", "apa itu k jt", "format angka", "singkatan uang", "cara nulis angka"],
         answer: `🔢 *Format Penulisan Angka:*\n\n` +
             `• *k / rb / ribu*: ribuan → \`15k\` = 15.000\n` +
@@ -1258,6 +1269,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Cara memilih dompet pada teks (via)",
         patterns: ["cara pakai via", "pilih wallet", "cara pilih dompet", "via itu apa", "via wallet gimana"],
         answer: `💳 *Cara Pilih Dompet dengan "via":*\n\n` +
             `Tambahkan \`via [nama_dompet]\` di akhir perintah transaksi:\n\n` +
@@ -1266,6 +1278,7 @@ const faqDatabase: FAQEntry[] = [
             DONATION_MESSAGE,
     },
     {
+        title: "Tentang Kasaku Bot",
         patterns: ["siapa developer", "siapa pembuat", "siapa yang buat bot ini", "siapa yang buat kasaku", "siapa developer kasaku"],
         answer: `👨‍💻 *Tentang Kasaku Bot:*\n\n` +
             `Kasaku dibuat dengan ❤️ oleh developer Indonesia.\n\n` +
@@ -1342,6 +1355,25 @@ export async function processCommand(user: BotUser, text: string, isRetry: boole
         }
         // If it's a number but there's NO pending transaction, let it fall through 
         // to the default AI intent handler so we don't accidentally corrupt data.
+    }
+
+    // --- FAQ SYSTEM DIRECT COMMAND ---
+    if (normalizedCmd === 'faq' || normalizedCmd === 'bantuan') {
+        if (!parts[1]) {
+            let reply = `❓ *Pusat Bantuan Kasaku*\n\nKetik \`faq [angka]\` untuk melihat detail:\n\n`;
+            faqDatabase.forEach((faq, idx) => {
+                reply += `${idx + 1}. ${faq.title}\n`;
+            });
+            reply += `\nContoh: \`faq 1\``;
+            return reply;
+        } else {
+            const num = parseInt(parts[1]);
+            if (!isNaN(num) && num >= 1 && num <= faqDatabase.length) {
+                return faqDatabase[num - 1].answer;
+            } else {
+                return `❌ Nomor FAQ tidak ditemukan, lihat daftar lengkap dengan ketik \`faq\`.`;
+            }
+        }
     }
 
     // --- BATAL PENDING TRANSACTION ---
