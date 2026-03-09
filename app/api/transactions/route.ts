@@ -10,14 +10,30 @@ export const POST = withAuth(async (request: Request, userId: string) => {
     }
 
     // Balance validation for EXPENSE transactions
-    // wallet.initialBalance is the actual current wallet balance as displayed on the dashboard
+    // Calculate the LIVE balance: initialBalance + SUM(INCOME) - SUM(EXPENSE)
     if (type === "EXPENSE") {
         const wallet = await prisma.wallet.findFirst({ where: { id: walletId, userId } });
-        if (wallet && Number(amount) > wallet.initialBalance) {
-            return NextResponse.json(
-                { error: `Saldo tidak mencukupi. Saldo ${wallet.name} saat ini: Rp ${wallet.initialBalance.toLocaleString("id-ID")}. Silakan isi ulang saldo atau ubah jumlah transaksi.` },
-                { status: 400 }
-            );
+        if (wallet) {
+            const [incomeAgg, expenseAgg] = await Promise.all([
+                prisma.transaction.aggregate({
+                    where: { walletId: wallet.id, type: "INCOME" },
+                    _sum: { amount: true },
+                }),
+                prisma.transaction.aggregate({
+                    where: { walletId: wallet.id, type: "EXPENSE" },
+                    _sum: { amount: true },
+                }),
+            ]);
+            const currentBalance = wallet.initialBalance
+                + (incomeAgg._sum.amount ?? 0)
+                - (expenseAgg._sum.amount ?? 0);
+
+            if (Number(amount) > currentBalance) {
+                return NextResponse.json(
+                    { error: `Saldo tidak mencukupi. Saldo ${wallet.name} saat ini: Rp ${currentBalance.toLocaleString("id-ID")}. Silakan isi ulang saldo atau ubah jumlah transaksi.` },
+                    { status: 400 }
+                );
+            }
         }
     }
 
