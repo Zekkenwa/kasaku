@@ -166,7 +166,24 @@ export default async function DashboardPage(props: {
   // Calculate lifetime balance using aggregation for better performance
   /* Aggregations moved to main Promise.all */
 
-  const balance = (incomeAgg._sum.amount ?? 0) - (expenseAgg._sum.amount ?? 0);
+  // Fetch lifetime incomes/expenses grouped by wallet
+  const walletAgg = await prisma.transaction.groupBy({
+    by: ['walletId', 'type'],
+    where: { userId: user.id },
+    _sum: { amount: true },
+  });
+
+  const processedWallets = wallets.map(w => {
+    const income = walletAgg.find(wa => wa.walletId === w.id && wa.type === 'INCOME')?._sum.amount ?? 0;
+    const expense = walletAgg.find(wa => wa.walletId === w.id && wa.type === 'EXPENSE')?._sum.amount ?? 0;
+    return {
+      ...w,
+      balance: w.initialBalance + income - expense
+    };
+  });
+
+  const totalInitialBalance = wallets.reduce((sum, w) => sum + w.initialBalance, 0);
+  const balance = totalInitialBalance + (incomeAgg._sum.amount ?? 0) - (expenseAgg._sum.amount ?? 0);
 
   // Helper to aggregate top N categories + "Lainnya"
   const aggregateChartData = (type: "INCOME" | "EXPENSE") => {
@@ -303,7 +320,7 @@ export default async function DashboardPage(props: {
         limitAmount: b.limitAmount,
         period: b.period,
       }))}
-      wallets={wallets}
+      wallets={processedWallets}
       monthOptions={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]}
       yearOptions={yearOptions}
       selectedMonth={selectedMonth}

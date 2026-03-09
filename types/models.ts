@@ -46,6 +46,7 @@ export interface Wallet {
     name: string;
     type: WalletType;
     initialBalance: number;
+    balance?: number;
 }
 
 export interface Goal {

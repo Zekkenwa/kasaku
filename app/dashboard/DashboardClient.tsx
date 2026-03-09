@@ -397,7 +397,7 @@ export default function DashboardClient({
                       {wallets.map(w => (
                         <div key={w.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/10 border border-white/5 backdrop-blur-sm">
                           <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400">{w.name}</span>
-                          <span className="text-xs font-bold text-white">{censor(currency(w.initialBalance))}</span>
+                          <span className="text-xs font-bold text-white">{censor(currency(w.balance ?? w.initialBalance))}</span>
                         </div>
                       ))}
                       <button onClick={() => setIsWalletDistOpen(true)} className="flex items-center justify-center w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 backdrop-blur-sm border border-white/5 text-xs transition-all" title="Atur Saldo dompet">
@@ -802,8 +802,8 @@ export default function DashboardClient({
                     +
                   </button>
                   <div className="flex bg-black/40 rounded-lg p-1">
-                  <button onClick={() => setLoanTab("PAYABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "PAYABLE" ? "bg-brand-red text-white shadow" : "text-neutral-500 hover:text-white"}`}>Hutang</button>
-                  <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "RECEIVABLE" ? "bg-brand-green text-white shadow" : "text-neutral-500 hover:text-white"}`}>Piutang</button>
+                    <button onClick={() => setLoanTab("PAYABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "PAYABLE" ? "bg-brand-red text-white shadow" : "text-neutral-500 hover:text-white"}`}>Hutang</button>
+                    <button onClick={() => setLoanTab("RECEIVABLE")} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md ${loanTab === "RECEIVABLE" ? "bg-brand-green text-white shadow" : "text-neutral-500 hover:text-white"}`}>Piutang</button>
                   </div>
                 </div>
               </div>
