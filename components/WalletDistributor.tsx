@@ -19,8 +19,10 @@ const currency = (value: number) =>
 
 export default function WalletDistributor({ wallets, totalBalance, onClose }: Props) {
     const router = useRouter();
+    // Display the LIVE balance (balance = initialBalance + income - expense)
+    // so the user sees the actual current amount, not just the initialBalance.
     const [allocations, setAllocations] = useState<Record<string, string>>(
-        Object.fromEntries(wallets.map(w => [w.id, String(w.initialBalance)]))
+        Object.fromEntries(wallets.map(w => [w.id, String(w.balance ?? w.initialBalance)]))
     );
     const [loading, setLoading] = useState(false);
     const [newName, setNewName] = useState("");
@@ -34,12 +36,18 @@ export default function WalletDistributor({ wallets, totalBalance, onClose }: Pr
         setLoading(true);
         try {
             for (const w of wallets) {
-                const amount = Number(allocations[w.id]) || 0;
-                if (amount !== w.initialBalance) {
+                const desiredBalance = Number(allocations[w.id]) || 0;
+                const liveBalance = w.balance ?? w.initialBalance;
+                if (desiredBalance !== liveBalance) {
+                    // Compute what initialBalance should be so that:
+                    // initialBalance + netTransactions = desiredBalance
+                    // netTransactions = liveBalance - w.initialBalance
+                    const netTransactions = liveBalance - w.initialBalance;
+                    const newInitialBalance = desiredBalance - netTransactions;
                     const res = await fetch(`/api/wallets/${w.id}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ initialBalance: amount }),
+                        body: JSON.stringify({ initialBalance: newInitialBalance }),
                     });
                     if (!res.ok) throw new Error("Gagal update wallet");
                 }
