@@ -190,7 +190,8 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
         text += `  \`masuk 5jt gaji @kerja\`\n`;
         text += `• *Cek Saldo:*\n`;
         text += `  \`cek saldo\`\n\n`;
-        text += `ℹ️ Ketik *help lengkap* untuk fitur hutang, budget, goal, dll.`;
+        text += `ℹ️ Ketik *help lengkap* untuk fitur hutang, budget, goal, dll.\n`;
+        text += `💡 Bot juga bisa menebak jika ada typo! Misalnya: *kelaur* → *keluar*, *msuk* → *masuk*`;
     } else {
         text += `📋 *DAFTAR PERINTAH LENGKAP*\n\n`;
 
@@ -223,7 +224,7 @@ async function sendHelp(sock: WASocket, jid: string, name: string, full: boolean
         text += `• \`transfer [jml] dari @[A] ke @[B]\`\n`;
         text += `• \`undo\` (Batalkan aksi terakhir)\n\n`;
 
-        text += `💡 *Tips:* Gunakan singkatan *k* (ribu) dan *jt* (juta). Cth: *50k*, *1.5jt*`;
+        text += `💡 *Tips:* Gunakan singkatan *k* (ribu), *jt* (juta), *m*/*mlr* (miliar), *t*/*tr* (triliun). Cth: *50k*, *1.5jt*, *2m*, *1t*`;
     }
 
     await sock.sendMessage(jid, { text });
@@ -1076,19 +1077,35 @@ const compoundCommandHandlers: Record<string, CommandHandler> = {
     'saldo awal': async (user, parts) => handleSetSaldoAwal(user, parts),
 };
 
-export async function processCommand(user: BotUser, text: string): Promise<ProcessCommandResult> {
+export async function processCommand(user: BotUser, text: string, isRetry: boolean = false): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
     const cmd = parts[0];
     const commandAliases: Record<string, string> = {
         out: 'keluar',
         expense: 'keluar',
+        pengeluaran: 'keluar',
+        catat: 'keluar',
+        log: 'keluar',
         in: 'masuk',
         income: 'masuk',
+        pemasukan: 'masuk',
         debt: 'hutang',
         loan: 'piutang',
         report: 'laporan',
+        rekap: 'laporan',
+        ringkasan: 'laporan',
+        summary: 'laporan',
         cancel: 'batal',
+        check: 'cek',
+        tabungan: 'goal',
+        target: 'goal',
+        cicilan: 'bayar',
+        pay: 'bayar',
+        balance: 'saldo',
+        settle: 'lunas',
+        kirim: 'transfer',
+        pindah: 'transfer',
     };
     const normalizedCmd = commandAliases[cmd] || cmd;
 
@@ -1171,6 +1188,27 @@ export async function processCommand(user: BotUser, text: string): Promise<Proce
         return await executeUndo(user.id);
     }
 
+    // --- FUZZY TYPO CORRECTION ---
+    if (!isRetry) {
+        const allCommands = [
+            ...Object.keys(commandAliases),
+            ...Object.values(commandAliases),
+            ...Object.keys(directCommandHandlers),
+            ...Object.keys(compoundCommandHandlers),
+            ...Object.keys(checkCommandHandlers).map((k) => `cek ${k}`),
+            'help', 'bantuan', 'undo',
+        ];
+        const uniqueCommands = [...new Set(allCommands)];
+
+        const fuse = new Fuse(uniqueCommands, { threshold: 0.4, includeScore: true });
+        const results = fuse.search(cmd);
+
+        if (results.length > 0) {
+            const corrected = results[0].item;
+            const rest = parts.length > 1 ? ` ${parts.slice(1).join(' ')}` : '';
+            return processCommand(user, `${corrected}${rest}`, true);
+        }
+    }
 
     return handleAIFallback(user, text);
 }
