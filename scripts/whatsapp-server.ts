@@ -8,6 +8,7 @@ import { usePrismaAuthState } from '../lib/auth-baileys';
 import { normalizePhone } from '../lib/encryption';
 
 import { handleIncomingMessage } from './whatsapp-bot-logic';
+import { checkSpam, resetSpamState } from '../lib/spam-detector';
 
 // Configuration
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -25,16 +26,6 @@ const MAX_RETRY_DELAY = 60 * 1000; // 1 minute
 const lastManualChat = new Map<string, number>();
 const SILENCE_DURATION = 5 * 60 * 1000; // 5 minutes
 const SILENCE_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
-
-// Per-user message rate limiter (JID -> array of timestamps)
-const messageRateMap = new Map<string, number[]>();
-const RATE_LIMIT_WARN = 5;       // Warn user if they hit 5 msgs in 10s
-const RATE_LIMIT_AUTO_BAN = 15;  // Auto-ban user if they hit 15 msgs in 10s
-const RATE_LIMIT_WINDOW_MS = 10 * 1000; // 10 seconds
-const RATE_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
-
-// Track warnings sent to avoid spamming the warning message itself
-const spamWarningsSent = new Set<string>();
 
 const ALLOWED_ORIGINS = [
     'https://kasaku.vercel.app',
@@ -62,18 +53,7 @@ setInterval(() => {
     }
 }, SILENCE_CLEANUP_INTERVAL).unref();
 
-setInterval(() => {
-    const now = Date.now();
-    for (const [jid, timestamps] of messageRateMap.entries()) {
-        const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
-        if (recent.length === 0) {
-            messageRateMap.delete(jid);
-            spamWarningsSent.delete(jid); // Clear warning state if user is quiet
-        } else {
-            messageRateMap.set(jid, recent);
-        }
-    }
-}, RATE_CLEANUP_INTERVAL).unref();
+
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await usePrismaAuthState(prisma);
@@ -125,43 +105,41 @@ async function connectToWhatsApp() {
                 const lastManual = lastManualChat.get(msg.key.remoteJid);
                 const isSilenceActive = lastManual ? (Date.now() - lastManual < SILENCE_DURATION) : false;
 
-                // Per-user rate limit & auto-ban check
+                // Behavioral spam detection
                 const jid = msg.key.remoteJid;
-                const now = Date.now();
-                const timestamps = messageRateMap.get(jid) || [];
-                const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+                const msgText = (msg.message as any)?.conversation || (msg.message as any)?.extendedTextMessage?.text || '';
+                const spamVerdict = checkSpam(jid, msgText);
 
-                recent.push(now);
-                messageRateMap.set(jid, recent);
-
-                if (recent.length >= RATE_LIMIT_AUTO_BAN) {
-                    console.log(`[BOT] Auto-ban threshold hit for ${jid}. Blocking number.`);
-
-                    // Add to blocklist
+                if (spamVerdict === 'ban') {
+                    console.log(`[BOT] Spam ban triggered for ${jid}. Blocking number.`);
                     try {
                         const existingBlock = await prisma.botBlockList.findUnique({ where: { phone: senderPhone } });
                         if (!existingBlock) {
                             await prisma.botBlockList.create({
                                 data: { phone: senderPhone, label: 'Auto-banned: Spam' }
                             });
-                            // Send parting message
                             await socket.sendMessage(jid, {
                                 text: "🚫 *Nomor Anda telah diblokir secara permanen dari layanan Kasaku Bot karena terdeteksi melakukan spam berlebihan.*\n\nJika ini adalah kesalahan, silakan hubungi admin."
                             });
+                            resetSpamState(jid);
                         }
                     } catch (e) {
                         console.error(`[BOT ERROR] Failed to auto-ban ${senderPhone}:`, e);
                     }
-                    continue; // Drop message
-                } else if (recent.length >= RATE_LIMIT_WARN) {
-                    if (!spamWarningsSent.has(jid)) {
-                        console.log(`[BOT] Rate limit hit for ${jid}. Sending warning.`);
-                        spamWarningsSent.add(jid);
-                        await socket.sendMessage(jid, {
-                            text: "⚠️ *Peringatan Spam* \nKamu mengirim pesan terlalu cepat. Silakan tunggu beberapa saat. Jika terus melanjutkan spam, nomor kamu akan diblokir otomatis oleh sistem."
-                        });
-                    }
-                    continue; // Drop message
+                    continue;
+                }
+
+                if (spamVerdict === 'throttle') {
+                    console.log(`[BOT] Throttling message from ${jid} (silent drop).`);
+                    continue;
+                }
+
+                if (spamVerdict === 'warn') {
+                    console.log(`[BOT] Spam warning sent to ${jid}.`);
+                    await socket.sendMessage(jid, {
+                        text: "⚠️ *Peringatan Spam*\nKamu mengirim pesan terlalu cepat. Silakan tunggu sebentar. Jika terus melanjutkan spam, nomor kamu akan diblokir otomatis oleh sistem."
+                    });
+                    continue;
                 }
 
                 console.log(`[BOT] New message received from ${msg.key.remoteJid}${isSilenceActive ? ' (SILENCE ACTIVE)' : ''}`);
