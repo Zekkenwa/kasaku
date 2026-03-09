@@ -15,6 +15,14 @@ export function parseAmount(input: string): number | null {
         sembilan: 9,
         sepuluh: 10,
         sebelas: 11,
+        duabelas: 12,
+        tigabelas: 13,
+        empatbelas: 14,
+        limabelas: 15,
+        enambelas: 16,
+        tujuhbelas: 17,
+        delapanbelas: 18,
+        sembilanbelas: 19,
         seratus: 100,
         seribu: 1000,
         setengah: 0.5,
@@ -28,6 +36,7 @@ export function parseAmount(input: string): number | null {
         ribu: 1000,
         juta: 1000000,
         miliar: 1000000000,
+        milyar: 1000000000,
         triliun: 1000000000000,
     };
 
@@ -50,7 +59,7 @@ export function parseAmount(input: string): number | null {
                     current += value;
                 }
             } else if (magnitudes[word]) {
-                if (current === 0 && (word === "ribu" || word === "juta" || word === "miliar")) {
+                if (current === 0 && (word === "ribu" || word === "juta" || word === "miliar" || word === "milyar")) {
                     current = 1;
                 }
 
@@ -70,14 +79,14 @@ export function parseAmount(input: string): number | null {
 
     str = str.replace(/rp\.?|idr/g, "").trim();
 
-    const hasSuffix = /(k|rb|ribu|jt|juta|m|miliar)$/i.test(str);
+    const hasSuffix = /(k|rb|ribu|jt|juta|miliar|milyar|mlr|mly|mi|triliun|tril|tr|biliun|bio|m|t|b)$/i.test(str);
     if (hasSuffix) {
         str = str.replace(/,/g, ".");
     } else {
         str = str.replace(/\./g, "").replace(/,/g, ".");
     }
 
-    const regex = /^([\d.]+)\s*(k|rb|ribu|jt|juta|m|miliar)?$/i;
+    const regex = /^([\d.]+)\s*(k|rb|ribu|jt|juta|miliar|milyar|mlr|mly|mi|triliun|tril|tr|biliun|bio|m|t|b)?$/i;
     const match = str.match(regex);
 
     if (!match) return null;
@@ -90,7 +99,11 @@ export function parseAmount(input: string): number | null {
         multiplier = 1000;
     } else if (suffix === "jt" || suffix === "juta") {
         multiplier = 1000000;
-    } else if (suffix === "m" || suffix === "miliar") {
+    } else if (suffix === "m" || suffix === "miliar" || suffix === "milyar" || suffix === "mlr" || suffix === "mly" || suffix === "mi") {
+        multiplier = 1000000000;
+    } else if (suffix === "t" || suffix === "tr" || suffix === "tril" || suffix === "triliun") {
+        multiplier = 1000000000000;
+    } else if (suffix === "b" || suffix === "bio" || suffix === "biliun") {
         multiplier = 1000000000;
     }
 
