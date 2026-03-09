@@ -1077,36 +1077,48 @@ const compoundCommandHandlers: Record<string, CommandHandler> = {
     'saldo awal': async (user, parts) => handleSetSaldoAwal(user, parts),
 };
 
+const commandAliases: Record<string, string> = {
+    out: 'keluar',
+    expense: 'keluar',
+    pengeluaran: 'keluar',
+    catat: 'keluar',
+    log: 'keluar',
+    in: 'masuk',
+    income: 'masuk',
+    pemasukan: 'masuk',
+    debt: 'hutang',
+    loan: 'piutang',
+    report: 'laporan',
+    rekap: 'laporan',
+    ringkasan: 'laporan',
+    summary: 'laporan',
+    cancel: 'batal',
+    check: 'cek',
+    tabungan: 'goal',
+    target: 'goal',
+    cicilan: 'bayar',
+    pay: 'bayar',
+    balance: 'saldo',
+    settle: 'lunas',
+    kirim: 'transfer',
+    pindah: 'transfer',
+};
+
+const allCommands = [
+    ...Object.keys(commandAliases),
+    ...Object.values(commandAliases),
+    ...Object.keys(directCommandHandlers),
+    ...Object.keys(compoundCommandHandlers),
+    ...Object.keys(checkCommandHandlers).map((k) => `cek ${k}`),
+    'help', 'bantuan', 'undo',
+];
+const uniqueCommands = [...new Set(allCommands)];
+const commandsFuse = new Fuse(uniqueCommands, { threshold: 0.3, includeScore: true });
+
 export async function processCommand(user: BotUser, text: string, isRetry: boolean = false): Promise<ProcessCommandResult> {
     const lower = text.toLowerCase().trim();
     const parts = lower.split(/\s+/);
     const cmd = parts[0];
-    const commandAliases: Record<string, string> = {
-        out: 'keluar',
-        expense: 'keluar',
-        pengeluaran: 'keluar',
-        catat: 'keluar',
-        log: 'keluar',
-        in: 'masuk',
-        income: 'masuk',
-        pemasukan: 'masuk',
-        debt: 'hutang',
-        loan: 'piutang',
-        report: 'laporan',
-        rekap: 'laporan',
-        ringkasan: 'laporan',
-        summary: 'laporan',
-        cancel: 'batal',
-        check: 'cek',
-        tabungan: 'goal',
-        target: 'goal',
-        cicilan: 'bayar',
-        pay: 'bayar',
-        balance: 'saldo',
-        settle: 'lunas',
-        kirim: 'transfer',
-        pindah: 'transfer',
-    };
     const normalizedCmd = commandAliases[cmd] || cmd;
 
     // --- PENDING TRANSACTION INTERCEPTOR (MULTI-WALLET SELECTION) ---
@@ -1190,18 +1202,7 @@ export async function processCommand(user: BotUser, text: string, isRetry: boole
 
     // --- FUZZY TYPO CORRECTION ---
     if (!isRetry) {
-        const allCommands = [
-            ...Object.keys(commandAliases),
-            ...Object.values(commandAliases),
-            ...Object.keys(directCommandHandlers),
-            ...Object.keys(compoundCommandHandlers),
-            ...Object.keys(checkCommandHandlers).map((k) => `cek ${k}`),
-            'help', 'bantuan', 'undo',
-        ];
-        const uniqueCommands = [...new Set(allCommands)];
-
-        const fuse = new Fuse(uniqueCommands, { threshold: 0.4, includeScore: true });
-        const results = fuse.search(cmd);
+        const results = commandsFuse.search(cmd);
 
         if (results.length > 0) {
             const corrected = results[0].item;

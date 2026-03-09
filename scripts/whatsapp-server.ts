@@ -28,9 +28,13 @@ const SILENCE_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
 // Per-user message rate limiter (JID -> array of timestamps)
 const messageRateMap = new Map<string, number[]>();
-const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WARN = 5;       // Warn user if they hit 5 msgs in 10s
+const RATE_LIMIT_AUTO_BAN = 15;  // Auto-ban user if they hit 15 msgs in 10s
 const RATE_LIMIT_WINDOW_MS = 10 * 1000; // 10 seconds
 const RATE_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// Track warnings sent to avoid spamming the warning message itself
+const spamWarningsSent = new Set<string>();
 
 const ALLOWED_ORIGINS = [
     'https://kasaku.vercel.app',
@@ -64,6 +68,7 @@ setInterval(() => {
         const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
         if (recent.length === 0) {
             messageRateMap.delete(jid);
+            spamWarningsSent.delete(jid); // Clear warning state if user is quiet
         } else {
             messageRateMap.set(jid, recent);
         }
@@ -120,17 +125,44 @@ async function connectToWhatsApp() {
                 const lastManual = lastManualChat.get(msg.key.remoteJid);
                 const isSilenceActive = lastManual ? (Date.now() - lastManual < SILENCE_DURATION) : false;
 
-                // Per-user rate limit check
+                // Per-user rate limit & auto-ban check
                 const jid = msg.key.remoteJid;
                 const now = Date.now();
                 const timestamps = messageRateMap.get(jid) || [];
                 const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
-                if (recent.length >= RATE_LIMIT_MAX) {
-                    console.log(`[BOT] Rate limit hit for ${jid}. Dropping message.`);
-                    continue;
-                }
+
                 recent.push(now);
                 messageRateMap.set(jid, recent);
+
+                if (recent.length >= RATE_LIMIT_AUTO_BAN) {
+                    console.log(`[BOT] Auto-ban threshold hit for ${jid}. Blocking number.`);
+
+                    // Add to blocklist
+                    try {
+                        const existingBlock = await prisma.botBlockList.findUnique({ where: { phone: senderPhone } });
+                        if (!existingBlock) {
+                            await prisma.botBlockList.create({
+                                data: { phone: senderPhone, label: 'Auto-banned: Spam' }
+                            });
+                            // Send parting message
+                            await socket.sendMessage(jid, {
+                                text: "🚫 *Nomor Anda telah diblokir secara permanen dari layanan Kasaku Bot karena terdeteksi melakukan spam berlebihan.*\n\nJika ini adalah kesalahan, silakan hubungi admin."
+                            });
+                        }
+                    } catch (e) {
+                        console.error(`[BOT ERROR] Failed to auto-ban ${senderPhone}:`, e);
+                    }
+                    continue; // Drop message
+                } else if (recent.length >= RATE_LIMIT_WARN) {
+                    if (!spamWarningsSent.has(jid)) {
+                        console.log(`[BOT] Rate limit hit for ${jid}. Sending warning.`);
+                        spamWarningsSent.add(jid);
+                        await socket.sendMessage(jid, {
+                            text: "⚠️ *Peringatan Spam* \nKamu mengirim pesan terlalu cepat. Silakan tunggu beberapa saat. Jika terus melanjutkan spam, nomor kamu akan diblokir otomatis oleh sistem."
+                        });
+                    }
+                    continue; // Drop message
+                }
 
                 console.log(`[BOT] New message received from ${msg.key.remoteJid}${isSilenceActive ? ' (SILENCE ACTIVE)' : ''}`);
 
