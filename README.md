@@ -123,7 +123,7 @@ Link Donasi:
 
 ## 📦 Deployment
 
-See the full [Deployment Guide](deployment_guide.md) for detailed instructions.
+Kasaku is ready for deployment on platforms like Vercel and Railway. Ensure you follow the necessary environment variables and infrastructure setup.
 
 ---
 
